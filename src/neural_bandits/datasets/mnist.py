@@ -1,13 +1,12 @@
-from typing import Tuple
-
 import numpy as np
 import torch
 from sklearn.datasets import fetch_openml
 from sklearn.utils import Bunch
-from torch.utils.data import Dataset
+
+from .abstract_dataset import AbstractDataset
 
 
-class MNISTDataset(Dataset[Tuple[torch.Tensor, torch.Tensor]]):
+class MNISTDataset(AbstractDataset):
     """Loads the MNIST 784 (version=1) dataset as a pytorch Dataset.
 
     Args:
@@ -24,7 +23,6 @@ class MNISTDataset(Dataset[Tuple[torch.Tensor, torch.Tensor]]):
             name="mnist_784",
             version=1,
             data_home=root,
-            download_if_missing=download,
             as_frame=False,
         )
         self.X = self.data.data.astype(np.float32)
@@ -33,9 +31,12 @@ class MNISTDataset(Dataset[Tuple[torch.Tensor, torch.Tensor]]):
     def __len__(self) -> int:
         return len(self.X)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> torch.Tensor:
         X_item = torch.tensor(self.X[idx], dtype=torch.float32)
         y_item = torch.zeros(self.num_actions, dtype=torch.float32)
         y_item[self.y[idx]] = 1.0
 
-        return X_item, y_item
+        return X_item
+
+    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
+        return torch.tensor(float(self.y[idx] == action), dtype=torch.float32)

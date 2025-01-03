@@ -15,6 +15,12 @@ class LinearTrainer(AbstractTrainer[LinearBandit]):
         chosen_actions: torch.Tensor,  # shape: (batch_size, features)
     ) -> LinearBandit:
         """Perform an update"""
+        batch_size = chosen_actions.shape[0]
+        assert rewards.shape == (batch_size,), "Rewards must have shape (batch_size,)"
+        assert (
+            len(chosen_actions.shape) == 2
+            and chosen_actions.shape[1] == bandit.n_features
+        ), "Chosen actions must have shape (batch_size, features). Mis-match with bandit features."
 
         # Update the bandit
         bandit.M += chosen_actions.T @ chosen_actions  # shape: (features, features)

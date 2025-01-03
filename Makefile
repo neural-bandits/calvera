@@ -24,3 +24,7 @@ all:
 .PHONY: test
 test:
 	pytest -W ignore::DeprecationWarning  tests
+
+.PHONY: coverage
+coverage:
+	pytest --cov=./src tests/ --cov-fail-under=90

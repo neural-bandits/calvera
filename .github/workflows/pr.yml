@@ -47,7 +47,7 @@ jobs:
             bash
 
       - name: Install Neural-Bandits
-        run: pip install .
+        run: pip install -e .
         shell: micromamba-shell {0}
 
       - name: Run Mypy
@@ -56,5 +56,9 @@ jobs:
 
       - name: Run tests
         run: |
-          make tests
+          make test
+        shell: micromamba-shell {0}
+      - name: Check Coverage
+        run: |
+          make coverage
         shell: micromamba-shell {0}
