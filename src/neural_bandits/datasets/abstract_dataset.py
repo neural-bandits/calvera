@@ -5,7 +5,10 @@ from torch.utils.data import Dataset
 
 
 class AbstractDataset(ABC, Dataset[torch.Tensor]):
-    """"""
+    """
+    Abstract class for a dataset that is derived from PyTorch's Dataset class.
+    Additionally, it provides a reward method for the specific bandit setting.
+    """
 
     @abstractmethod
     def __len__(self) -> int:

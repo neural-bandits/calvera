@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Generic
 
 import numpy as np
 import torch
+import tqdm
 
 from ..datasets.abstract_dataset import AbstractDataset
 from ..trainers.abstract_trainer import AbstractTrainer, BanditType
@@ -17,9 +18,9 @@ def seed_all(seed: int) -> None:
 
 class BaseEnvironment(Generic[BanditType]):
     """
-    A simple environment for training and evaluating bandit algorithms
-    on a given dataset/scenario. The environment takes in a bandit instance,
-    a dataset, and some optional parameters (like random seeds for reproducibility).
+    An environment for training and evaluating bandit algorithms
+    on a given dataset/scenario. The environment takes a bandit instance,
+    a dataset, and other optional parameters (e.g. random seeds for reproducibility).
     """
 
     def __init__(
@@ -32,6 +33,24 @@ class BaseEnvironment(Generic[BanditType]):
         max_steps: int | None = None,
         log_method: Callable[[Dict[str, Any]], None] = lambda x: None,
     ) -> None:
+        """
+        Initialize a BaseEnvironment instance.
+
+        Args:
+            bandit (BanditType): The bandit model or algorithm to be trained and evaluated.
+            trainer (AbstractTrainer[BanditType]): The trainer that defines how to update the bandit.
+            dataset (AbstractDataset): The dataset to draw samples (contexts and rewards) from.
+            contextualiser (AbstractContextualiser, optional): An optional contextualiser for
+                transforming or augmenting the context before the bandit makes predictions.
+                Defaults to None.
+            seed (int, optional): A random seed for reproducibility. Defaults to 42.
+            max_steps (int, optional): The maximum number of steps to run training/evaluation.
+                If None, defaults to the length of the dataset. Defaults to None.
+            log_method (Callable[[Dict[str, Any]], None], optional): A logging function that takes
+                a dictionary of step information (e.g., step, reward, cumulative_reward) and handles it,
+                for example, by printing or storing logs. Defaults to a no-op lambda function.
+        """
+
         self.bandit = bandit
         self.dataset = dataset
         self.trainer = trainer
@@ -43,6 +62,13 @@ class BaseEnvironment(Generic[BanditType]):
     def run(self, batch_size: int = 32) -> Dict[str, Any]:
         """
         Run the bandit algorithm on the given dataset scenario and record metrics.
+
+        Args:
+            batch_size: The batch size for training the bandit model.
+
+        Returns:
+            A dictionary containing the chosen arms, rewards, cumulative rewards,
+            and the final cumulative reward.
         """
         seed_all(self.seed)
         indices = np.arange(len(self.dataset))
@@ -53,7 +79,7 @@ class BaseEnvironment(Generic[BanditType]):
         cumulative_rewards = []
         cum_reward = 0.0
 
-        for t in range(0, self.max_steps, batch_size):
+        for t in tqdm.tqdm(range(0, self.max_steps, batch_size)):
             context_list = []
 
             for idx in indices[t : t + batch_size]:

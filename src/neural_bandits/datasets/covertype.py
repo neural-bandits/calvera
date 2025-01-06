@@ -6,7 +6,7 @@ from .abstract_dataset import AbstractDataset
 
 
 class CovertypeDataset(AbstractDataset):
-    """Loads the Covertype dataset as a pytorch Dataset from the UCI repository (https://archive.ics.uci.edu/ml/datasets/covertype)."""
+    """Loads the Covertype dataset as a PyTorch Dataset from the UCI repository (https://archive.ics.uci.edu/ml/datasets/covertype)."""
 
     num_actions: int = 7
     context_size: int = 54

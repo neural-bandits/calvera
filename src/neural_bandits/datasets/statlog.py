@@ -5,8 +5,12 @@ from .abstract_dataset import AbstractDataset
 
 
 class StatlogDataset(AbstractDataset):
+    """Loads the Statlog (Shuttle) dataset as a PyTorch Dataset from the UCI repository (https://archive.ics.uci.edu/dataset/148/statlog+shuttle)."""
+
     def __init__(self) -> None:
-        dataset = fetch_ucirepo(id=146)
+        dataset = fetch_ucirepo(
+            id=148
+        )  # id=148 specifies the Statlog (Shuttle) dataset
         X = dataset.data.features
         y = dataset.data.targets
 

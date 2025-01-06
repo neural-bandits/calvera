@@ -16,7 +16,7 @@ def sample_rewards(
     mu_large: float,
     std_large: float,
 ) -> torch.Tensor:
-    """Sample rewards for each context according to the Wheel Bandit rules.
+    """Sample rewards for each context according to the Wheel Bandit rules. See https://arxiv.org/abs/1802.09127.
 
     Args:
         contexts: A torch.Tensor of shape (num_samples, context_dim) representing the sampled contexts.
@@ -31,6 +31,10 @@ def sample_rewards(
     Returns:
         rewards: A torch.Tensor of shape (num_samples, num_actions) with sampled rewards.
     """
+    assert (
+        len(contexts.shape) == 2
+    ), "Contexts should be a 2D tensor of shape (num_samples, context_dim)."
+
     num_samples = contexts.size(0)
 
     # Initialize rewards with small-reward distribution
@@ -89,6 +93,10 @@ def get_optimal_actions(contexts: torch.Tensor, delta: float) -> torch.Tensor:
     Returns:
         opt_actions: A tensor of shape (num_samples,) with the indices of the optimal actions.
     """
+    assert (
+        len(contexts.shape) == 2
+    ), "Contexts should be a 2D tensor of shape (num_samples, context_dim)."
+
     num_samples = contexts.size(0)
     print(contexts.shape)
     norms = torch.norm(contexts, dim=1)
@@ -158,6 +166,11 @@ class WheelBanditDataset(AbstractDataset):
     def _generate_data(
         self,
     ) -> torch.Tensor:
+        """
+        Pregenerate the dataset for the Wheel Bandit problem.
+        We do this because we need to make the dataset compatible with PyTorch's Dataset.
+        """
+
         # Sample uniform contexts in the unit ball
         # We'll attempt a similar approach: sample more and filter.
         # The original code took a while-loop approach. We'll do the same.
@@ -186,6 +199,7 @@ class WheelBanditDataset(AbstractDataset):
         return self.data[idx]
 
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
+        """Return the reward of the given action for the context at index idx in this dataset."""
         return sample_rewards(
             self.data[idx].unsqueeze(0),
             action.unsqueeze(0),

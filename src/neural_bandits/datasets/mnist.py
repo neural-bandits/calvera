@@ -7,7 +7,8 @@ from .abstract_dataset import AbstractDataset
 
 
 class MNISTDataset(AbstractDataset):
-    """Loads the MNIST 784 (version=1) dataset as a pytorch Dataset.
+    """Loads the MNIST 784 (version=1) dataset as a PyTorch Dataset.
+    See https://www.openml.org/search?type=data&status=active&id=554 for more information of the dataset.
 
     Args:
         root (str): Where to store the dataset
