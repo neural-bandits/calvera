@@ -1,5 +1,6 @@
-import torch
 from typing import Generic, TypeVar
+
+import torch
 
 from ..algorithms.linear_bandits import LinearBandit
 from .abstract_trainer import AbstractTrainer
