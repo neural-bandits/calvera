@@ -16,7 +16,7 @@ class NeuralLinearBandit(AbstractBandit, nn.Module):
             nn.ReLU(),
             nn.Linear(128, n_features),
         )
-        self.linear_bandit = LinearTSBandit(n_arms, n_features)
+        self.linear_head = LinearTSBandit(n_arms, n_features)
 
     def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
         assert (
@@ -27,7 +27,7 @@ class NeuralLinearBandit(AbstractBandit, nn.Module):
         embeddings: torch.Tensor = self.embedding_model(
             contextualised_actions
         )  # shape: (batch_size, n_arms, n_features)
-        result: torch.Tensor = self.linear_bandit(
+        result: torch.Tensor = self.linear_head(
             embeddings
         )  # shape: (batch_size, n_arms)
         return result
