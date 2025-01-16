@@ -1,19 +1,23 @@
+from typing import Generic, TypeVar
+
 import torch
 
 from ..algorithms.linear_bandits import LinearBandit
 from .abstract_trainer import AbstractTrainer
 
+LinearBanditType = TypeVar("LinearBanditType", bound="LinearBandit")
 
-class LinearTrainer(AbstractTrainer[LinearBandit]):
+
+class LinearTrainer(AbstractTrainer[LinearBanditType], Generic[LinearBanditType]):
     def __init__(self) -> None:
         pass
 
     def update(
         self,
-        bandit: LinearBandit,
+        bandit: LinearBanditType,
         rewards: torch.Tensor,  # shape: (batch_size,)
         chosen_actions: torch.Tensor,  # shape: (batch_size, features)
-    ) -> LinearBandit:
+    ) -> LinearBanditType:
         """Perform an update"""
 
         # Update the bandit
