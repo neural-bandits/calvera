@@ -35,8 +35,8 @@ class LinearTSBandit(LinearBandit):
 
 
 class LinearUCBBandit(LinearBandit):
-    def __init__(self, n_arms: int, alpha: float = 1.0) -> None:
-        super().__init__(n_arms)
+    def __init__(self, n_features: int, alpha: float = 1.0) -> None:
+        super().__init__(n_features)
         self.alpha = alpha
 
     def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
