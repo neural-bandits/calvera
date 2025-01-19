@@ -35,14 +35,12 @@ class MNISTDataset(AbstractDataset):
     def __len__(self) -> int:
         return len(self.X)
 
-    def __getitem__(self, idx: int) -> torch.Tensor:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         X_item = torch.tensor(self.X[idx], dtype=torch.float32).unsqueeze(0)
-        return self.contextualizer(X_item).squeeze(0)
+        contextualized_actions = self.contextualizer(X_item).squeeze(0)
+        rewards = torch.tensor([self.reward(idx, action) for action in range(self.num_actions)], dtype=torch.float32)
+        
+        return contextualized_actions, rewards
 
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
         return torch.tensor(float(self.y[idx] == action), dtype=torch.float32)
-
-    def optimal_action(self, idx: int) -> Tuple[int, torch.Tensor]:
-        opt_idx = self.y[idx]
-
-        return opt_idx, self[idx, opt_idx]

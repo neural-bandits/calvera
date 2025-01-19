@@ -119,12 +119,13 @@ class WheelBanditDataset(AbstractDataset):
         if seed is not None:
             torch.manual_seed(seed)
 
-        data = self._generate_data()
+        data, rewards = self._generate_data()
         self.data = data
+        self.rewards = rewards
 
     def _generate_data(
         self,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Pregenerate the dataset for the Wheel Bandit problem.
         We do this because we need to make the dataset compatible with PyTorch's Dataset.
@@ -146,22 +147,12 @@ class WheelBanditDataset(AbstractDataset):
         contexts = torch.cat(data_list, dim=0)
         contexts = contexts[: self.num_samples]
 
-        # Concatenate contexts and rewards
-        dataset = contexts
-
-        return dataset
-
-    def __len__(self) -> int:
-        return self.num_samples
-
-    def __getitem__(self, idx: int) -> torch.Tensor:
-        return self.contextualizer(self.data[idx].unsqueeze(0)).squeeze(0)
-
-    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
-        """Return the reward of the given action for the context at index idx in this dataset."""
-        return sample_rewards(
-            self.data[idx].unsqueeze(0),
-            action.unsqueeze(0),
+        # sample the rewards for each context-action pair
+        contexts_repeat = contexts.repeat_interleave(self.num_actions, dim=0) # shape (num_samples * num_actions, context_size)
+        actions = torch.arange(self.num_actions).repeat(self.num_samples) # shape (num_samples * num_actions)
+        rewards = sample_rewards(
+            contexts_repeat,
+            actions,
             self.delta,
             self.mu_small,
             self.std_small,
@@ -169,38 +160,19 @@ class WheelBanditDataset(AbstractDataset):
             self.std_medium,
             self.mu_large,
             self.std_large,
-        )
+        ).reshape(self.num_samples, self.num_actions)
 
-    def optimal_action(self, idx: int) -> Tuple[int, torch.Tensor]:
-        """Compute the optimal action for a given index.
+        return contexts, rewards
 
-        Args:
-            contexts: A tensor of shape (num_samples, n_actions, context_size * n_arms) representing the sampled contexts after the disjoined model was applied.
+    def __len__(self) -> int:
+        return self.num_samples
 
-        Returns:
-            A tuple with the optimal actions index within self[idx] and the optimal actions context vector.
-        """
-        contextualized_actions = self[idx]
-        # Undo the disjoint contextualization
-        context = contextualized_actions.view(-1, self.context_size)
-        assert (
-            context.size(0) == self.num_actions * self.num_actions
-        ), "Invalid input shape."
-        context = context[0, :]
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        contextualized_actions = self.contextualizer(self.data[idx].unsqueeze(0)).squeeze(0)
+        rewards = self.rewards[idx]
+        
+        return contextualized_actions, rewards
 
-        # Determine optimal actions based on context quadrant when norm > delta
-        # Quadrants mapping:
-        # If contexts[i,0] > 0 and contexts[i,1] > 0 -> action 0
-        # If contexts[i,0] > 0 and contexts[i,1] < 0 -> action 1
-        # If contexts[i,0] < 0 and contexts[i,1] > 0 -> action 2
-        # If contexts[i,0] < 0 and contexts[i,1] < 0 -> action 3
-
-        if torch.norm(context) > self.delta:
-            a = (context[0] > 0).float()
-            b = (context[1] > 0).float()
-            action_idx = (3 - 2 * a - b).int()
-            return action_idx, contextualized_actions[action_idx]
-        else:
-            return 4, contextualized_actions[4]
-
-        return opt_actions
+    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
+        """Return the reward of the given action for the context at index idx in this dataset."""
+        return self.rewards[idx, action]

@@ -27,14 +27,12 @@ class CovertypeDataset(AbstractDataset):
     def __len__(self) -> int:
         return len(self.X)
 
-    def __getitem__(self, idx: int) -> torch.Tensor:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         context = self.X[idx].reshape(1, -1)
-        return self.contextualizer(context).squeeze(0)
+        contextualized_actions = self.contextualizer(context).squeeze(0)
+        rewards = torch.tensor([self.reward(idx, action) for action in range(self.num_actions)], dtype=torch.float32)
+        
+        return contextualized_actions, rewards
 
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
         return torch.tensor(float(self.y[idx] == action + 1), dtype=torch.float32)
-
-    def optimal_action(self, idx: int) -> Tuple[int, torch.Tensor]:
-        opt_idx = self.y[idx] - 1
-
-        return opt_idx, self[idx, opt_idx]

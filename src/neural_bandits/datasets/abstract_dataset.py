@@ -32,20 +32,15 @@ class AbstractDataset(ABC, Dataset[torch.Tensor]):
         pass
 
     @abstractmethod
-    def __getitem__(self, idx: int) -> torch.Tensor:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns:
+            A tuple with the context vectors of all available actions and the associated rewards.
+        """
         pass
 
     @abstractmethod
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
-        pass
-
-    @abstractmethod
-    def optimal_action(self, idx: int) -> Tuple[int, torch.Tensor]:
-        """Compute the optimal action for a index.
-
-        Returns:
-            A tuple with the optimal actions index within self[idx] and the optimal actions context vector.
-        """
         pass
 
     def __repr__(self) -> str:

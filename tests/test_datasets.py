@@ -17,20 +17,14 @@ class TestCoverTypeDataset:
 
     def test_getitem(self, dataset: CovertypeDataset) -> None:
         for _ in range(10):
-            X = dataset[0]
+            X, rewards = dataset[0]
             assert X.shape == (7, 7 * 54)
+            assert rewards.shape == (7,)
 
     def test_reward(self, dataset: CovertypeDataset) -> None:
         for i in range(10):
             reward = dataset.reward(i, torch.tensor(1)).item()
             assert reward == (dataset.y[i] - 1 == 1)
-            
-    def test_optimal_action(self, dataset: CovertypeDataset) -> None:
-        for i in range(10):
-            opt_action = dataset.optimal_action(i)
-            assert opt_action[0] == dataset.y[i] - 1
-            assert torch.allclose(opt_action[1], dataset[i, dataset.y[i] - 1])
-
 
 # class TestMNISTDataset:
 #     @pytest.fixture
@@ -42,21 +36,14 @@ class TestCoverTypeDataset:
 
 #     def test_getitem(self, dataset: MNISTDataset) -> None:
 #         for _ in range(10):
-#             X = dataset[0]
+#             X, rewards = dataset[0]
 #             assert X.shape == (10, 10 * 784)
+#             assert rewards.shape == (10,)
 
 #     def test_reward(self, dataset: MNISTDataset) -> None:
 #         for i in range(10):
 #             reward = dataset.reward(i, torch.tensor(1)).item()
 #             assert reward == (dataset.y[i] == 1)
-
-#     def test_optimal_action(self, dataset: MNISTDataset) -> None:
-#         for i in range(10):
-#             opt_action = dataset.optimal_action(i)
-#             assert opt_action[0] == dataset.y[i]
-#             assert torch.allclose(opt_action[1], dataset[i, dataset.y[i]])
-
-
 
 class TestStatlogDataset:
     @pytest.fixture
@@ -68,19 +55,14 @@ class TestStatlogDataset:
 
     def test_getitem(self, dataset: StatlogDataset) -> None:
         for _ in range(10):
-            X = dataset[0]
+            X, rewards = dataset[0]
             assert X.shape == (9, 7 * 9)
+            assert rewards.shape == (9,)
 
     def test_reward(self, dataset: StatlogDataset) -> None:
         for i in range(10):
             reward = dataset.reward(i, torch.tensor(1)).item()
             assert reward == (dataset.y[i] - 1 == 1)
-            
-    def test_optimal_action(self, dataset: CovertypeDataset) -> None:
-        for i in range(10):
-            opt_action = dataset.optimal_action(i)
-            assert opt_action[0] == dataset.y[i] - 1
-            assert torch.allclose(opt_action[1], dataset[i, dataset.y[i] - 1])
 
 
 class TestWheelBanditDataset:
@@ -93,8 +75,9 @@ class TestWheelBanditDataset:
 
     def test_getitem(self, dataset: WheelBanditDataset) -> None:
         for _ in range(50):
-            X = dataset[0]
+            X, rewards = dataset[0]
             assert X.shape == (5, 5 * 2)
+            assert rewards.shape == (5,)
 
     def test_reward(self, dataset: WheelBanditDataset) -> None:
         # reward for action 4 should around 1 - 1.2
@@ -105,16 +88,3 @@ class TestWheelBanditDataset:
         for i in range(100):
             reward = dataset.reward(i, torch.tensor(0))
             assert 0.7 <= reward <= 1.5 or 49.5 <= reward <= 50.5
-
-    def test_optimal_action(self, dataset: WheelBanditDataset) -> None:
-        for i in range(10):
-            opt_action, opt_context = dataset.optimal_action(i)
-            X = dataset[i][opt_action]
-            context = X[dataset.context_size * opt_action : dataset.context_size * (opt_action + 1)]
-            if torch.norm(context) <= dataset.delta:
-                assert opt_action == 4
-            else:
-                a = (context[0] > 0).float()
-                b = (context[1] > 0).float()
-
-                assert opt_action == (3 - 2 * a - b)
