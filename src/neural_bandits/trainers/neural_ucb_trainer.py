@@ -22,7 +22,7 @@ class NeuralUCBTrainer(AbstractTrainer):
         bandit.reward_history.append(rewards)
         
         # Train neural network
-        L_theta_sum = self._train_network(bandit)
+        self._train_network(bandit)
         
         return bandit
     
