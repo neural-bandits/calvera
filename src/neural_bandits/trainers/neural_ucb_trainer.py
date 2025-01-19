@@ -15,43 +15,52 @@ class NeuralUCBTrainer(AbstractTrainer):
         rewards: torch.Tensor,
         chosen_actions: torch.Tensor,
     ) -> NeuralUCB:
-        """Update using simplified training approach"""
-        rewards = rewards.to(bandit.device)
         chosen_actions = chosen_actions.to(bandit.device)
+        rewards = rewards.to(bandit.device)
         
-        bandit.context_list.append(chosen_actions)
-        bandit.reward_list.append(rewards)
+        bandit.context_history.append(chosen_actions)
+        bandit.reward_history.append(rewards)
         
-        self._train_network(bandit)
+        # Train neural network
+        L_theta_sum = self._train_network(bandit)
         
         return bandit
     
     def _train_network(self, bandit: NeuralUCB):
-        """Simplified training procedure"""
-        optimizer = optim.SGD(bandit.theta.parameters(), lr=self.eta, weight_decay=bandit.lambda_)
+        # Initialize optimizer with step size η and L2 regularization λ
+        optimizer = optim.SGD(bandit.theta_t.parameters(), lr=self.eta, weight_decay=bandit.lambda_)
         
-        indices = np.arange(len(bandit.reward_list))
+        indices = np.arange(len(bandit.reward_history))
         np.random.shuffle(indices)
-        tot_loss = 0
-        cnt = 0
+
+        L_theta_sum = 0 # Track cumulative loss L(θ)
+        j = 0 # Count gradient descent steps
+
         while True:
-            batch_loss = 0
-            for idx in indices:
-                context = bandit.context_list[idx]
-                reward = bandit.reward_list[idx]
+            L_theta_batch = 0 # Track batch loss
+
+            # Compute L(θ) and perform gradient descent
+            for i in indices:
+                context = bandit.context_history[i]
+                reward = bandit.reward_history[i]
                 
                 optimizer.zero_grad()
-                pred = bandit.theta(context)
-                loss = (pred - reward) ** 2
-                loss.backward()
+
+                # Compute f(x_i,a_i; θ)
+                f_theta = bandit.theta_t(context)
+                L_theta = (f_theta - reward) ** 2
+                L_theta.backward()
+                
                 optimizer.step()
                 
-                batch_loss += loss.item()
-                tot_loss += loss.item()
-                cnt += 1
+                L_theta_batch += L_theta.item()
+                L_theta_sum += L_theta.item()
+                j += 1
                 
-                if cnt >= 1000:
-                    return
+                # Return θ⁽ᴶ⁾ after J gradient descent steps
+                if j >= 1000:
+                    return L_theta_sum / 1000
             
-            if batch_loss / len(bandit.reward_list) <= 1e-3:
-                break
+            # Early stopping if loss is small enough
+            if L_theta_batch / len(bandit.reward_history) <= 1e-3:
+                return L_theta_batch / len(bandit.reward_history)
