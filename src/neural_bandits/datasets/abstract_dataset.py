@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Any, Callable, Tuple
 
 import torch
 from torch.utils.data import Dataset
@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 from neural_bandits.utils.multiclass import MultiClassContextualizer
 
 
-class AbstractDataset(ABC, Dataset[torch.Tensor]):
+class AbstractDataset(ABC, Dataset[Tuple[torch.Tensor, torch.Tensor]]):
     """
     Abstract class for a dataset that is derived from PyTorch's Dataset class.
     Additionally, it provides a reward method for the specific bandit setting.
@@ -22,6 +22,7 @@ class AbstractDataset(ABC, Dataset[torch.Tensor]):
     context_size: int
 
     def __init__(self, needs_disjoint_contextualization: bool = False) -> None:
+        self.contextualizer: MultiClassContextualizer | Callable[[Any], Any]
         if needs_disjoint_contextualization:
             self.contextualizer = MultiClassContextualizer(self.num_actions)
         else:
@@ -40,7 +41,7 @@ class AbstractDataset(ABC, Dataset[torch.Tensor]):
         pass
 
     @abstractmethod
-    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
+    def reward(self, idx: int, action: int) -> float:
         pass
 
     def __repr__(self) -> str:

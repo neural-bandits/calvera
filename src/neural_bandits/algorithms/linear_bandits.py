@@ -7,7 +7,7 @@ class LinearBandit(AbstractBandit):
     def __init__(self, n_features: int) -> None:
         super().__init__(n_features)
 
-        self.M: torch.Tensor = torch.eye(n_features) # Precision matrix
+        self.M: torch.Tensor = torch.eye(n_features)  # Precision matrix
         self.b = torch.zeros(n_features)
         self.theta = torch.zeros(n_features)
 

@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -19,10 +19,9 @@ class CovertypeDataset(AbstractDataset):
         self.data = fetch_covtype()
         X_np = self.data.data.astype(np.float32)
         y_np = self.data.target.astype(np.int64)
-        
+
         self.X = torch.tensor(X_np, dtype=torch.float32)
         self.y = torch.tensor(y_np, dtype=torch.long)
-        
 
     def __len__(self) -> int:
         return len(self.X)
@@ -30,9 +29,12 @@ class CovertypeDataset(AbstractDataset):
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         context = self.X[idx].reshape(1, -1)
         contextualized_actions = self.contextualizer(context).squeeze(0)
-        rewards = torch.tensor([self.reward(idx, action) for action in range(self.num_actions)], dtype=torch.float32)
-        
+        rewards = torch.tensor(
+            [self.reward(idx, action) for action in range(self.num_actions)],
+            dtype=torch.float32,
+        )
+
         return contextualized_actions, rewards
 
-    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
-        return torch.tensor(float(self.y[idx] == action + 1), dtype=torch.float32)
+    def reward(self, idx: int, action: int) -> float:
+        return float(self.y[idx] == action + 1)

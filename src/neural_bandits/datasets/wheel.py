@@ -148,8 +148,12 @@ class WheelBanditDataset(AbstractDataset):
         contexts = contexts[: self.num_samples]
 
         # sample the rewards for each context-action pair
-        contexts_repeat = contexts.repeat_interleave(self.num_actions, dim=0) # shape (num_samples * num_actions, context_size)
-        actions = torch.arange(self.num_actions).repeat(self.num_samples) # shape (num_samples * num_actions)
+        contexts_repeat = contexts.repeat_interleave(
+            self.num_actions, dim=0
+        )  # shape (num_samples * num_actions, context_size)
+        actions = torch.arange(self.num_actions).repeat(
+            self.num_samples
+        )  # shape (num_samples * num_actions)
         rewards = sample_rewards(
             contexts_repeat,
             actions,
@@ -168,11 +172,13 @@ class WheelBanditDataset(AbstractDataset):
         return self.num_samples
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        contextualized_actions = self.contextualizer(self.data[idx].unsqueeze(0)).squeeze(0)
+        contextualized_actions = self.contextualizer(
+            self.data[idx].unsqueeze(0)
+        ).squeeze(0)
         rewards = self.rewards[idx]
-        
+
         return contextualized_actions, rewards
 
-    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
+    def reward(self, idx: int, action: int) -> float:
         """Return the reward of the given action for the context at index idx in this dataset."""
-        return self.rewards[idx, action]
+        return self.rewards[idx, action].item()

@@ -1,5 +1,3 @@
-from abc import ABC, abstractmethod
-
 import torch
 
 
@@ -27,7 +25,7 @@ class MultiClassContextualizer:
         assert (
             len(feature_vector.shape) == 2
         ), "Feature vector must have shape (batch_size, n_features)"
-            
+
         n_features = feature_vector.shape[1]
         contextualised_actions = torch.einsum(
             "ij,bk->bijk", torch.eye(self.n_arms), feature_vector

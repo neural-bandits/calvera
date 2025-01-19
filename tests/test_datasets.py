@@ -1,5 +1,4 @@
 import pytest
-import torch
 
 from neural_bandits.datasets.covertype import CovertypeDataset
 from neural_bandits.datasets.mnist import MNISTDataset
@@ -23,8 +22,9 @@ class TestCoverTypeDataset:
 
     def test_reward(self, dataset: CovertypeDataset) -> None:
         for i in range(10):
-            reward = dataset.reward(i, torch.tensor(1)).item()
+            reward = dataset.reward(i, 1)
             assert reward == (dataset.y[i] - 1 == 1)
+
 
 # class TestMNISTDataset:
 #     @pytest.fixture
@@ -42,8 +42,9 @@ class TestCoverTypeDataset:
 
 #     def test_reward(self, dataset: MNISTDataset) -> None:
 #         for i in range(10):
-#             reward = dataset.reward(i, torch.tensor(1)).item()
+#             reward = dataset.reward(i, 1)
 #             assert reward == (dataset.y[i] == 1)
+
 
 class TestStatlogDataset:
     @pytest.fixture
@@ -61,7 +62,7 @@ class TestStatlogDataset:
 
     def test_reward(self, dataset: StatlogDataset) -> None:
         for i in range(10):
-            reward = dataset.reward(i, torch.tensor(1)).item()
+            reward = dataset.reward(i, 1)
             assert reward == (dataset.y[i] - 1 == 1)
 
 
@@ -82,9 +83,9 @@ class TestWheelBanditDataset:
     def test_reward(self, dataset: WheelBanditDataset) -> None:
         # reward for action 4 should around 1 - 1.2
         for i in range(100):
-            reward = dataset.reward(i, torch.tensor(4))
+            reward = dataset.reward(i, 4)
             assert 0.7 <= reward <= 1.5
 
         for i in range(100):
-            reward = dataset.reward(i, torch.tensor(0))
+            reward = dataset.reward(i, 0)
             assert 0.7 <= reward <= 1.5 or 49.5 <= reward <= 50.5

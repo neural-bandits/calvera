@@ -38,9 +38,12 @@ class MNISTDataset(AbstractDataset):
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         X_item = torch.tensor(self.X[idx], dtype=torch.float32).unsqueeze(0)
         contextualized_actions = self.contextualizer(X_item).squeeze(0)
-        rewards = torch.tensor([self.reward(idx, action) for action in range(self.num_actions)], dtype=torch.float32)
-        
+        rewards = torch.tensor(
+            [self.reward(idx, action) for action in range(self.num_actions)],
+            dtype=torch.float32,
+        )
+
         return contextualized_actions, rewards
 
-    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
-        return torch.tensor(float(self.y[idx] == action), dtype=torch.float32)
+    def reward(self, idx: int, action: int) -> float:
+        return float(self.y[idx] == action)
