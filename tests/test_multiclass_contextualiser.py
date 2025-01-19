@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from neural_bandits.utils.multiclass import MultiClassContextualiser
+from neural_bandits.utils.multiclass import MultiClassContextualizer
 
 
 class TestMultiClassContextualiser:
@@ -12,7 +12,7 @@ class TestMultiClassContextualiser:
         self, batch_size: int, n_features: int, n_arms: int
     ) -> None:
         # Given a certain input shape, test that the output shape is as expected
-        contextualiser = MultiClassContextualiser(n_arms=n_arms)
+        contextualiser = MultiClassContextualizer(n_arms=n_arms)
         feature_vector = torch.randn(batch_size, n_features)
 
         output = contextualiser(feature_vector)
@@ -27,7 +27,7 @@ class TestMultiClassContextualiser:
         n_arms = 3
         feature_vector = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
 
-        contextualiser = MultiClassContextualiser(n_arms=n_arms)
+        contextualiser = MultiClassContextualizer(n_arms=n_arms)
         output = contextualiser(feature_vector)
 
         assert output.shape == (2, 3, 6), "Output shape is incorrect."
@@ -61,7 +61,7 @@ class TestMultiClassContextualiser:
         n_arms = 2
         batch_size = 2
         n_features = 3
-        contextualiser = MultiClassContextualiser(n_arms=n_arms)
+        contextualiser = MultiClassContextualizer(n_arms=n_arms)
         feature_vector = torch.randn(batch_size, n_features, requires_grad=True)
 
         output = contextualiser(feature_vector)

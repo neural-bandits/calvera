@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import torch
 from torch.utils.data import Dataset
 
-from neural_bandits.utils.multiclass import MultiClassContextualiser
+from neural_bandits.utils.multiclass import MultiClassContextualizer
 
 
 class AbstractDataset(ABC, Dataset[torch.Tensor]):
@@ -22,7 +22,7 @@ class AbstractDataset(ABC, Dataset[torch.Tensor]):
 
     def __init__(self, needs_disjoint_contextualization: bool = False) -> None:
         if needs_disjoint_contextualization:
-            self.contextualizer = MultiClassContextualiser(self.num_actions)
+            self.contextualizer = MultiClassContextualizer(self.num_actions)
         else:
             self.contextualizer = lambda x: x
 

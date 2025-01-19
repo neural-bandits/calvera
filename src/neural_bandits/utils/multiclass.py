@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import torch
 
 
-class MultiClassContextualiser:
+class MultiClassContextualizer:
     def __init__(
         self,
         n_arms: int,
