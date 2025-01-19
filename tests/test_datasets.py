@@ -1,7 +1,8 @@
 import pytest
 
 from neural_bandits.datasets.covertype import CovertypeDataset
-from neural_bandits.datasets.mnist import MNISTDataset
+
+# from neural_bandits.datasets.mnist import MNISTDataset
 from neural_bandits.datasets.statlog import StatlogDataset
 from neural_bandits.datasets.wheel import WheelBanditDataset
 
