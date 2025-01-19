@@ -9,20 +9,6 @@ from ..algorithms.abstract_bandit import AbstractBandit
 BanditType = TypeVar("BanditType", bound="AbstractBandit")
 
 
-class RewardFunction(Protocol):
-    """Protocol for reward functions."""
-
-    def __call__(self, idx: int, action: torch.Tensor) -> torch.Tensor:
-        """Calculate the reward for a given input.
-
-        Args:
-            x: The input tensor. Should be of shape (batch_size, n_features).
-
-        Returns:
-            The reward tensor of shape (batch_size,)."""
-        pass
-
-
 class AbstractBanditModule(ABC, Generic[BanditType], pl.LightningModule):
     """Abstract class for the training behaviour of a bandit model (BanditType)."""
 
