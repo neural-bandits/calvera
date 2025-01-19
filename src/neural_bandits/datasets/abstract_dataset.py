@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Tuple
 
 import torch
 from torch.utils.data import Dataset
@@ -36,6 +37,15 @@ class AbstractDataset(ABC, Dataset[torch.Tensor]):
 
     @abstractmethod
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
+        pass
+
+    @abstractmethod
+    def optimal_action(self, idx: int) -> Tuple[int, torch.Tensor]:
+        """Compute the optimal action for a index.
+
+        Returns:
+            A tuple with the optimal actions index within self[idx] and the optimal actions context vector.
+        """
         pass
 
     def __repr__(self) -> str:

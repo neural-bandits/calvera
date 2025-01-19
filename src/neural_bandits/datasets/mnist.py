@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 import torch
 from sklearn.datasets import fetch_openml
@@ -39,3 +41,8 @@ class MNISTDataset(AbstractDataset):
 
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
         return torch.tensor(float(self.y[idx] == action), dtype=torch.float32)
+
+    def optimal_action(self, idx: int) -> Tuple[int, torch.Tensor]:
+        opt_idx = self.y[idx]
+
+        return opt_idx, self[idx, opt_idx]

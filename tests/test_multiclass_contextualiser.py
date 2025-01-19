@@ -47,8 +47,6 @@ class TestMultiClassContextualiser:
             ]
         )
 
-        print(output)
-
         assert torch.allclose(
             output[0], expected_first
         ), "First batch output is incorrect."

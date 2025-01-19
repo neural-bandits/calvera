@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import torch
 from ucimlrepo import fetch_ucirepo
 
@@ -26,8 +28,12 @@ class StatlogDataset(AbstractDataset):
         return len(self.X)
 
     def __getitem__(self, idx: int) -> torch.Tensor:
-        print(self.X[idx].unsqueeze(0))
         return self.contextualizer(self.X[idx].unsqueeze(0)).squeeze(0)
 
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
         return torch.tensor(float(self.y[idx] == action + 1), dtype=torch.float32)
+
+    def optimal_action(self, idx: int) -> Tuple[int, torch.Tensor]:
+        opt_idx = self.y[idx] - 1
+
+        return opt_idx, self[idx, opt_idx]
