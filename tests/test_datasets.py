@@ -18,7 +18,7 @@ class TestCoverTypeDataset:
     def test_getitem(self, dataset: CovertypeDataset) -> None:
         for _ in range(10):
             X = dataset[0]
-            assert X.shape == (54,)
+            assert X.shape == (7, 7 * 54)
 
     def test_reward(self, dataset: CovertypeDataset) -> None:
         for i in range(10):
@@ -37,7 +37,7 @@ class TestMNISTDataset:
     def test_getitem(self, dataset: MNISTDataset) -> None:
         for _ in range(10):
             X = dataset[0]
-            assert X.shape == (784,)
+            assert X.shape == (10, 10 * 784)
 
     def test_reward(self, dataset: MNISTDataset) -> None:
         for i in range(10):
@@ -51,12 +51,12 @@ class TestStatlogDataset:
         return StatlogDataset()
 
     def test_len(self, dataset: StatlogDataset) -> None:
-        assert len(dataset) == 6435
+        assert len(dataset) == 58000
 
     def test_getitem(self, dataset: StatlogDataset) -> None:
         for _ in range(10):
             X = dataset[0]
-            assert X.shape == (36,)
+            assert X.shape == (9, 7 * 9)
 
     def test_reward(self, dataset: StatlogDataset) -> None:
         for i in range(10):
@@ -75,7 +75,7 @@ class TestWheelBanditDataset:
     def test_getitem(self, dataset: WheelBanditDataset) -> None:
         for _ in range(50):
             X = dataset[0]
-            assert X.shape == (2,)
+            assert X.shape == (5, 5 * 2)
 
     def test_reward(self, dataset: WheelBanditDataset) -> None:
         # reward for action 4 should around 1 - 1.2
@@ -90,7 +90,7 @@ class TestWheelBanditDataset:
     def test_opt_action(self, dataset: WheelBanditDataset) -> None:
         for i in range(10):
             X = dataset[i]
-            opt_action = get_optimal_actions(X.unsqueeze(0), dataset.delta)
+            opt_action = get_optimal_actions(X, dataset.delta)
             if torch.norm(X) <= dataset.delta:
                 assert opt_action == 4
             else:

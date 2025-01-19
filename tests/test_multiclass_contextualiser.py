@@ -15,7 +15,7 @@ class TestMultiClassContextualiser:
         contextualiser = MultiClassContextualiser(n_arms=n_arms)
         feature_vector = torch.randn(batch_size, n_features)
 
-        output = contextualiser.contextualise(feature_vector)
+        output = contextualiser(feature_vector)
 
         expected_shape = (batch_size, n_arms, n_features * n_arms)
         assert (
@@ -28,7 +28,7 @@ class TestMultiClassContextualiser:
         feature_vector = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
 
         contextualiser = MultiClassContextualiser(n_arms=n_arms)
-        output = contextualiser.contextualise(feature_vector)
+        output = contextualiser(feature_vector)
 
         assert output.shape == (2, 3, 6), "Output shape is incorrect."
 
@@ -64,7 +64,7 @@ class TestMultiClassContextualiser:
         contextualiser = MultiClassContextualiser(n_arms=n_arms)
         feature_vector = torch.randn(batch_size, n_features, requires_grad=True)
 
-        output = contextualiser.contextualise(feature_vector)
+        output = contextualiser(feature_vector)
         loss = output.sum()
         loss.backward()  # type: ignore
 

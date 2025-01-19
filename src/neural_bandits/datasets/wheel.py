@@ -144,7 +144,7 @@ class WheelBanditDataset(AbstractDataset):
         std_large: float = 0.01,
         seed: Optional[int] = None,
     ) -> None:
-        super().__init__()
+        super().__init__(needs_disjoint_contextualization=True)
 
         self.num_samples = num_samples
         self.delta = delta
@@ -196,7 +196,7 @@ class WheelBanditDataset(AbstractDataset):
         return self.num_samples
 
     def __getitem__(self, idx: int) -> torch.Tensor:
-        return self.data[idx]
+        return self.contextualizer(self.data[idx].unsqueeze(0)).squeeze(0)
 
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
         """Return the reward of the given action for the context at index idx in this dataset."""

@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 import torch
 from sklearn.datasets import fetch_covtype
@@ -13,6 +15,7 @@ class CovertypeDataset(AbstractDataset):
     num_samples: int = 581012
 
     def __init__(self) -> None:
+        super().__init__(needs_disjoint_contextualization=True)
         self.data = fetch_covtype()
         self.X = self.data.data.astype(np.float32)
         self.y = self.data.target.astype(np.int64)
@@ -21,10 +24,8 @@ class CovertypeDataset(AbstractDataset):
         return len(self.X)
 
     def __getitem__(self, idx: int) -> torch.Tensor:
-        X_item = torch.tensor(self.X[idx], dtype=torch.float32)
-        y_item = torch.zeros(self.num_actions, dtype=torch.float32)
-        y_item[self.y[idx] - 1] = 1.0
-        return X_item
+        X_item = torch.tensor(self.X[idx], dtype=torch.float32).unsqueeze(0)
+        return self.contextualizer(X_item).squeeze(0)
 
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
         return torch.tensor(float(self.y[idx] == action + 1), dtype=torch.float32)

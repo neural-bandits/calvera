@@ -20,6 +20,7 @@ class MNISTDataset(AbstractDataset):
     num_samples: int = 70000
 
     def __init__(self, root: str = "./data", download: bool = True):
+        super().__init__(needs_disjoint_contextualization=True)
         self.data: Bunch = fetch_openml(
             name="mnist_784",
             version=1,
@@ -33,11 +34,8 @@ class MNISTDataset(AbstractDataset):
         return len(self.X)
 
     def __getitem__(self, idx: int) -> torch.Tensor:
-        X_item = torch.tensor(self.X[idx], dtype=torch.float32)
-        y_item = torch.zeros(self.num_actions, dtype=torch.float32)
-        y_item[self.y[idx]] = 1.0
-
-        return X_item
+        X_item = torch.tensor(self.X[idx], dtype=torch.float32).unsqueeze(0)
+        return self.contextualizer(X_item).squeeze(0)
 
     def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
         return torch.tensor(float(self.y[idx] == action), dtype=torch.float32)

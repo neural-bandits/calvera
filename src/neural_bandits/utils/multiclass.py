@@ -1,9 +1,9 @@
+from abc import ABC, abstractmethod
+
 import torch
 
-from .abtract_contextualiser import AbstractContextualiser
 
-
-class MultiClassContextualiser(AbstractContextualiser):
+class MultiClassContextualiser:
     def __init__(
         self,
         n_arms: int,
@@ -11,7 +11,7 @@ class MultiClassContextualiser(AbstractContextualiser):
         super().__init__()
         self.n_arms = n_arms
 
-    def contextualise(
+    def __call__(
         self,
         feature_vector: torch.Tensor,
     ) -> torch.Tensor:
