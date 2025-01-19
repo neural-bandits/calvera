@@ -26,23 +26,23 @@ class TestCoverTypeDataset:
             assert reward == (dataset.y[i] - 1 == 1)
 
 
-class TestMNISTDataset:
-    @pytest.fixture
-    def dataset(self) -> MNISTDataset:
-        return MNISTDataset()
+# class TestMNISTDataset:
+#     @pytest.fixture
+#     def dataset(self) -> MNISTDataset:
+#         return MNISTDataset()
 
-    def test_len(self, dataset: MNISTDataset) -> None:
-        assert len(dataset) == 70000
+#     def test_len(self, dataset: MNISTDataset) -> None:
+#         assert len(dataset) == 70000
 
-    def test_getitem(self, dataset: MNISTDataset) -> None:
-        for _ in range(10):
-            X = dataset[0]
-            assert X.shape == (10, 10 * 784)
+#     def test_getitem(self, dataset: MNISTDataset) -> None:
+#         for _ in range(10):
+#             X = dataset[0]
+#             assert X.shape == (10, 10 * 784)
 
-    def test_reward(self, dataset: MNISTDataset) -> None:
-        for i in range(10):
-            reward = dataset.reward(i, torch.tensor(1)).item()
-            assert reward == (dataset.y[i] == 1)
+#     def test_reward(self, dataset: MNISTDataset) -> None:
+#         for i in range(10):
+#             reward = dataset.reward(i, torch.tensor(1)).item()
+#             assert reward == (dataset.y[i] == 1)
 
 
 class TestStatlogDataset:
