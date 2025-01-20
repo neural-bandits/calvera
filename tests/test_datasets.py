@@ -1,8 +1,7 @@
 import pytest
 
 from neural_bandits.datasets.covertype import CovertypeDataset
-
-# from neural_bandits.datasets.mnist import MNISTDataset
+from neural_bandits.datasets.mnist import MNISTDataset
 from neural_bandits.datasets.statlog import StatlogDataset
 from neural_bandits.datasets.wheel import WheelBanditDataset
 
@@ -27,24 +26,25 @@ class TestCoverTypeDataset:
             assert reward == (dataset.y[i] - 1 == 1)
 
 
-# class TestMNISTDataset:
-#     @pytest.fixture
-#     def dataset(self) -> MNISTDataset:
-#         return MNISTDataset()
+@pytest.mark.skip(reason="MNIST down")
+class TestMNISTDataset:
+    @pytest.fixture
+    def dataset(self) -> MNISTDataset:
+        return MNISTDataset()
 
-#     def test_len(self, dataset: MNISTDataset) -> None:
-#         assert len(dataset) == 70000
+    def test_len(self, dataset: MNISTDataset) -> None:
+        assert len(dataset) == 70000
 
-#     def test_getitem(self, dataset: MNISTDataset) -> None:
-#         for _ in range(10):
-#             X, rewards = dataset[0]
-#             assert X.shape == (10, 10 * 784)
-#             assert rewards.shape == (10,)
+    def test_getitem(self, dataset: MNISTDataset) -> None:
+        for _ in range(10):
+            X, rewards = dataset[0]
+            assert X.shape == (10, 10 * 784)
+            assert rewards.shape == (10,)
 
-#     def test_reward(self, dataset: MNISTDataset) -> None:
-#         for i in range(10):
-#             reward = dataset.reward(i, 1)
-#             assert reward == (dataset.y[i] == 1)
+    def test_reward(self, dataset: MNISTDataset) -> None:
+        for i in range(10):
+            reward = dataset.reward(i, 1)
+            assert reward == (dataset.y[i] == 1)
 
 
 class TestStatlogDataset:

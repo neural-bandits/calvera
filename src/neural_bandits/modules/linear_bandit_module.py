@@ -37,9 +37,6 @@ class LinearBanditModule(
 
         self.bandit = linear_bandit_type(n_features=n_features, **kw_args)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.bandit(x)  # type: ignore
-
     def training_step(
         self,
         batch: torch.Tensor,
@@ -58,26 +55,30 @@ class LinearBanditModule(
         ]
 
         # Calculate new precision Matrix M using the Sherman-Morrison formula
-        denominator = 1 + ((chosen_actions @ self.bandit.M) * chosen_actions).sum(
-            dim=1
-        ).sum(dim=0)
+        denominator = 1 + (
+            (chosen_actions @ self.bandit.precision_matrix) * chosen_actions
+        ).sum(dim=1).sum(dim=0)
         assert torch.abs(denominator - 0) > 0, "Denominator must not be zero"
 
-        self.bandit.M = (
-            self.bandit.M
+        self.bandit.precision_matrix = (
+            self.bandit.precision_matrix
             - (
-                self.bandit.M
+                self.bandit.precision_matrix
                 @ torch.einsum("bi,bj->bij", chosen_actions, chosen_actions).sum(dim=0)
-                @ self.bandit.M
+                @ self.bandit.precision_matrix
             )
             / denominator
         )
-        self.bandit.M = 0.5 * (self.bandit.M + self.bandit.M.T)
+        self.bandit.precision_matrix = 0.5 * (
+            self.bandit.precision_matrix + self.bandit.precision_matrix.T
+        )
         # should be symmetric
-        assert torch.allclose(self.bandit.M, self.bandit.M.T), "M must be symmetric"
+        assert torch.allclose(
+            self.bandit.precision_matrix, self.bandit.precision_matrix.T
+        ), "M must be symmetric"
 
         self.bandit.b += chosen_actions.T @ realized_rewards  # shape: (features,)
-        self.bandit.theta = self.bandit.M @ self.bandit.b
+        self.bandit.theta = self.bandit.precision_matrix @ self.bandit.b
 
         self.log(
             "reward",

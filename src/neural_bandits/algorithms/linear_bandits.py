@@ -7,7 +7,7 @@ class LinearBandit(AbstractBandit):
     def __init__(self, n_features: int) -> None:
         super().__init__(n_features)
 
-        self.M: torch.Tensor = torch.eye(n_features)  # Precision matrix
+        self.precision_matrix: torch.Tensor = torch.eye(n_features)
         self.b = torch.zeros(n_features)
         self.theta = torch.zeros(n_features)
 
@@ -23,7 +23,7 @@ class LinearTSBandit(LinearBandit):
         batch_size = contextualised_actions.shape[0]
         n_arms = contextualised_actions.shape[1]
 
-        theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.M).sample((batch_size,))  # type: ignore
+        theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample((batch_size,))  # type: ignore
 
         result = torch.argmax(
             torch.einsum("ijk,ik->ij", contextualised_actions, theta_tilde), dim=1
@@ -51,7 +51,7 @@ class LinearUCBBandit(LinearBandit):
                 torch.einsum(
                     "ijk,kl,ijl->ij",
                     contextualised_actions,
-                    self.M,
+                    self.precision_matrix,
                     contextualised_actions,
                 )
             ),

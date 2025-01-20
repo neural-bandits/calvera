@@ -12,13 +12,14 @@ BanditType = TypeVar("BanditType", bound="AbstractBandit")
 class AbstractBanditModule(ABC, Generic[BanditType], pl.LightningModule):
     """Abstract class for the training behaviour of a bandit model (BanditType)."""
 
+    bandit: BanditType
+
     def __init__(self) -> None:
         super().__init__()
 
-    @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass"""
-        pass
+        return self.bandit(x)  # type: ignore
 
     @abstractmethod
     def training_step(
