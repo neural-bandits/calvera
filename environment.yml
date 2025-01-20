@@ -33,6 +33,7 @@ dependencies:
   - isort
   - mypy
   - pytest
+  - pytest-cov
 
   # pip dependencies
   - pip
