@@ -1,3 +1,5 @@
+from typing import Generic, TypeVar
+
 import numpy as np
 import torch
 from torch import optim
@@ -5,17 +7,19 @@ from torch import optim
 from ..algorithms.neural_ucb_bandit import NeuralUCB
 from .abstract_trainer import AbstractTrainer
 
+NeuralUCBType = TypeVar("NeuralUCBType", bound="NeuralUCB")
 
-class NeuralUCBTrainer(AbstractTrainer):
+
+class NeuralUCBTrainer(AbstractTrainer[NeuralUCBType], Generic[NeuralUCBType]):
     def __init__(self, eta: float = 0.01):
         self.eta = eta
 
     def update(
         self,
-        bandit: NeuralUCB,
+        bandit: NeuralUCBType,
         rewards: torch.Tensor,
         chosen_actions: torch.Tensor,
-    ) -> NeuralUCB:
+    ) -> NeuralUCBType:
         chosen_actions = chosen_actions.to(bandit.device)
         rewards = rewards.to(bandit.device)
 
@@ -27,7 +31,7 @@ class NeuralUCBTrainer(AbstractTrainer):
 
         return bandit
 
-    def _train_network(self, bandit: NeuralUCB):
+    def _train_network(self, bandit: NeuralUCBType) -> float:
         # Initialize optimizer with step size η and L2 regularization λ
         optimizer = optim.SGD(
             bandit.theta_t.parameters(), lr=self.eta, weight_decay=bandit.lambda_

@@ -15,6 +15,6 @@ class AbstractTrainer(ABC, Generic[BanditType]):  # this is now
         bandit: BanditType,
         rewards: torch.Tensor,
         chosen_actions: torch.Tensor,
-    ) -> AbstractBandit:
+    ) -> BanditType:
         """Perform a single update step"""
         # TODO(rob2u): assert correct shapes (rewards: (batch_size, 1), chosen_actions: (batch_size, dim))

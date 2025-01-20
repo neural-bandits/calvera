@@ -22,8 +22,8 @@ class NeuralUCB(AbstractBandit):
         self.theta_t = network.to(self.device)
 
         # Track {x_i,a_i, r_i,a_i} history
-        self.context_history = []
-        self.reward_history = []
+        self.context_history: list[torch.Tensor] = []
+        self.reward_history: list[torch.Tensor] = []
 
         self.lambda_ = lambda_
         self.total_params = sum(
@@ -60,7 +60,11 @@ class NeuralUCB(AbstractBandit):
             self.theta_t.zero_grad()
             f_t_a.backward(retain_graph=True)
             g_t_a = torch.cat(
-                [p.grad.flatten().detach() for p in self.theta_t.parameters()]
+                [
+                    p.grad.flatten().detach()
+                    for p in self.theta_t.parameters()
+                    if p.grad is not None
+                ]
             )
             g_t_a_list.append(g_t_a)
 
