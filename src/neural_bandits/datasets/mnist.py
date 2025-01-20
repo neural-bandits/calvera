@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 import torch
 from sklearn.datasets import fetch_openml
@@ -20,6 +22,7 @@ class MNISTDataset(AbstractDataset):
     num_samples: int = 70000
 
     def __init__(self, root: str = "./data", download: bool = True):
+        super().__init__(needs_disjoint_contextualization=True)
         self.data: Bunch = fetch_openml(
             name="mnist_784",
             version=1,
@@ -32,12 +35,15 @@ class MNISTDataset(AbstractDataset):
     def __len__(self) -> int:
         return len(self.X)
 
-    def __getitem__(self, idx: int) -> torch.Tensor:
-        X_item = torch.tensor(self.X[idx], dtype=torch.float32)
-        y_item = torch.zeros(self.num_actions, dtype=torch.float32)
-        y_item[self.y[idx]] = 1.0
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        X_item = torch.tensor(self.X[idx], dtype=torch.float32).unsqueeze(0)
+        contextualized_actions = self.contextualizer(X_item).squeeze(0)
+        rewards = torch.tensor(
+            [self.reward(idx, action) for action in range(self.num_actions)],
+            dtype=torch.float32,
+        )
 
-        return X_item
+        return contextualized_actions, rewards
 
-    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
-        return torch.tensor(float(self.y[idx] == action), dtype=torch.float32)
+    def reward(self, idx: int, action: int) -> float:
+        return float(self.y[idx] == action)

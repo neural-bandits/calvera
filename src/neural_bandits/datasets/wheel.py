@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import torch
 
@@ -19,7 +19,7 @@ def sample_rewards(
     """Sample rewards for each context according to the Wheel Bandit rules. See https://arxiv.org/abs/1802.09127.
 
     Args:
-        contexts: A torch.Tensor of shape (num_samples, context_dim) representing the sampled contexts.
+        contexts: A torch.Tensor of shape (num_samples, context_size) representing the sampled contexts.
         delta: Exploration parameter: high reward in one region if norm above delta
         mu_small: Mean of the small reward distribution.
         std_small: Standard deviation of the small reward distribution.
@@ -33,7 +33,7 @@ def sample_rewards(
     """
     assert (
         len(contexts.shape) == 2
-    ), "Contexts should be a 2D tensor of shape (num_samples, context_dim)."
+    ), "Contexts should be a 2D tensor of shape (num_samples, context_size)."
 
     num_samples = contexts.size(0)
 
@@ -83,54 +83,13 @@ def sample_rewards(
     return rewards
 
 
-def get_optimal_actions(contexts: torch.Tensor, delta: float) -> torch.Tensor:
-    """Compute the optimal actions for a given set of contexts and delta.
-
-    Args:
-        contexts: A tensor of shape (num_samples, context_dim) representing the sampled contexts.
-        delta: Exploration parameter: high reward in one region if norm above delta.
-
-    Returns:
-        opt_actions: A tensor of shape (num_samples,) with the indices of the optimal actions.
-    """
-    assert (
-        len(contexts.shape) == 2
-    ), "Contexts should be a 2D tensor of shape (num_samples, context_dim)."
-
-    num_samples = contexts.size(0)
-    print(contexts.shape)
-    norms = torch.norm(contexts, dim=1)
-    above_delta = norms > delta
-
-    # Determine optimal actions based on context quadrant when norm > delta
-    # Quadrants mapping:
-    # If contexts[i,0] > 0 and contexts[i,1] > 0 -> action 0
-    # If contexts[i,0] > 0 and contexts[i,1] < 0 -> action 1
-    # If contexts[i,0] < 0 and contexts[i,1] > 0 -> action 2
-    # If contexts[i,0] < 0 and contexts[i,1] < 0 -> action 3
-    opt_actions = torch.full((num_samples,), 0, dtype=torch.int64)
-
-    idxs_above = torch.where(above_delta)[0]
-    for i in idxs_above:
-        x, y = contexts[i, 0], contexts[i, 1]
-        a = (x > 0).float()
-        b = (y > 0).float()
-        opt_actions[i] = 3 - 2 * a - b
-
-    # If norm <= delta, the optimal action is 4
-    idxs_below_eq = torch.where(~above_delta)[0]
-    opt_actions[idxs_below_eq] = 4
-
-    return opt_actions
-
-
 class WheelBanditDataset(AbstractDataset):
     """Generates a dataset for the Wheel Bandit problem (https://arxiv.org/abs/1802.09127).
     Uses torch.Tensors instead of numpy arrays.
     """
 
     num_actions: int = 5
-    context_dim: int = 2
+    context_size: int = 2
 
     def __init__(
         self,
@@ -144,7 +103,7 @@ class WheelBanditDataset(AbstractDataset):
         std_large: float = 0.01,
         seed: Optional[int] = None,
     ) -> None:
-        super().__init__()
+        super().__init__(needs_disjoint_contextualization=True)
 
         self.num_samples = num_samples
         self.delta = delta
@@ -160,12 +119,13 @@ class WheelBanditDataset(AbstractDataset):
         if seed is not None:
             torch.manual_seed(seed)
 
-        data = self._generate_data()
+        data, rewards = self._generate_data()
         self.data = data
+        self.rewards = rewards
 
     def _generate_data(
         self,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Pregenerate the dataset for the Wheel Bandit problem.
         We do this because we need to make the dataset compatible with PyTorch's Dataset.
@@ -178,7 +138,7 @@ class WheelBanditDataset(AbstractDataset):
         data_list: List[torch.Tensor] = []
         batch_size = max(int(self.num_samples / 3), 1)
         while len(data_list) < self.num_samples:
-            raw_data = (torch.rand(batch_size, self.context_dim) * 2.0 - 1.0).float()
+            raw_data = (torch.rand(batch_size, self.context_size) * 2.0 - 1.0).float()
             norms = torch.norm(raw_data, dim=1)
             # filter points inside unit norm
             inside = raw_data[norms <= 1]
@@ -187,22 +147,16 @@ class WheelBanditDataset(AbstractDataset):
         contexts = torch.cat(data_list, dim=0)
         contexts = contexts[: self.num_samples]
 
-        # Concatenate contexts and rewards
-        dataset = contexts
-
-        return dataset
-
-    def __len__(self) -> int:
-        return self.num_samples
-
-    def __getitem__(self, idx: int) -> torch.Tensor:
-        return self.data[idx]
-
-    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
-        """Return the reward of the given action for the context at index idx in this dataset."""
-        return sample_rewards(
-            self.data[idx].unsqueeze(0),
-            action.unsqueeze(0),
+        # sample the rewards for each context-action pair
+        contexts_repeat = contexts.repeat_interleave(
+            self.num_actions, dim=0
+        )  # shape (num_samples * num_actions, context_size)
+        actions = torch.arange(self.num_actions).repeat(
+            self.num_samples
+        )  # shape (num_samples * num_actions)
+        rewards = sample_rewards(
+            contexts_repeat,
+            actions,
             self.delta,
             self.mu_small,
             self.std_small,
@@ -210,4 +164,21 @@ class WheelBanditDataset(AbstractDataset):
             self.std_medium,
             self.mu_large,
             self.std_large,
-        )
+        ).reshape(self.num_samples, self.num_actions)
+
+        return contexts, rewards
+
+    def __len__(self) -> int:
+        return self.num_samples
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        contextualized_actions = self.contextualizer(
+            self.data[idx].unsqueeze(0)
+        ).squeeze(0)
+        rewards = self.rewards[idx]
+
+        return contextualized_actions, rewards
+
+    def reward(self, idx: int, action: int) -> float:
+        """Return the reward of the given action for the context at index idx in this dataset."""
+        return self.rewards[idx, action].item()

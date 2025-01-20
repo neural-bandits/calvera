@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 import torch
 from sklearn.datasets import fetch_covtype
@@ -13,18 +15,26 @@ class CovertypeDataset(AbstractDataset):
     num_samples: int = 581012
 
     def __init__(self) -> None:
+        super().__init__(needs_disjoint_contextualization=True)
         self.data = fetch_covtype()
-        self.X = self.data.data.astype(np.float32)
-        self.y = self.data.target.astype(np.int64)
+        X_np = self.data.data.astype(np.float32)
+        y_np = self.data.target.astype(np.int64)
+
+        self.X = torch.tensor(X_np, dtype=torch.float32)
+        self.y = torch.tensor(y_np, dtype=torch.long)
 
     def __len__(self) -> int:
         return len(self.X)
 
-    def __getitem__(self, idx: int) -> torch.Tensor:
-        X_item = torch.tensor(self.X[idx], dtype=torch.float32)
-        y_item = torch.zeros(self.num_actions, dtype=torch.float32)
-        y_item[self.y[idx] - 1] = 1.0
-        return X_item
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        context = self.X[idx].reshape(1, -1)
+        contextualized_actions = self.contextualizer(context).squeeze(0)
+        rewards = torch.tensor(
+            [self.reward(idx, action) for action in range(self.num_actions)],
+            dtype=torch.float32,
+        )
 
-    def reward(self, idx: int, action: torch.Tensor) -> torch.Tensor:
-        return torch.tensor(float(self.y[idx] == action + 1), dtype=torch.float32)
+        return contextualized_actions, rewards
+
+    def reward(self, idx: int, action: int) -> float:
+        return float(self.y[idx] == action + 1)

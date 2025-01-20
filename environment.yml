@@ -13,7 +13,7 @@ dependencies:
   - torchaudio
   - torchvision
   - wandb
-  # - lightning # PyTorch Lightning? Not sure if we need it
+  - lightning
 
   # Good to have
   - numpy

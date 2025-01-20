@@ -4,48 +4,45 @@ from .abstract_bandit import AbstractBandit
 
 
 class LinearBandit(AbstractBandit):
-    def __init__(self, n_arms: int, n_features: int) -> None:
-        super().__init__(n_arms, n_features)
+    def __init__(self, n_features: int) -> None:
+        super().__init__(n_features)
 
-        self.M: torch.Tensor = torch.eye(n_features)
+        self.precision_matrix: torch.Tensor = torch.eye(n_features)
         self.b = torch.zeros(n_features)
         self.theta = torch.zeros(n_features)
 
 
 class LinearTSBandit(LinearBandit):
-    def __init__(self, n_arms: int, n_features: int) -> None:
-        super().__init__(n_arms, n_features)
+    def __init__(self, n_features: int) -> None:
+        super().__init__(n_features)
 
     def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
         assert (
-            contextualised_actions.shape[1] == self.n_arms
-            and contextualised_actions.shape[2] == self.n_features
+            contextualised_actions.shape[2] == self.n_features
         ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
         batch_size = contextualised_actions.shape[0]
+        n_arms = contextualised_actions.shape[1]
 
-        # NOTE(rob2u): We assume a normal prior for the weights (mean = 0, covariance = 0.01 * I)
-        theta_tilde = torch.distributions.MultivariateNormal(self.theta, torch.inverse(self.M) + torch.eye(self.n_features) * 0.1).sample((batch_size,))  # type: ignore
+        theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample((batch_size,))  # type: ignore
 
         result = torch.argmax(
             torch.einsum("ijk,ik->ij", contextualised_actions, theta_tilde), dim=1
         )
-        return torch.nn.functional.one_hot(result, num_classes=self.n_arms).reshape(
-            -1, self.n_arms
+        return torch.nn.functional.one_hot(result, num_classes=n_arms).reshape(
+            -1, n_arms
         )
 
 
 class LinearUCBBandit(LinearBandit):
-    def __init__(self, n_arms: int, n_features: int, alpha: float = 1.0) -> None:
-        super().__init__(n_arms, n_features)
+    def __init__(self, n_features: int, alpha: float = 1.0) -> None:
+        super().__init__(n_features)
         self.alpha = alpha
 
     def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
         assert (
-            contextualised_actions.shape[1] == self.n_arms
-            and contextualised_actions.shape[2] == self.n_features
+            contextualised_actions.shape[2] == self.n_features
         ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
-
-        M_inv = torch.inverse(self.M)
+        n_arms = contextualised_actions.shape[1]
 
         result = torch.argmax(
             torch.einsum("ijk,k->ij", contextualised_actions, self.theta)
@@ -54,15 +51,15 @@ class LinearUCBBandit(LinearBandit):
                 torch.einsum(
                     "ijk,kl,ijl->ij",
                     contextualised_actions,
-                    M_inv,
+                    self.precision_matrix,
                     contextualised_actions,
                 )
             ),
             dim=1,
         )
 
-        return torch.nn.functional.one_hot(result, num_classes=self.n_arms).reshape(
-            -1, self.n_arms
+        return torch.nn.functional.one_hot(result, num_classes=n_arms).reshape(
+            -1, n_arms
         )
 
 

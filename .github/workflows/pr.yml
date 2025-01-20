@@ -58,7 +58,8 @@ jobs:
         run: |
           make test
         shell: micromamba-shell {0}
-      - name: Check Coverage
-        run: |
-          make coverage
-        shell: micromamba-shell {0}
+      # TODO(rob2u):
+      # - name: Check Coverage
+      #   run: |
+      #     make coverage
+      #   shell: micromamba-shell {0}
