@@ -1,9 +1,7 @@
 import torch
 
-from .abtract_contextualiser import AbstractContextualiser
 
-
-class MultiClassContextualiser(AbstractContextualiser):
+class MultiClassContextualizer:
     def __init__(
         self,
         n_arms: int,
@@ -11,7 +9,7 @@ class MultiClassContextualiser(AbstractContextualiser):
         super().__init__()
         self.n_arms = n_arms
 
-    def contextualise(
+    def __call__(
         self,
         feature_vector: torch.Tensor,
     ) -> torch.Tensor:
@@ -24,6 +22,10 @@ class MultiClassContextualiser(AbstractContextualiser):
         Returns:
             torch.Tensor: Contextualised actions of shape (batch_size, n_arms, n_features * n_arms)
         """
+        assert (
+            len(feature_vector.shape) == 2
+        ), "Feature vector must have shape (batch_size, n_features)"
+
         n_features = feature_vector.shape[1]
         contextualised_actions = torch.einsum(
             "ij,bk->bijk", torch.eye(self.n_arms), feature_vector
