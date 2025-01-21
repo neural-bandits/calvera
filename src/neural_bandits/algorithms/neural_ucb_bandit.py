@@ -9,12 +9,11 @@ class NeuralUCB(AbstractBandit):
     def __init__(
         self,
         network: nn.Module,
-        n_arms: int,
         n_features: int,
         lambda_: float = 1.0,
         nu: float = 1.0,
-    ):
-        super().__init__(n_arms, n_features)
+    ) -> None:
+        super().__init__(n_features)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -26,14 +25,14 @@ class NeuralUCB(AbstractBandit):
         self.reward_history: list[torch.Tensor] = []
 
         self.lambda_ = lambda_
+        self.nu = nu
         self.total_params = sum(
             p.numel() for p in self.theta_t.parameters() if p.requires_grad
         )
+
         # Initialize Z_0 = λI
         self.Z_t = lambda_ * torch.ones((self.total_params,), device=self.device)
-        self.nu = nu
 
-        self.n_arms = n_arms
         self.n_features = n_features
 
     def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
@@ -43,8 +42,7 @@ class NeuralUCB(AbstractBandit):
         contextualised_actions = contextualised_actions.to(self.device)
 
         assert (
-            contextualised_actions.shape[1] == self.n_arms
-            and contextualised_actions.shape[2] == self.n_features
+            contextualised_actions.shape[2] == self.n_features
         ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
 
         contextualised_actions = contextualised_actions.squeeze(0)
