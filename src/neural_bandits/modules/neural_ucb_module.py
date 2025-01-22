@@ -55,7 +55,7 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
             nu=nu,
         )
 
-        self.hparams.global_step = 0
+        self.step_count = 0
 
     def training_step(
         self,
@@ -82,9 +82,9 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
 
         # Train network based on schedule
         # loss = 0.0
-        should_train = self.hparams.global_step < self.hparams.initial_train_steps or (
-            self.hparams.global_step >= self.hparams.initial_train_steps
-            and self.hparams.global_step % self.hparams.train_freq == 0
+        should_train = self.step_count < self.initial_train_steps or (
+            self.step_count >= self.initial_train_steps
+            and self.step_count % self.train_freq == 0
         )
 
         if should_train:
@@ -102,8 +102,8 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
         self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
         # self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
 
-        # Increment global step
-        self.hparams.global_step += 1
+        # Increment step count
+        self.step_count += 1
 
         return -rewards.mean()
 
