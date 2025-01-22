@@ -1,13 +1,13 @@
 from typing import Optional
 
-import torch
 import lightning as pl
+import torch
 from lightning.pytorch.core.optimizer import LightningOptimizer
 
+from neural_bandits.algorithms.linear_bandits import LinearTSBandit
+from neural_bandits.algorithms.neural_linear import NeuralLinearBandit
 from neural_bandits.modules.abstract_bandit_module import AbstractBanditModule
 from neural_bandits.modules.linear_bandit_module import LinearBanditModule
-from neural_bandits.algorithms.neural_linear import NeuralLinearBandit
-from neural_bandits.algorithms.linear_bandits import LinearTSBandit
 
 
 class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):

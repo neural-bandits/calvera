@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+
 from neural_bandits.algorithms.abstract_bandit import AbstractBandit
 from neural_bandits.algorithms.linear_bandits import LinearTSBandit
 
