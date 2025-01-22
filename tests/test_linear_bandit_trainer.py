@@ -174,7 +174,7 @@ def test_training_step_invalid_shapes(
 def test_training_step_zero_denominator(
     setup_simple_bandit: Tuple[LinearBandit, LinearBanditTrainer]
 ) -> None:
-    bandit, trainer = setup_bandit
+    bandit, trainer = setup_simple_bandit
     batch_size = 10
     n_features = bandit.n_features
 
