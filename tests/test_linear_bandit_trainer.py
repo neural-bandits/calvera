@@ -1,6 +1,8 @@
-import pytest
 from typing import Tuple
+
+import pytest
 import torch
+
 from neural_bandits.algorithms.linear_bandits import (
     LinearBandit,
     LinearTSBandit,

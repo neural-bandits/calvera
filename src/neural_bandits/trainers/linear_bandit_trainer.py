@@ -1,4 +1,5 @@
 import torch
+
 from neural_bandits.algorithms.linear_bandits import LinearBandit
 
 
