@@ -10,6 +10,13 @@ from .abstract_bandit_module import AbstractBanditModule
 
 
 class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
+    """NeuralUCB bandit implementation as a PyTorch Lightning module.
+
+    Attributes:
+        automatic_optimization: Boolean indicating if Lightning should handle optimization.
+        bandit: The underlying NeuralUCBBandit instance.
+    """
+
     def __init__(
         self,
         n_features: int,
@@ -23,6 +30,20 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         initial_train_steps: int = 1000,
         **kw_args: Any,
     ) -> None:
+        """Initialize the NeuralUCB bandit module.
+
+        Args:
+            n_features: Number of input features.
+            network: Neural network module for function approximation.
+            early_stop_threshold: Loss threshold for early stopping. None to disable.
+            num_grad_steps: Maximum number of gradient steps per training iteration.
+            lambda_: Regularization parameter.
+            nu: Exploration parameter for UCB.
+            learning_rate: Learning rate for SGD optimizer.
+            train_freq: Frequency of network training after initial training.
+            initial_train_steps: Number of initial training steps.
+            **kw_args: Additional arguments passed to parent class.
+        """
         super().__init__()
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
@@ -54,6 +75,19 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         batch: torch.Tensor,
         batch_idx: int,
     ) -> torch.Tensor:
+        """Execute a single training step.
+
+        Args:
+            batch: Tuple of (contextualized_actions, rewards) tensors.
+            batch_idx: Index of current batch.
+
+        Returns:
+            Mean negative reward as loss value.
+
+        Example:
+            >>> batch = (context_tensor, reward_tensor)
+            >>> loss = model.training_step(batch, 0)
+        """
         rewards: torch.Tensor = batch[1]
         contextualized_actions: torch.Tensor = batch[0]
 

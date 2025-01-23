@@ -6,6 +6,22 @@ from .abstract_bandit import AbstractBandit
 
 
 class NeuralUCBBandit(AbstractBandit):
+    """NeuralUCB bandit algorithm implementation.
+
+    Implements the NeuralUCB algorithm using a neural network
+    for function approximation with diagonal approximation for exploration.
+
+    Attributes:
+        device: PyTorch device (CPU/GPU).
+        theta_t: Neural network for function approximation.
+        context_history: List of context tensors.
+        reward_history: List of reward tensors.
+        lambda_: Regularization parameter.
+        nu: Exploration parameter.
+        Z_t: Diagonal approximation of covariance matrix.
+        n_features: Number of input features.
+    """
+
     def __init__(
         self,
         network: nn.Module,
@@ -13,6 +29,14 @@ class NeuralUCBBandit(AbstractBandit):
         lambda_: float = 1.0,
         nu: float = 1.0,
     ) -> None:
+        """Initialize NeuralUCB bandit.
+
+        Args:
+            network: Neural network for function approximation.
+            n_features: Number of input features.
+            lambda_: Regularization parameter.
+            nu: Exploration parameter.
+        """
         super().__init__(n_features)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,8 +60,17 @@ class NeuralUCBBandit(AbstractBandit):
         self.n_features = n_features
 
     def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
-        """
-        Simplified forward pass using diagonal approximation
+        """Calculate UCB scores for each action using diagonal approximation.
+
+        Args:
+            contextualised_actions: Contextualised action tensor of shape
+                (batch_size, n_arms, n_features).
+
+        Returns:
+            Tensor of softmax probabilities over UCB scores.
+
+        Raises:
+            AssertionError: If input tensor shape doesn't match n_features.
         """
         contextualised_actions = contextualised_actions.to(self.device)
 
