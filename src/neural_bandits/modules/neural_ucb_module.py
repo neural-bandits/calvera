@@ -1,10 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
-from pytorch_lightning.core.optimizer import LightningOptimizer
 from torch import optim
 
 from ..algorithms.neural_ucb_bandit import NeuralUCBBandit
@@ -30,8 +29,6 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         automatic_optimization: Boolean indicating if Lightning should handle optimization.
         bandit: The underlying NeuralUCBBandit instance.
     """
-
-    hparams: NeuralUCBHParams
 
     def __init__(
         self,
@@ -66,17 +63,19 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         self.automatic_optimization = False
 
         # Save hyperparameters
-        hyperparameters = {
-            "n_features": n_features,
-            "early_stop_threshold": early_stop_threshold,
-            "num_grad_steps": num_grad_steps,
-            "lambda_": lambda_,
-            "nu": nu,
-            "learning_rate": learning_rate,
-            "train_freq": train_freq,
-            "initial_train_steps": initial_train_steps,
-            **kw_args,
-        }
+        hyperparameters = asdict(
+            NeuralUCBHParams(
+                n_features=n_features,
+                early_stop_threshold=early_stop_threshold,
+                num_grad_steps=num_grad_steps,
+                lambda_=lambda_,
+                nu=nu,
+                learning_rate=learning_rate,
+                train_freq=train_freq,
+                initial_train_steps=initial_train_steps,
+                **kw_args,
+            )
+        )
         self.save_hyperparameters(hyperparameters)
 
         self.bandit = NeuralUCBBandit(
@@ -145,7 +144,9 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         return -rewards.mean()
 
     def _train_network(self) -> float:
-        optimizer: LightningOptimizer = self.optimizers()
+        optimizer = self.optimizers()
+        if isinstance(optimizer, list):
+            optimizer = optimizer[0]
 
         indices = np.arange(len(self.bandit.reward_history))
         np.random.shuffle(indices)
