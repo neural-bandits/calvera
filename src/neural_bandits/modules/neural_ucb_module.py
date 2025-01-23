@@ -1,12 +1,26 @@
+from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
+from pytorch_lightning.core.optimizer import LightningOptimizer
 from torch import optim
 
 from ..algorithms.neural_ucb_bandit import NeuralUCBBandit
 from .abstract_bandit_module import AbstractBanditModule
+
+
+@dataclass
+class NeuralUCBHParams:
+    n_features: int
+    early_stop_threshold: Optional[float]
+    num_grad_steps: int
+    lambda_: float
+    nu: float
+    learning_rate: float
+    train_freq: int
+    initial_train_steps: int
 
 
 class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
@@ -16,6 +30,8 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         automatic_optimization: Boolean indicating if Lightning should handle optimization.
         bandit: The underlying NeuralUCBBandit instance.
     """
+
+    hparams: NeuralUCBHParams
 
     def __init__(
         self,
@@ -129,16 +145,16 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         return -rewards.mean()
 
     def _train_network(self) -> float:
-        optimizer = self.optimizers()
+        optimizer: LightningOptimizer = self.optimizers()
 
         indices = np.arange(len(self.bandit.reward_history))
         np.random.shuffle(indices)
 
-        L_theta_sum = 0  # Track cumulative loss L(θ)
+        L_theta_sum: float = 0.0  # Track cumulative loss L(θ)
         j = 0  # Count gradient descent steps
 
         while True:
-            L_theta_batch = 0  # Track batch loss
+            L_theta_batch: float = 0.0  # Track batch loss
 
             # Compute L(θ) and perform gradient descent
             for i in indices:
@@ -160,7 +176,7 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
 
                 # Return θ⁽ᴶ⁾ after J gradient descent steps
                 if j >= self.hparams.num_grad_steps:
-                    return L_theta_sum / self.hparams.num_grad_steps
+                    return float(L_theta_sum / self.hparams.num_grad_steps)
 
             # Early stopping if threshold is set and loss is small enough
             if (
@@ -168,7 +184,7 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
                 and L_theta_batch / len(self.bandit.reward_history)
                 <= self.hparams.early_stop_threshold
             ):
-                return L_theta_batch / len(self.bandit.reward_history)
+                return float(L_theta_batch / len(self.bandit.reward_history))
 
     def configure_optimizers(self) -> optim.Optimizer:
         return optim.SGD(
