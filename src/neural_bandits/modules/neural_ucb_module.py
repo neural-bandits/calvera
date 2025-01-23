@@ -1,22 +1,21 @@
-from typing import Any, Generic, TypeVar
+from typing import Any, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
 
-from ..algorithms.neural_ucb_bandit import NeuralUCB
+from ..algorithms.neural_ucb_bandit import NeuralUCBBandit
 from .abstract_bandit_module import AbstractBanditModule
 
-NeuralUCBType = TypeVar("NeuralUCBType", bound="NeuralUCB")
 
-
-class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType]):
+class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
     def __init__(
         self,
-        neural_bandit_type: NeuralUCBType,
         n_features: int,
         network: nn.Module,
+        early_stop_threshold: Optional[float] = 1e-3,
+        num_grad_steps: int = 1000,
         lambda_: float = 0.00001,
         nu: float = 0.00001,
         learning_rate: float = 0.01,
@@ -26,19 +25,14 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
     ) -> None:
         super().__init__()
 
-        self.n_features = n_features
-        self.learning_rate = learning_rate
-        self.train_freq = train_freq
-        self.initial_train_steps = initial_train_steps
-
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
 
         # Save hyperparameters
-        # TODO: add network hyperparameters
         hyperparameters = {
-            "neural_bandit_type": neural_bandit_type.__name__,
             "n_features": n_features,
+            "early_stop_threshold": early_stop_threshold,
+            "num_grad_steps": num_grad_steps,
             "lambda_": lambda_,
             "nu": nu,
             "learning_rate": learning_rate,
@@ -48,14 +42,12 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
         }
         self.save_hyperparameters(hyperparameters)
 
-        self.bandit = neural_bandit_type(
+        self.bandit = NeuralUCBBandit(
             network=network,
             n_features=n_features,
             lambda_=lambda_,
             nu=nu,
         )
-
-        self.step_count = 0
 
     def training_step(
         self,
@@ -81,10 +73,9 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
         self.bandit.reward_history.append(realized_rewards)
 
         # Train network based on schedule
-        # loss = 0.0
-        should_train = self.step_count < self.initial_train_steps or (
-            self.step_count >= self.initial_train_steps
-            and self.step_count % self.train_freq == 0
+        should_train = batch_idx < self.hparams.initial_train_steps or (
+            batch_idx >= self.hparams.initial_train_steps
+            and batch_idx % self.hparams.train_freq == 0
         )
 
         if should_train:
@@ -100,20 +91,11 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
         )
         regret = torch.max(rewards, dim=1).values - realized_rewards
         self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
-        # self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
-
-        # Increment step count
-        self.step_count += 1
 
         return -rewards.mean()
 
     def _train_network(self) -> float:
-        # Initialize optimizer with step size η and L2 regularization λ
-        optimizer = optim.SGD(
-            self.bandit.theta_t.parameters(),
-            lr=self.learning_rate,
-            weight_decay=self.bandit.lambda_,
-        )
+        optimizer = self.optimizers()
 
         indices = np.arange(len(self.bandit.reward_history))
         np.random.shuffle(indices)
@@ -134,7 +116,7 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
                 # Compute f(x_i,a_i; θ)
                 f_theta = self.bandit.theta_t(context)
                 L_theta = (f_theta - reward) ** 2
-                L_theta.backward()
+                self.manual_backward(L_theta)
 
                 optimizer.step()
 
@@ -143,12 +125,20 @@ class NeuralUCBModule(AbstractBanditModule[NeuralUCBType], Generic[NeuralUCBType
                 j += 1
 
                 # Return θ⁽ᴶ⁾ after J gradient descent steps
-                if j >= 1000:
-                    return L_theta_sum / 1000
+                if j >= self.hparams.num_grad_steps:
+                    return L_theta_sum / self.hparams.num_grad_steps
 
-            # Early stopping if loss is small enough
-            if L_theta_batch / len(self.bandit.reward_history) <= 1e-3:
+            # Early stopping if threshold is set and loss is small enough
+            if (
+                self.hparams.early_stop_threshold is not None
+                and L_theta_batch / len(self.bandit.reward_history)
+                <= self.hparams.early_stop_threshold
+            ):
                 return L_theta_batch / len(self.bandit.reward_history)
 
-    def configure_optimizers(self) -> None:
-        return None
+    def configure_optimizers(self) -> optim.Optimizer:
+        return optim.SGD(
+            self.bandit.theta_t.parameters(),
+            lr=self.hparams.learning_rate,
+            weight_decay=self.bandit.lambda_,
+        )

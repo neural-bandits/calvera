@@ -5,7 +5,7 @@ import torch.nn as nn
 from .abstract_bandit import AbstractBandit
 
 
-class NeuralUCB(AbstractBandit):
+class NeuralUCBBandit(AbstractBandit):
     def __init__(
         self,
         network: nn.Module,
