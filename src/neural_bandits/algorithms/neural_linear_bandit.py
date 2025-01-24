@@ -3,7 +3,6 @@ import torch.nn as nn
 from scipy.stats import invgamma
 
 from neural_bandits.algorithms.abstract_bandit import AbstractBandit
-from neural_bandits.algorithms.linear_bandits import LinearTSBandit
 
 
 class NeuralLinearBandit(AbstractBandit):
