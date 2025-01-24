@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from sklearn.datasets import fetch_covtype
 
-from .abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
 class CovertypeDataset(AbstractDataset):
