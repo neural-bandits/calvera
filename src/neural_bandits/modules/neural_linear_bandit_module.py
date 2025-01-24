@@ -6,6 +6,7 @@ from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from neural_bandits.algorithms.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.modules.abstract_bandit_module import AbstractBanditModule
 
+
 class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
     """
     Module for training a Neural Linear bandit model.
