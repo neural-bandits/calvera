@@ -1,34 +1,42 @@
 from typing import Tuple
 
-import numpy as np
 import torch
-from torch.utils.data import Dataset
 from ucimlrepo import fetch_ucirepo
 
+from .abstract_dataset import AbstractDataset
 
-class StatlogDataset(Dataset[Tuple[torch.Tensor, torch.Tensor]]):
-    """Loads the Covertype dataset as a pytorch Dataset from the UCI repository (https://archive.ics.uci.edu/dataset/98/statlog+project).
 
-    Args:
-        root (str): Where to store the dataset
-        download (bool): Whether to download the dataset
-    """
+class StatlogDataset(AbstractDataset):
+    """Loads the Statlog (Shuttle) dataset as a PyTorch Dataset from the UCI repository (https://archive.ics.uci.edu/dataset/148/statlog+shuttle)."""
 
-    num_actions: int = 7
-    context_size: int = 20
-    num_samples: int = 1000
+    num_actions: int = 9
+    context_size: int = 7
+    num_samples: int = 58000
 
-    def __init__(self, root: str = "./data", download: bool = True):
-        self.data = fetch_ucirepo(id=144)
-        self.X = self.data.data.features.astype(np.float32)
-        self.y = self.data.data.targets.astype(np.int64)
+    def __init__(self) -> None:
+        super().__init__(needs_disjoint_contextualization=True)
+        dataset = fetch_ucirepo(
+            id=148
+        )  # id=148 specifies the Statlog (Shuttle) dataset
+        X = dataset.data.features
+        y = dataset.data.targets
+
+        self.X = torch.tensor(X.values, dtype=torch.float32)
+        self.y = torch.tensor(y.values, dtype=torch.long)
 
     def __len__(self) -> int:
         return len(self.X)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        X_item = torch.tensor(self.X[idx], dtype=torch.float32)
-        y_item = torch.zeros(self.num_actions, dtype=torch.float32)
-        y_item[self.y[idx]] = 1.0
+        contextualized_actions = self.contextualizer(self.X[idx].unsqueeze(0)).squeeze(
+            0
+        )
+        rewards = torch.tensor(
+            [self.reward(idx, action) for action in range(self.num_actions)],
+            dtype=torch.float32,
+        )
 
-        return X_item, y_item
+        return contextualized_actions, rewards
+
+    def reward(self, idx: int, action: int) -> float:
+        return float(self.y[idx] == action + 1)

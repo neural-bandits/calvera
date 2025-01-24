@@ -5,9 +5,8 @@ import torch.nn as nn
 
 
 class AbstractBandit(ABC, nn.Module):  # AbstractModel
-    def __init__(self, n_arms: int, n_features: int) -> None:
+    def __init__(self, n_features: int) -> None:
         super().__init__()
-        self.n_arms = n_arms
         self.n_features = n_features
 
     @abstractmethod
