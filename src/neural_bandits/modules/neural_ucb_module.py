@@ -1,4 +1,3 @@
-from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 import numpy as np
@@ -8,18 +7,6 @@ from torch import optim
 
 from ..algorithms.neural_ucb_bandit import NeuralUCBBandit
 from .abstract_bandit_module import AbstractBanditModule
-
-
-@dataclass
-class NeuralUCBHParams:
-    n_features: int
-    early_stop_threshold: Optional[float]
-    num_grad_steps: int
-    lambda_: float
-    nu: float
-    learning_rate: float
-    train_freq: int
-    initial_train_steps: int
 
 
 class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
@@ -63,19 +50,17 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         self.automatic_optimization = False
 
         # Save hyperparameters
-        hyperparameters = asdict(
-            NeuralUCBHParams(
-                n_features=n_features,
-                early_stop_threshold=early_stop_threshold,
-                num_grad_steps=num_grad_steps,
-                lambda_=lambda_,
-                nu=nu,
-                learning_rate=learning_rate,
-                train_freq=train_freq,
-                initial_train_steps=initial_train_steps,
-                **kw_args,
-            )
-        )
+        hyperparameters = {
+            "n_features": n_features,
+            "early_stop_threshold": early_stop_threshold,
+            "num_grad_steps": num_grad_steps,
+            "lambda_": lambda_,
+            "nu": nu,
+            "learning_rate": learning_rate,
+            "train_freq": train_freq,
+            "initial_train_steps": initial_train_steps,
+            **kw_args,
+        }
         self.save_hyperparameters(hyperparameters)
 
         self.bandit = NeuralUCBBandit(
@@ -122,9 +107,9 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         self.bandit.reward_history.append(realized_rewards)
 
         # Train network based on schedule
-        should_train = batch_idx < self.hparams.initial_train_steps or (
-            batch_idx >= self.hparams.initial_train_steps
-            and batch_idx % self.hparams.train_freq == 0
+        should_train = batch_idx < self.hparams["initial_train_steps"] or (
+            batch_idx >= self.hparams["initial_train_steps"]
+            and batch_idx % self.hparams["train_freq"] == 0
         )
 
         if should_train:
@@ -176,20 +161,20 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
                 j += 1
 
                 # Return θ⁽ᴶ⁾ after J gradient descent steps
-                if j >= self.hparams.num_grad_steps:
-                    return float(L_theta_sum / self.hparams.num_grad_steps)
+                if j >= self.hparams["num_grad_steps"]:
+                    return float(L_theta_sum / self.hparams["num_grad_steps"])
 
             # Early stopping if threshold is set and loss is small enough
             if (
-                self.hparams.early_stop_threshold is not None
+                self.hparams["early_stop_threshold"] is not None
                 and L_theta_batch / len(self.bandit.reward_history)
-                <= self.hparams.early_stop_threshold
+                <= self.hparams["early_stop_threshold"]
             ):
                 return float(L_theta_batch / len(self.bandit.reward_history))
 
     def configure_optimizers(self) -> optim.Optimizer:
         return optim.SGD(
             self.bandit.theta_t.parameters(),
-            lr=self.hparams.learning_rate,
+            lr=self.hparams["learning_rate"],
             weight_decay=self.bandit.lambda_,
         )
