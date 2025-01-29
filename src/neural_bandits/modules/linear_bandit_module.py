@@ -54,7 +54,7 @@ class LinearBanditModule(
             torch.arange(batch_size), chosen_actions_idx
         ]
 
-        self.update_head(chosen_actions, realized_rewards)
+        self.update(chosen_actions, realized_rewards)
 
         self.log(
             "reward",
@@ -68,7 +68,7 @@ class LinearBanditModule(
 
         return -rewards.mean()
 
-    def update_head(
+    def update(
         self,
         chosen_actions: torch.Tensor,
         realized_rewards: torch.Tensor,

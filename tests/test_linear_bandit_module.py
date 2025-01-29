@@ -48,7 +48,7 @@ def setup_simple_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
 
 
 @pytest.mark.parametrize("fixture_name", ["setup_ucb_bandit", "setup_ts_bandit"])
-def test_update_head_updates_parameters_parameterized(
+def test_update_updates_parameters_parameterized(
     fixture_name: str, request: pytest.FixtureRequest
 ) -> None:
     """
@@ -68,7 +68,7 @@ def test_update_head_updates_parameters_parameterized(
     initial_theta = bandit.theta.clone()
 
     # Perform training step
-    module.update_head(chosen_actions, realized_rewards)
+    module.update(chosen_actions, realized_rewards)
 
     # Check that parameters have been updated
     assert not torch.equal(
@@ -78,7 +78,7 @@ def test_update_head_updates_parameters_parameterized(
     assert not torch.equal(bandit.theta, initial_theta), "theta should be updated"
 
 
-def test_update_head_correct(
+def test_update_correct(
     setup_simple_bandit: Tuple[LinearBandit, LinearBanditModule]
 ) -> None:
     """
@@ -100,7 +100,7 @@ def test_update_head_correct(
     chosen_actions = torch.tensor([[2.0]])  # shape (1,1)
     realized_rewards = torch.tensor([1.0])  # shape (1,)
 
-    module.update_head(chosen_actions, realized_rewards)
+    module.update(chosen_actions, realized_rewards)
 
     expected_M = torch.tensor([[0.2]])
     expected_b = torch.tensor([2.0])
@@ -118,7 +118,7 @@ def test_update_head_correct(
 
 
 @pytest.mark.parametrize("fixture_name", ["setup_ucb_bandit", "setup_ts_bandit"])
-def test_update_head_shapes_parameterized(
+def test_update_shapes_parameterized(
     fixture_name: str, request: pytest.FixtureRequest
 ) -> None:
     """
@@ -133,7 +133,7 @@ def test_update_head_shapes_parameterized(
     realized_rewards = torch.randn(batch_size)
 
     # Perform training step
-    module.update_head(chosen_actions, realized_rewards)
+    module.update(chosen_actions, realized_rewards)
 
     # Check shapes of updated parameters
     assert bandit.precision_matrix.shape == (
@@ -145,7 +145,7 @@ def test_update_head_shapes_parameterized(
 
 
 @pytest.mark.parametrize("fixture_name", ["setup_ucb_bandit", "setup_ts_bandit"])
-def test_update_head_invalid_shapes_parameterized(
+def test_update_invalid_shapes_parameterized(
     fixture_name: str, request: pytest.FixtureRequest
 ) -> None:
     """
@@ -164,13 +164,13 @@ def test_update_head_invalid_shapes_parameterized(
 
     # Check for assertion errors
     with pytest.raises(AssertionError):
-        module.update_head(chosen_actions_invalid, realized_rewards)
+        module.update(chosen_actions_invalid, realized_rewards)
 
     with pytest.raises(AssertionError):
-        module.update_head(chosen_actions, realized_rewards_invalid)
+        module.update(chosen_actions, realized_rewards_invalid)
 
 
-def test_update_head_zero_denominator(
+def test_update_zero_denominator(
     setup_simple_bandit: Tuple[LinearBandit, LinearBanditModule]
 ) -> None:
     """
@@ -186,7 +186,7 @@ def test_update_head_zero_denominator(
     chosen_actions[0, 0] = torch.nan
 
     with pytest.raises(AssertionError):
-        module.update_head(chosen_actions, realized_rewards)
+        module.update(chosen_actions, realized_rewards)
 
     # Create dummy data that will cause zero denominator
     chosen_actions = torch.tensor([[2.0]])
@@ -195,4 +195,4 @@ def test_update_head_zero_denominator(
     bandit.precision_matrix = torch.tensor([[-0.25]])  # shape (1,1)
 
     with pytest.raises(AssertionError):
-        module.update_head(chosen_actions, realized_rewards)
+        module.update(chosen_actions, realized_rewards)
