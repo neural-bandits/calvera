@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 from torch import optim
 
-from ..algorithms.neural_ucb_bandit import NeuralUCBBandit
-from .abstract_bandit_module import AbstractBanditModule
+from neural_bandits.algorithms.neural_ucb_bandit import NeuralUCBBandit
+from neural_bandits.modules.abstract_bandit_module import AbstractBanditModule
 
 
 class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):

@@ -4,7 +4,7 @@ from typing import Generic, TypeVar
 import lightning as pl
 import torch
 
-from ..algorithms.abstract_bandit import AbstractBandit
+from neural_bandits.algorithms.abstract_bandit import AbstractBandit
 
 BanditType = TypeVar("BanditType", bound="AbstractBandit")
 
