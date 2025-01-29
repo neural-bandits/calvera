@@ -3,16 +3,12 @@ from typing import Tuple
 import pytest
 import torch
 
-from neural_bandits.algorithms.linear_bandits import (
-    LinearBandit,
-    LinearTSBandit,
-    LinearUCBBandit,
-)
+from neural_bandits.algorithms.linear_bandits import LinearTSBandit, LinearUCBBandit
 from neural_bandits.modules.linear_bandit_module import LinearBanditModule
 
 
 @pytest.fixture
-def setup_ucb_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
+def setup_ucb_bandit() -> Tuple[LinearUCBBandit, LinearBanditModule[LinearUCBBandit]]:
     """
     Setup LinearUCBBandit with n_features=5.
     """
@@ -24,7 +20,7 @@ def setup_ucb_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
 
 
 @pytest.fixture
-def setup_ts_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
+def setup_ts_bandit() -> Tuple[LinearTSBandit, LinearBanditModule[LinearTSBandit]]:
     """
     Setup LinearTSBandit with n_features=5.
     """
@@ -36,7 +32,9 @@ def setup_ts_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
 
 
 @pytest.fixture
-def setup_simple_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
+def setup_simple_bandit() -> (
+    Tuple[LinearUCBBandit, LinearBanditModule[LinearUCBBandit]]
+):
     """
     Setup LinearUCBBandit with n_features=1.
     """
@@ -79,7 +77,7 @@ def test_update_updates_parameters_parameterized(
 
 
 def test_update_correct(
-    setup_simple_bandit: Tuple[LinearBandit, LinearBanditModule]
+    setup_simple_bandit: Tuple[LinearUCBBandit, LinearBanditModule[LinearUCBBandit]]
 ) -> None:
     """
     In this simple scenario:
@@ -171,7 +169,7 @@ def test_update_invalid_shapes_parameterized(
 
 
 def test_update_zero_denominator(
-    setup_simple_bandit: Tuple[LinearBandit, LinearBanditModule]
+    setup_simple_bandit: Tuple[LinearUCBBandit, LinearBanditModule[LinearUCBBandit]]
 ) -> None:
     """
     Test if assertion error is raised when denominator is zero.

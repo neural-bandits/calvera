@@ -1,4 +1,4 @@
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Type, TypeVar
 
 import torch
 
@@ -13,7 +13,7 @@ class LinearBanditModule(
 ):
     def __init__(
         self,
-        linear_bandit_type: LinearBanditType,
+        linear_bandit_type: Type[LinearBanditType],
         n_features: int,
         **kw_args: Any,
     ) -> None:
