@@ -8,37 +8,53 @@ from neural_bandits.algorithms.linear_bandits import (
     LinearTSBandit,
     LinearUCBBandit,
 )
-from neural_bandits.trainers.linear_bandit_trainer import LinearBanditTrainer
+from neural_bandits.modules.linear_bandit_module import LinearBanditModule
 
 
 @pytest.fixture
-def setup_bandit() -> Tuple[LinearBandit, LinearBanditTrainer]:
+def setup_ucb_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
+    """
+    Setup LinearUCBBandit with n_features=5.
+    """
     n_features = 5
-    bandit = LinearUCBBandit(n_features=n_features)
-    trainer = LinearBanditTrainer(bandit=bandit)
-    return bandit, trainer
+    module = LinearBanditModule(
+        linear_bandit_type=LinearUCBBandit, n_features=n_features
+    )
+    return module.bandit, module
 
 
 @pytest.fixture
-def setup_ts_bandit() -> Tuple[LinearBandit, LinearBanditTrainer]:
+def setup_ts_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
+    """
+    Setup LinearTSBandit with n_features=5.
+    """
     n_features = 5
-    bandit = LinearTSBandit(n_features=n_features)
-    trainer = LinearBanditTrainer(bandit=bandit)
-    return bandit, trainer
+    module = LinearBanditModule(
+        linear_bandit_type=LinearTSBandit, n_features=n_features
+    )
+    return module.bandit, module
 
 
 @pytest.fixture
-def setup_simple_bandit() -> Tuple[LinearBandit, LinearBanditTrainer]:
+def setup_simple_bandit() -> Tuple[LinearBandit, LinearBanditModule]:
+    """
+    Setup LinearUCBBandit with n_features=1.
+    """
     n_features = 1
-    bandit = LinearUCBBandit(n_features=n_features)
-    trainer = LinearBanditTrainer(bandit=bandit)
-    return bandit, trainer
+    module = LinearBanditModule(
+        linear_bandit_type=LinearUCBBandit, n_features=n_features
+    )
+    return module.bandit, module
 
 
-def test_training_step_updates_parameters(
-    setup_bandit: Tuple[LinearBandit, LinearBanditTrainer]
+@pytest.mark.parametrize("fixture_name", ["setup_ucb_bandit", "setup_ts_bandit"])
+def test_update_head_updates_parameters_parameterized(
+    fixture_name: str, request: pytest.FixtureRequest
 ) -> None:
-    bandit, trainer = setup_bandit
+    """
+    Test if parameters are updated after training step.
+    """
+    bandit, module = request.getfixturevalue(fixture_name)
     batch_size = 10
     n_features = bandit.n_features
 
@@ -52,7 +68,7 @@ def test_training_step_updates_parameters(
     initial_theta = bandit.theta.clone()
 
     # Perform training step
-    trainer.training_step(chosen_actions, realized_rewards)
+    module.update_head(chosen_actions, realized_rewards)
 
     # Check that parameters have been updated
     assert not torch.equal(
@@ -62,35 +78,8 @@ def test_training_step_updates_parameters(
     assert not torch.equal(bandit.theta, initial_theta), "theta should be updated"
 
 
-def test_training_step_updates_parameters_ts(
-    setup_ts_bandit: Tuple[LinearBandit, LinearBanditTrainer]
-) -> None:
-    bandit, trainer = setup_ts_bandit
-    batch_size = 10
-    n_features = bandit.n_features
-
-    # Create dummy data
-    chosen_actions = torch.randn(batch_size, n_features)
-    realized_rewards = torch.randn(batch_size)
-
-    # Save initial state
-    initial_precision_matrix = bandit.precision_matrix.clone()
-    initial_b = bandit.b.clone()
-    initial_theta = bandit.theta.clone()
-
-    # Perform training step
-    trainer.training_step(chosen_actions, realized_rewards)
-
-    # Check that parameters have been updated
-    assert not torch.equal(
-        bandit.precision_matrix, initial_precision_matrix
-    ), "Precision matrix should be updated"
-    assert not torch.equal(bandit.b, initial_b), "b should be updated"
-    assert not torch.equal(bandit.theta, initial_theta), "theta should be updated"
-
-
-def test_training_step_correct(
-    setup_simple_bandit: Tuple[LinearBandit, LinearBanditTrainer]
+def test_update_head_correct(
+    setup_simple_bandit: Tuple[LinearBandit, LinearBanditModule]
 ) -> None:
     """
     In this simple scenario:
@@ -106,12 +95,12 @@ def test_training_step_correct(
       theta_new = [0.4]
     """
 
-    bandit, trainer = setup_simple_bandit
+    bandit, module = setup_simple_bandit
 
     chosen_actions = torch.tensor([[2.0]])  # shape (1,1)
     realized_rewards = torch.tensor([1.0])  # shape (1,)
 
-    trainer.training_step(chosen_actions, realized_rewards)
+    module.update_head(chosen_actions, realized_rewards)
 
     expected_M = torch.tensor([[0.2]])
     expected_b = torch.tensor([2.0])
@@ -128,10 +117,14 @@ def test_training_step_correct(
     ), f"Expected theta={expected_theta}, got {bandit.theta}"
 
 
-def test_training_step_shapes(
-    setup_bandit: Tuple[LinearBandit, LinearBanditTrainer]
+@pytest.mark.parametrize("fixture_name", ["setup_ucb_bandit", "setup_ts_bandit"])
+def test_update_head_shapes_parameterized(
+    fixture_name: str, request: pytest.FixtureRequest
 ) -> None:
-    bandit, trainer = setup_bandit
+    """
+    Test if parameters have correct shapes after update.
+    """
+    bandit, module = request.getfixturevalue(fixture_name)
     batch_size = 10
     n_features = bandit.n_features
 
@@ -140,7 +133,7 @@ def test_training_step_shapes(
     realized_rewards = torch.randn(batch_size)
 
     # Perform training step
-    trainer.training_step(chosen_actions, realized_rewards)
+    module.update_head(chosen_actions, realized_rewards)
 
     # Check shapes of updated parameters
     assert bandit.precision_matrix.shape == (
@@ -151,10 +144,14 @@ def test_training_step_shapes(
     assert bandit.theta.shape == (n_features,), "theta should have shape (n_features,)"
 
 
-def test_training_step_invalid_shapes(
-    setup_bandit: Tuple[LinearBandit, LinearBanditTrainer]
+@pytest.mark.parametrize("fixture_name", ["setup_ucb_bandit", "setup_ts_bandit"])
+def test_update_head_invalid_shapes_parameterized(
+    fixture_name: str, request: pytest.FixtureRequest
 ) -> None:
-    bandit, trainer = setup_bandit
+    """
+    Test if assertion errors are raised for invalid input shapes.
+    """
+    bandit, module = request.getfixturevalue(fixture_name)
     batch_size = 10
     n_features = bandit.n_features
 
@@ -167,36 +164,35 @@ def test_training_step_invalid_shapes(
 
     # Check for assertion errors
     with pytest.raises(AssertionError):
-        trainer.training_step(chosen_actions_invalid, realized_rewards)
+        module.update_head(chosen_actions_invalid, realized_rewards)
 
     with pytest.raises(AssertionError):
-        trainer.training_step(chosen_actions, realized_rewards_invalid)
+        module.update_head(chosen_actions, realized_rewards_invalid)
 
 
-def test_training_step_zero_denominator(
-    setup_simple_bandit: Tuple[LinearBandit, LinearBanditTrainer]
+def test_update_head_zero_denominator(
+    setup_simple_bandit: Tuple[LinearBandit, LinearBanditModule]
 ) -> None:
-    bandit, trainer = setup_simple_bandit
+    """
+    Test if assertion error is raised when denominator is zero.
+    """
+    bandit, module = setup_simple_bandit
     batch_size = 10
     n_features = bandit.n_features
 
-    # Create dummy data that will cause a nan denominator
+    # Create dummy data with NaN
     chosen_actions = torch.zeros(batch_size, n_features)
     realized_rewards = torch.zeros(batch_size)
-
     chosen_actions[0, 0] = torch.nan
 
-    # Check for assertion error due to nan denominator
     with pytest.raises(AssertionError):
-        trainer.training_step(chosen_actions, realized_rewards)
+        module.update_head(chosen_actions, realized_rewards)
 
-    # Create dummy data that will cause a zero denominator
+    # Create dummy data that will cause zero denominator
     chosen_actions = torch.tensor([[2.0]])
     realized_rewards = torch.zeros(1)
 
-    # overwrite negative definite precision matrix for test (its invalid but we want to test the assertion)
     bandit.precision_matrix = torch.tensor([[-0.25]])  # shape (1,1)
 
-    # Check for assertion error due to zero denominator
     with pytest.raises(AssertionError):
-        trainer.training_step(chosen_actions, realized_rewards)
+        module.update_head(chosen_actions, realized_rewards)
