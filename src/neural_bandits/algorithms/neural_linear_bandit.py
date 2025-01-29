@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from scipy.stats import invgamma
 
 from neural_bandits.algorithms.abstract_bandit import AbstractBandit
 
