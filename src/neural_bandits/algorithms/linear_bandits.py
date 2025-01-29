@@ -44,6 +44,18 @@ class LinearUCBBandit(LinearBandit):
         ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
         n_arms = contextualised_actions.shape[1]
 
+        print(
+            self.alpha
+            * torch.sqrt(
+                torch.einsum(
+                    "ijk,kl,ijl->ij",
+                    contextualised_actions,
+                    self.precision_matrix,
+                    contextualised_actions,
+                )
+            )
+        )
+
         result = torch.argmax(
             torch.einsum("ijk,k->ij", contextualised_actions, self.theta)
             + self.alpha
