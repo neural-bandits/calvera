@@ -2,8 +2,8 @@ from typing import Any, Generic, TypeVar
 
 import torch
 
-from ..algorithms.linear_bandits import LinearBandit
-from .abstract_bandit_module import AbstractBanditModule
+from neural_bandits.algorithms.linear_bandits import LinearBandit
+from neural_bandits.modules.abstract_bandit_module import AbstractBanditModule
 
 LinearBanditType = TypeVar("LinearBanditType", bound="LinearBandit")
 
