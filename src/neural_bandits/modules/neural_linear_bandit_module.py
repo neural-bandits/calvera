@@ -307,52 +307,29 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             y.dim() == 1 and y.shape[0] == data_size
         ), "Expected rewards (y) to be 1D (batch_size,) and of same length as embedded_actions (z)"
 
-        s = z.T @ z  # shape (n_embedding_size, n_embedding_size)
+        denominator = 1 + ((z @ self.bandit.precision_matrix) * z).sum(dim=1).sum(dim=0)
+        assert torch.abs(denominator - 0) > 0, "Denominator must not be zero"
 
-        # Some terms are removed as we assume prior mu_0 = 0.
-        precision_a = s + self.hparams["lambda_prior"] * torch.eye(
-            n_embedding_size
-        )  # shape: (n_embedding_size, n_embedding_size)
+        self.bandit.precision_matrix = (
+            self.bandit.precision_matrix
+            - (
+                self.bandit.precision_matrix
+                @ torch.einsum("bi,bj->bij", z, z).sum(dim=0)
+                @ self.bandit.precision_matrix
+            )
+            / denominator
+        )
+        self.bandit.precision_matrix = 0.5 * (
+            self.bandit.precision_matrix + self.bandit.precision_matrix.T
+        )
 
+        # should be symmetric
         assert torch.allclose(
-            precision_a, precision_a.T
-        ), "Precision matrix must be symmetric"
-        # Check positive definiteness by ensuring all real eigenvalues > 0
-        p_eigvals, _ = torch.linalg.eig(precision_a)
-        assert torch.all(
-            p_eigvals.real > 0
-        ), "Precision matrix must be positive definite"
+            self.bandit.precision_matrix, self.bandit.precision_matrix.T
+        ), "M must be symmetric"
 
-        cov_post = torch.inverse(
-            precision_a
-        )  # shape: (n_embedding_size, n_embedding_size)
-        mu_post = cov_post @ (z.T @ y)  # shape: (n_embedding_size,)
-
-        # Inverse Gamma posterior update
-        a0 = b0 = self.hparams["eta"]
-        a_post = a0 + data_size / 2
-        b_upd = (y @ y) - (mu_post @ (precision_a @ mu_post))
-        b_post = b0 + b_upd / 2
-
-        assert a_post > 0, "a_post must be positive"
-        assert b_post > 0, "b_post must be positive"
-
-        assert mu_post.shape == (n_embedding_size,)
-        assert cov_post.shape == (n_embedding_size, n_embedding_size)
-
-        cov_eigvals, _ = torch.linalg.eig(cov_post)
-        assert torch.all(
-            cov_eigvals.real > 0
-        ), "Covariance matrix must be positive definite"
-
-        print(cov_eigvals)
-        print(cov_post)
-
-        # Store the new posterior parameters
-        self.bandit.mu = mu_post
-        self.bandit.cov = cov_post
-        self.bandit.a = a_post
-        self.bandit.b = b_post
+        self.bandit.b += z.T @ y  # shape: (features,)
+        self.bandit.theta = self.bandit.precision_matrix @ self.bandit.b
 
     def configure_optimizers(
         self,

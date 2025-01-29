@@ -40,10 +40,9 @@ class NeuralLinearBandit(AbstractBandit):
         }
 
         # Initialize the linear head which receives the embeddings
-        self.mu = torch.zeros(n_embedding_size)
-        self.cov = torch.eye(n_embedding_size)
-        self.a: float = self.hparams["eta"]
-        self.b: float = self.hparams["eta"]
+        self.precision_matrix = torch.eye(n_embedding_size)
+        self.b = torch.zeros(n_embedding_size)
+        self.theta = torch.zeros(n_embedding_size)
 
         self.predictions = 0
 
@@ -101,10 +100,8 @@ class NeuralLinearBandit(AbstractBandit):
         """
         batch_size, n_arms, _ = embedded_actions.shape
 
-        sigma2_tilde: float = self.b * invgamma.rvs(self.a)
-
         theta_tilde = torch.distributions.MultivariateNormal(  # type: ignore
-            self.mu, sigma2_tilde * self.cov
+            self.theta, self.precision_matrix
         ).sample(
             (batch_size,)
         )  # shape: (batch_size, n_features)
