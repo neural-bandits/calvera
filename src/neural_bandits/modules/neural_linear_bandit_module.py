@@ -35,6 +35,7 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             n_features (int): The number of features in the input data.
             n_embedding_size (Optional[int]): The size of the embedding produced by the encoder model. Defaults to n_features.
             encoder_update_freq (int): The interval (in steps) at which the encoder model is updated. Default is 32. None means the encoder model is never updated.
+            encoder_update_batch_size (int): The batch size for the encoder model update. Default is 32.
             head_update_freq (int): The interval (in steps) at which the encoder model is updated. Default is 1. None means the linear head is never updated independently.
             lr (float): The learning rate for the optimizer of the encoder model. Default is 1e-3.
             max_grad_norm (float): The maximum norm of the gradients for the encoder model. Default is 5.0.
