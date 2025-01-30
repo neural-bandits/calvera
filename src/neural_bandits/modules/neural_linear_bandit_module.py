@@ -159,14 +159,15 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         # Update the neural network and the linear head
         if (
             self.hparams["encoder_update_freq"] is not None
-            and batch_idx % self.hparams["encoder_update_freq"] == 0
+            and self.embedded_actions.shape[0] % self.hparams["encoder_update_freq"]
+            == 0
         ):
             self._train_nn()
             self._update_embeddings()
 
         if (
             self.hparams["head_update_freq"] is not None
-            and batch_idx % self.hparams["head_update_freq"] == 0
+            and self.embedded_actions.shape[0] % self.hparams["head_update_freq"] == 0
         ):
             self._update_head()
 
