@@ -26,8 +26,6 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         head_update_freq: int = 1,
         lr: float = 1e-3,
         max_grad_norm: float = 5.0,
-        lambda_prior: float = 0.25,
-        eta: float = 6.0,
     ) -> None:
         """
         Initializes the NeuralLinearBanditModule.
@@ -40,7 +38,6 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             head_update_freq (int): The interval (in steps) at which the encoder model is updated. Default is 1. None means the linear head is never updated independently.
             lr (float): The learning rate for the optimizer of the encoder model. Default is 1e-3.
             max_grad_norm (float): The maximum norm of the gradients for the encoder model. Default is 5.0.
-            lambda_prior (float): The regularization hyperparameter for the prior distribution of linear head theta | sigma^2 ~ N(0, sigma^2/lambda * I). Must be >= 0. Default is 0.25.
             eta (float): The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). Default is 6.0.
         """
         super().__init__()
@@ -57,9 +54,6 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             head_update_freq is None or head_update_freq > 0
         ), "The head_update_freq must be greater than 0. Set it to None to never update the head independently."
 
-        assert eta > 1, "eta must be greater than 1"
-        assert lambda_prior >= 0, "lambda_prior must be greater than or equal to 0."
-
         hyperparameters = {
             "n_features": n_features,
             "n_embedding_size": n_embedding_size,
@@ -68,8 +62,6 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             "head_update_freq": head_update_freq,
             "lr": lr,
             "max_grad_norm": max_grad_norm,
-            "eta": eta,
-            "lambda_prior": lambda_prior,
         }
 
         self.save_hyperparameters(hyperparameters)
@@ -79,7 +71,6 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             encoder=encoder,
             n_features=n_features,
             n_embedding_size=n_embedding_size,
-            eta=eta,
         )
 
         # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder, hence the single output dimension.

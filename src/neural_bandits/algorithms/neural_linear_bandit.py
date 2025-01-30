@@ -12,8 +12,6 @@ class NeuralLinearBandit(AbstractBandit):
         n_features: int,
         n_embedding_size: int,
         encoder: nn.Module,
-        initial_random_pulls: int = 0,
-        eta: float = 6.0,
     ) -> None:
         """
         Initializes the NeuralLinearBandit.
@@ -22,28 +20,20 @@ class NeuralLinearBandit(AbstractBandit):
         - n_features (int): The number of features in the contextualized actions that are fed into the encoder.
         - n_embedding_size (int): The size of the tensors coming out of the encoder.
         - encoder (torch.nn.Module): The embedding model (neural network) to be used.
-        - initial_random_pulls (int): The number of batches to initially select a random action for. Default is 0.
-        - eta (float): The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). eta > 1. Default is 6.0.
         """
         super().__init__(n_features)
-
-        assert eta > 1, "eta must be greater than 1"
 
         self.encoder = encoder
 
         self.hparams = {
             "n_features": n_features,
             "n_embedding_size": n_embedding_size,
-            "initial_random_pulls": initial_random_pulls,
-            "eta": eta,
         }
 
         # Initialize the linear head which receives the embeddings
         self.precision_matrix = torch.eye(n_embedding_size)
         self.b = torch.zeros(n_embedding_size)
         self.theta = torch.zeros(n_embedding_size)
-
-        self.predictions = 0
 
     def forward(self, contextualized_actions: torch.Tensor) -> torch.Tensor:
         """
@@ -57,18 +47,6 @@ class NeuralLinearBandit(AbstractBandit):
             contextualized_actions.ndim == 3
             and contextualized_actions.shape[2] == self.hparams["n_features"]
         ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
-
-        # Round robin until we have selected "initial_pulls" actions
-        # TODO: Do we really need this?
-        self.predictions += 1
-        if self.predictions - 1 < self.hparams["initial_random_pulls"]:
-            random_selected_actions = torch.randint(
-                0, contextualized_actions.shape[1], (contextualized_actions.shape[0],)
-            )  # shape: (batch_size,)
-            random_result = nn.functional.one_hot(
-                random_selected_actions, num_classes=contextualized_actions.shape[1]
-            )  # shape: (batch_size, n_arms)
-            return random_result
 
         embedded_actions: torch.Tensor = self.encoder(
             contextualized_actions
