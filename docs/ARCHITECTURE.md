@@ -40,7 +40,7 @@
 This is just a sketch: 
 
 ## General Case: Multiple Feature Vectors
-(multiple feature vectors / contextualised actions)-> NN  (multiple embeddings)-> Bandit Head (actions)
+(multiple feature vectors / contextualized actions)-> NN  (multiple embeddings)-> Bandit Head (actions)
 
 *Note 1: The usage of a NN is optional*
 *Note 2: The NN or model we refer to here should not be confused with a general embedding model. This is not part of the bandit*

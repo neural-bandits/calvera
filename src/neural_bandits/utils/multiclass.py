@@ -20,18 +20,18 @@ class MultiClassContextualizer:
             feature_vector (torch.Tensor): Input feature vector of shape (batch_size, n_features)
 
         Returns:
-            torch.Tensor: Contextualised actions of shape (batch_size, n_arms, n_features * n_arms)
+            torch.Tensor: contextualized actions of shape (batch_size, n_arms, n_features * n_arms)
         """
         assert (
             len(feature_vector.shape) == 2
         ), "Feature vector must have shape (batch_size, n_features)"
 
         n_features = feature_vector.shape[1]
-        contextualised_actions = torch.einsum(
+        contextualized_actions = torch.einsum(
             "ij,bk->bijk", torch.eye(self.n_arms), feature_vector
         )
-        contextualised_actions = contextualised_actions.reshape(
+        contextualized_actions = contextualized_actions.reshape(
             -1, self.n_arms, n_features * self.n_arms
         )
 
-        return contextualised_actions
+        return contextualized_actions

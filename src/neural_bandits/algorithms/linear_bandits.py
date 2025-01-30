@@ -16,17 +16,17 @@ class LinearTSBandit(LinearBandit):
     def __init__(self, n_features: int) -> None:
         super().__init__(n_features)
 
-    def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
+    def forward(self, contextualized_actions: torch.Tensor) -> torch.Tensor:
         assert (
-            contextualised_actions.shape[2] == self.n_features
-        ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
-        batch_size = contextualised_actions.shape[0]
-        n_arms = contextualised_actions.shape[1]
+            contextualized_actions.shape[2] == self.n_features
+        ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
+        batch_size = contextualized_actions.shape[0]
+        n_arms = contextualized_actions.shape[1]
 
         theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample((batch_size,))  # type: ignore
 
         result = torch.argmax(
-            torch.einsum("ijk,ik->ij", contextualised_actions, theta_tilde), dim=1
+            torch.einsum("ijk,ik->ij", contextualized_actions, theta_tilde), dim=1
         )
         return torch.nn.functional.one_hot(result, num_classes=n_arms).reshape(
             -1, n_arms
@@ -38,21 +38,21 @@ class LinearUCBBandit(LinearBandit):
         super().__init__(n_features)
         self.alpha = alpha
 
-    def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
+    def forward(self, contextualized_actions: torch.Tensor) -> torch.Tensor:
         assert (
-            contextualised_actions.shape[2] == self.n_features
-        ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
-        n_arms = contextualised_actions.shape[1]
+            contextualized_actions.shape[2] == self.n_features
+        ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
+        n_arms = contextualized_actions.shape[1]
 
         result = torch.argmax(
-            torch.einsum("ijk,k->ij", contextualised_actions, self.theta)
+            torch.einsum("ijk,k->ij", contextualized_actions, self.theta)
             + self.alpha
             * torch.sqrt(
                 torch.einsum(
                     "ijk,kl,ijl->ij",
-                    contextualised_actions,
+                    contextualized_actions,
                     self.precision_matrix,
-                    contextualised_actions,
+                    contextualized_actions,
                 )
             ),
             dim=1,
