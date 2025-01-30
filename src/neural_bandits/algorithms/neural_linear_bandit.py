@@ -108,7 +108,7 @@ class NeuralLinearBandit(AbstractBandit):
         pred_reward_per_action = torch.einsum(
             "ijk,ik->ij", embedded_actions, theta_tilde
         )  # shape: (batch_size, n_arms)
-        result = torch.argmax(pred_reward_per_action)  # shape: (batch_size,)
+        result = torch.argmax(pred_reward_per_action, dim=-1)  # shape: (batch_size,)
 
         return torch.nn.functional.one_hot(result, num_classes=n_arms).reshape(
             -1, n_arms
