@@ -8,7 +8,7 @@ from neural_bandits.modules.neural_linear_bandit_module import NeuralLinearBandi
 
 
 @pytest.fixture(autouse=True)
-def seed_tests():
+def seed_tests() -> None:
     pl.seed_everything(42)
 
 
@@ -49,7 +49,7 @@ def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
     Test forward with a small sample data we can reason about:
     If the bandit is random or identity, we just confirm shape & no errors.
     """
-    batch_size, n_arms, n_features = 1, 2, 2
+    n_features = 2
     encoder = nn.Identity()
     bandit = NeuralLinearBandit(
         n_features=n_features,
@@ -73,11 +73,7 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
     Test forward with a small sample data we can reason about:
     Actually confirm the correct output.
     """
-    batch_size, n_arms, n_features = (
-        1,
-        2,
-        2,
-    )
+    n_features = 2
     encoder = nn.Sequential(
         nn.Linear(n_features, n_features, bias=False),
         # don't add a ReLU here because its the final layer
@@ -118,7 +114,11 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 # 2) Tests for NeuralLinearBanditModule
 # ------------------------------------------------------------------------------
 @pytest.fixture
-def small_context_reward_batch() -> tuple[torch.Tensor, torch.Tensor]:
+def small_context_reward_batch() -> tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+]:
     """
     Returns (contextualized_actions, rewards):
       contextualized_actions shape: (batch_size=2, n_arms=3, n_features=4)
@@ -129,7 +129,7 @@ def small_context_reward_batch() -> tuple[torch.Tensor, torch.Tensor]:
     # e.g., random rewards
     rewards = torch.randn(batch_size, n_arms)
 
-    class RandomDataset(torch.utils.data.Dataset):
+    class RandomDataset(torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
         def __init__(self, actions: torch.Tensor, rewards: torch.Tensor):
             self.actions = actions
             self.rewards = rewards
@@ -146,13 +146,15 @@ def small_context_reward_batch() -> tuple[torch.Tensor, torch.Tensor]:
 
 def test_neural_linear_bandit_module_forward_shape(
     small_context_reward_batch: tuple[
-        torch.Tensor, torch.Tensor, torch.utils.data.Dataset
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
     ]
 ) -> None:
     """
     Test that calling the module's forward (bandit forward) yields shape (batch_size, n_arms).
     """
-    actions, rewards = small_context_reward_batch
+    actions, rewards, dataset = small_context_reward_batch
     n_features = actions.shape[2]
     n_embedding_size = 8
 
@@ -176,7 +178,11 @@ def test_neural_linear_bandit_module_forward_shape(
 
 
 def test_neural_linear_bandit_module_training_step(
-    small_context_reward_batch: tuple[torch.Tensor, torch.Tensor]
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    ]
 ) -> None:
     """
     Test that a training step runs without error on a small dataset and updates the replay buffer.
