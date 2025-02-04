@@ -12,6 +12,11 @@ from neural_bandits.algorithms.linear_bandits import (
 BanditClassType = TypeVar("BanditClassType", bound="LinearBandit")
 
 
+@pytest.fixture(autouse=True)
+def setup_seed() -> None:
+    torch.manual_seed(42)
+
+
 @pytest.mark.parametrize("BanditClass", [LinearTSBandit, LinearUCBBandit])
 def test_linear_bandits_forward_shapes(BanditClass: BanditClassType) -> None:
     """Check if forward method returns correct shape and handles valid input."""

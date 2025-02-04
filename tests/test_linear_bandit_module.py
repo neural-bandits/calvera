@@ -1,10 +1,16 @@
 from typing import Tuple
 
 import pytest
+import pytorch_lightning as pl
 import torch
 
 from neural_bandits.algorithms.linear_bandits import LinearTSBandit, LinearUCBBandit
 from neural_bandits.modules.linear_bandit_module import LinearBanditModule
+
+
+@pytest.fixture(autouse=True)
+def seed_tests() -> None:
+    pl.seed_everything(42)
 
 
 @pytest.fixture
