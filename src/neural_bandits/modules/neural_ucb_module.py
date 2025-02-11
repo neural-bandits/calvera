@@ -28,6 +28,7 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         learning_rate: float = 0.01,
         train_freq: int = 100,
         initial_train_steps: int = 1000,
+        max_grad_norm: float = 20.0,
         **kw_args: Any,
     ) -> None:
         """Initialize the NeuralUCB bandit module.
@@ -42,6 +43,7 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
             learning_rate: Learning rate for SGD optimizer.
             train_freq: Frequency of network training after initial training.
             initial_train_steps: Number of initial training steps.
+            max_grad_norm: Maximum gradient norm for gradient clipping.
             **kw_args: Additional arguments passed to parent class.
         """
         super().__init__()
@@ -59,6 +61,7 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
             "learning_rate": learning_rate,
             "train_freq": train_freq,
             "initial_train_steps": initial_train_steps,
+            "max_grad_norm": max_grad_norm,
             **kw_args,
         }
         self.save_hyperparameters(hyperparameters)
@@ -69,6 +72,9 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
             lambda_=lambda_,
             nu=nu,
         )
+
+        self.total_regret: float = 0.0
+        self.total_samples: int = 0
 
     def training_step(
         self,
@@ -88,19 +94,21 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
             >>> batch = (context_tensor, reward_tensor)
             >>> loss = model.training_step(batch, 0)
         """
-        rewards: torch.Tensor = batch[1]
-        contextualized_actions: torch.Tensor = batch[0]
+        rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
+        contextualized_actions: torch.Tensor = batch[
+            0
+        ]  # shape: (batch_size, n_arms, n_features)
+        batch_size = rewards.shape[0]
 
         # Get UCB scores and select actions
         ucb_scores = self(contextualized_actions)
-        chosen_actions_idx = ucb_scores.argmax(dim=1)
-        realized_rewards = rewards[torch.arange(rewards.shape[0]), chosen_actions_idx]
-        batch_size = chosen_actions_idx.shape[0]
+        chosen_actions_idx = ucb_scores.argmax(dim=1)  # shape: (batch_size,)
+        realized_rewards = rewards[torch.arange(batch_size), chosen_actions_idx]
 
         # Get chosen features
         chosen_actions = contextualized_actions[
             torch.arange(batch_size), chosen_actions_idx
-        ]
+        ]  # shape: (batch_size, n_features)
 
         # Update bandit's history
         self.bandit.context_history.append(chosen_actions)
@@ -113,7 +121,8 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         )
 
         if should_train:
-            self._train_network()
+            loss = self._train_network()
+            self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
 
         # Logging
         self.log(
@@ -125,6 +134,17 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
         )
         regret = torch.max(rewards, dim=1).values - realized_rewards
         self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
+
+        self.total_regret += regret.sum().item()
+        self.total_samples += batch_size
+
+        self.log(
+            "average_regret",
+            self.total_regret / self.total_samples,
+            on_step=True,
+            on_epoch=False,
+            prog_bar=True,
+        )
 
         return -rewards.mean()
 
@@ -147,12 +167,20 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
                 context = self.bandit.context_history[i]
                 reward = self.bandit.reward_history[i]
 
+                batch_size = context.shape[0]
+
                 optimizer.zero_grad()
 
                 # Compute f(x_i,a_i; θ)
                 f_theta = self.bandit.theta_t(context)
-                L_theta = (f_theta - reward) ** 2
+                L_theta = torch.nn.functional.mse_loss(f_theta, reward.unsqueeze(1))
+                L_theta = L_theta.sum() / batch_size
                 self.manual_backward(L_theta)
+
+                torch.nn.utils.clip_grad_norm_(
+                    self.bandit.theta_t.parameters(),
+                    max_norm=self.hparams["max_grad_norm"],
+                )
 
                 optimizer.step()
 
