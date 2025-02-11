@@ -26,7 +26,6 @@ class TestCoverTypeDataset:
             assert reward == (dataset.y[i] - 1 == 1)
 
 
-@pytest.mark.skip(reason="MNIST down")
 class TestMNISTDataset:
     @pytest.fixture
     def dataset(self) -> MNISTDataset:
