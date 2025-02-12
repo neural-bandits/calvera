@@ -7,7 +7,6 @@ from torch import optim
 
 from neural_bandits.algorithms.neural_ucb_bandit import NeuralUCBBandit
 from neural_bandits.modules.abstract_bandit_module import AbstractBanditModule
-from neural_bandits.utils.selectors import ArgmaxSelector
 
 
 class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
@@ -103,7 +102,8 @@ class NeuralUCBBanditModule(AbstractBanditModule[NeuralUCBBandit]):
 
         # Get UCB scores and select actions
         ucb_scores = self(contextualized_actions)
-        chosen_actions_idx = ArgmaxSelector()(ucb_scores)  # shape: (batch_size,)
+        # chosen_actions_idx = ArgMaxSelector()(ucb_scores)
+        chosen_actions_idx = ucb_scores.argmax(dim=1)  # shape: (batch_size,)
         realized_rewards = rewards[torch.arange(batch_size), chosen_actions_idx]
 
         # Get chosen features
