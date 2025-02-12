@@ -20,6 +20,7 @@ all:
 	make format
 	make lint
 	make mypy
+	make coverage
 
 .PHONY: test
 test:
@@ -27,4 +28,4 @@ test:
 
 .PHONY: coverage
 coverage:
-	pytest --cov=./src tests/ --cov-fail-under=60
+	pytest --cov=./src tests/ --cov-fail-under=70
