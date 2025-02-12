@@ -108,7 +108,7 @@ class NeuralLinearBandit(LinearTSBandit):
         assert (
             contextualized_actions.ndim == 3
             and contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
-        ), f"Contextualized actions must have shape (batch_size, n_arms, n_encoder_input_size)"
+        ), f"Contextualized actions must have shape (batch_size, n_arms, n_encoder_input_size). Expected shape {(contextualized_actions.shape)} but got shape {contextualized_actions.shape}"
 
         embedded_actions: torch.Tensor = self.encoder(
             contextualized_actions
