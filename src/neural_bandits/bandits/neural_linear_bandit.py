@@ -48,7 +48,9 @@ class NeuralLinearBandit(LinearTSBandit):
 
         super().__init__(n_features=n_embedding_size, selector=selector)
 
-        assert n_encoder_input_size > 0, "The number of features must be greater than 0."
+        assert (
+            n_encoder_input_size > 0
+        ), "The number of features must be greater than 0."
         assert n_embedding_size > 0, "The embedding size must be greater than 0."
         assert (
             encoder_update_freq is None or encoder_update_freq > 0
@@ -57,15 +59,17 @@ class NeuralLinearBandit(LinearTSBandit):
             head_update_freq is None or head_update_freq > 0
         ), "The head_update_freq must be greater than 0. Set it to None to never update the head independently."
 
-        self.hparams.update({
-            "n_encoder_input_size": n_encoder_input_size,
-            "n_embedding_size": n_embedding_size,  # same as n_features
-            "encoder_update_freq": encoder_update_freq,
-            "encoder_update_batch_size": encoder_update_batch_size,
-            "head_update_freq": head_update_freq,
-            "lr": lr,
-            "max_grad_norm": max_grad_norm,
-        })
+        self.hparams.update(
+            {
+                "n_encoder_input_size": n_encoder_input_size,
+                "n_embedding_size": n_embedding_size,  # same as n_features
+                "encoder_update_freq": encoder_update_freq,
+                "encoder_update_batch_size": encoder_update_batch_size,
+                "head_update_freq": head_update_freq,
+                "lr": lr,
+                "max_grad_norm": max_grad_norm,
+            }
+        )
 
         self.encoder = encoder
 
@@ -147,7 +151,8 @@ class NeuralLinearBandit(LinearTSBandit):
 
         assert (
             chosen_contextualized_actions.ndim == 3
-            and chosen_contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
+            and chosen_contextualized_actions.shape[2]
+            == self.hparams["n_encoder_input_size"]
         ), "Contextualized actions must have shape (batch_size, n_chosen_arms, n_encoder_input_size)"
 
         assert (
@@ -177,10 +182,20 @@ class NeuralLinearBandit(LinearTSBandit):
 
         # Update the replay buffer
         self.contextualized_actions = torch.cat(
-            [self.contextualized_actions, chosen_contextualized_actions.view(-1, chosen_contextualized_actions.size(-1))], dim=0
+            [
+                self.contextualized_actions,
+                chosen_contextualized_actions.view(
+                    -1, chosen_contextualized_actions.size(-1)
+                ),
+            ],
+            dim=0,
         )
         self.embedded_actions = torch.cat(
-            [self.embedded_actions, chosen_embedded_actions.view(-1, chosen_embedded_actions.size(-1))], dim=0
+            [
+                self.embedded_actions,
+                chosen_embedded_actions.view(-1, chosen_embedded_actions.size(-1)),
+            ],
+            dim=0,
         )
         self.rewards = torch.cat([self.rewards, realized_rewards.squeeze()], dim=0)
 

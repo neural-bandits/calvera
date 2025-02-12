@@ -45,6 +45,7 @@ def test_neural_linear_bandit_forward_shape() -> None:
     assert p.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {p.shape}"
     assert torch.all(0 <= p) and torch.all(p <= 1), "Probabilities should be in [0, 1]"
 
+
 def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
     """
     Test forward with a small sample data we can reason about:

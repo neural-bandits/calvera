@@ -15,7 +15,7 @@ class LinearTSBandit(LinearBandit):
     ) -> None:
         """
         Initializes the LinearTSBandit.
-        
+
         Args:
             n_features: The number of features in the bandit model.
             selector: The selector used to choose the best action. Default is ArgMaxSelector.
@@ -23,9 +23,11 @@ class LinearTSBandit(LinearBandit):
         super().__init__(n_features, **kwargs)
         self.selector = selector
 
-    def predict(self, contextualized_actions: torch.Tensor, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
+    def predict(
+        self, contextualized_actions: torch.Tensor, **kwargs: Any
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Given contextualized actions, predicts the best action using LinTS.
-        
+
         Args:
             contextualized_actions (torch.Tensor): The input tensor of shape (batch_size, n_arms, n_features).
 
@@ -44,15 +46,19 @@ class LinearTSBandit(LinearBandit):
 
         theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample((batch_size,))  # type: ignore
 
-        expected_rewards = torch.einsum("ijk,ik->ij", contextualized_actions, theta_tilde)
+        expected_rewards = torch.einsum(
+            "ijk,ik->ij", contextualized_actions, theta_tilde
+        )
 
         probabilities = self.compute_probabilities(contextualized_actions, theta_tilde)
 
         return self.selector(expected_rewards), probabilities
 
-    def compute_probabilities(self, contextualized_actions: torch.Tensor, theta_tilde: torch.Tensor) -> torch.Tensor:
+    def compute_probabilities(
+        self, contextualized_actions: torch.Tensor, theta_tilde: torch.Tensor
+    ) -> torch.Tensor:
         """Compute the probability of the chosen actions.
-        
+
         Args:
             contextualized_actions (torch.Tensor): The input tensor of shape (batch_size, n_arms, n_features).
             theta_tilde (torch.Tensor): The sampled theta from the posterior distribution of the model.

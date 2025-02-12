@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import torch
 
+
 class AbstractSelector(ABC):
     """Defines the interface for all bandit action selectors.
     Given a tensor of scores per action, the selector chooses the best action (i.e. an arm)

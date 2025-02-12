@@ -12,7 +12,7 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 class NeuralUCBBandit(AbstractBandit):
     """NeuralUCB bandit implementation as a PyTorch Lightning module.
     The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for exploration.
-    
+
     Attributes:
         automatic_optimization: Boolean indicating if Lightning should handle optimization.
         bandit: The underlying NeuralUCBBandit instance.
@@ -88,8 +88,9 @@ class NeuralUCBBandit(AbstractBandit):
         )
 
         # Initialize Z_0 = λI
-        self.Z_t = self.hparams["lambda_"] * torch.ones((self.total_params,), device=self.device)
-
+        self.Z_t = self.hparams["lambda_"] * torch.ones(
+            (self.total_params,), device=self.device
+        )
 
     def predict(
         self,
@@ -144,7 +145,12 @@ class NeuralUCBBandit(AbstractBandit):
         # Shape: (batch_size, n_arms)
         exploration_terms = torch.sqrt(
             torch.sum(
-                self.hparams["lambda_"] * self.hparams["nu"] * all_gradients * all_gradients / self.Z_t, dim=2
+                self.hparams["lambda_"]
+                * self.hparams["nu"]
+                * all_gradients
+                * all_gradients
+                / self.Z_t,
+                dim=2,
             )
         )
 
@@ -162,7 +168,6 @@ class NeuralUCBBandit(AbstractBandit):
 
         # Return chosen actions and
         return chosen_actions, torch.ones(batch_size, device=self.device)
-
 
     def update_step(
         self,

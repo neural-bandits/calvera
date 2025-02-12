@@ -4,6 +4,7 @@ import torch
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
+
 class LinearBandit(AbstractBandit):
     def __init__(
         self,
@@ -32,14 +33,13 @@ class LinearBandit(AbstractBandit):
         self.b = torch.zeros(n_features)
         self.theta = torch.zeros(n_features)
 
-
     def update_step(
         self,
         batch: torch.Tensor,
         batch_idx: int,
     ) -> torch.Tensor:
         """Perform an update step on the linear bandit model.
-        
+
         Args:
             batch (tuple): The output of your data iterable, normally a DataLoader:
                 chosen_contextualized_actions (torch.Tensor): shape (batch_size, n_chosen_actions, n_features).
@@ -49,7 +49,7 @@ class LinearBandit(AbstractBandit):
 
         Returns:
             torch.Tensor: The loss value as the negative mean of all realized_rewards in this batch.
-                Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant 
+                Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """
         chosen_contextualized_actions: torch.Tensor = batch[0]
@@ -112,9 +112,7 @@ class LinearBandit(AbstractBandit):
             )
             / denominator
         )
-        self.precision_matrix = 0.5 * (
-            self.precision_matrix + self.precision_matrix.T
-        )
+        self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)
         # should be symmetric
         assert torch.allclose(
             self.precision_matrix, self.precision_matrix.T
@@ -128,6 +126,5 @@ class LinearBandit(AbstractBandit):
         ), "updated b should have shape (n_features,)"
 
         assert (
-            self.theta.ndim == 1
-            and self.theta.shape[0] == self.n_features
+            self.theta.ndim == 1 and self.theta.shape[0] == self.n_features
         ), "Theta should have shape (n_features,)"
