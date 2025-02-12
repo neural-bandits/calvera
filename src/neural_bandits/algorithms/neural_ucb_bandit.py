@@ -59,11 +59,11 @@ class NeuralUCBBandit(AbstractBandit):
 
         self.n_features = n_features
 
-    def forward(self, contextualised_actions: torch.Tensor) -> torch.Tensor:
+    def forward(self, contextualized_actions: torch.Tensor) -> torch.Tensor:
         """Calculate UCB scores for each action using diagonal approximation.
 
         Args:
-            contextualised_actions: Contextualised action tensor of shape
+            contextualized_actions: contextualized action tensor of shape
                 (batch_size, n_arms, n_features).
 
         Returns:
@@ -72,19 +72,19 @@ class NeuralUCBBandit(AbstractBandit):
         Raises:
             AssertionError: If input tensor shape doesn't match n_features.
         """
-        contextualised_actions = contextualised_actions.to(self.device)
+        contextualized_actions = contextualized_actions.to(self.device)
 
         assert (
-            contextualised_actions.shape[2] == self.n_features
-        ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
+            contextualized_actions.shape[2] == self.n_features
+        ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
 
-        contextualised_actions = contextualised_actions.squeeze(0)
+        contextualized_actions = contextualized_actions.squeeze(0)
 
         U_t_a_list = []  # Store U_t,a values
         g_t_a_list = []  # Store g(x_t,a; θ_t-1) values
 
         # Compute f(x_t,a; θ_t-1) for each arm
-        f_t_a_list = self.theta_t(contextualised_actions)
+        f_t_a_list = self.theta_t(contextualized_actions)
 
         for f_t_a in f_t_a_list:
             # Calculate g(x_t,a; θ_t-1)

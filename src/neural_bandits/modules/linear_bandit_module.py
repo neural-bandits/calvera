@@ -1,9 +1,9 @@
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Type, TypeVar
 
 import torch
 
-from ..algorithms.linear_bandits import LinearBandit
-from .abstract_bandit_module import AbstractBanditModule
+from neural_bandits.algorithms.linear_bandits import LinearBandit
+from neural_bandits.modules.abstract_bandit_module import AbstractBanditModule
 
 LinearBanditType = TypeVar("LinearBanditType", bound="LinearBandit")
 
@@ -13,7 +13,7 @@ class LinearBanditModule(
 ):
     def __init__(
         self,
-        linear_bandit_type: LinearBanditType,
+        linear_bandit_type: Type[LinearBanditType],
         n_features: int,
         **kw_args: Any,
     ) -> None:
@@ -54,11 +54,50 @@ class LinearBanditModule(
             torch.arange(batch_size), chosen_actions_idx
         ]
 
+        self.update(chosen_actions, realized_rewards)
+
+        self.log(
+            "reward",
+            realized_rewards.mean(),
+            on_step=True,
+            on_epoch=False,
+            prog_bar=True,
+        )
+        regret = torch.max(rewards, dim=1).values - realized_rewards
+        self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
+
+        return -rewards.mean()
+
+    def update(
+        self,
+        chosen_actions: torch.Tensor,
+        realized_rewards: torch.Tensor,
+    ) -> None:
+        """
+        Perform an update step on the linear bandit given the actions that were chosen and the rewards that were observed.
+
+        Args:
+            chosen_actions: The chosen contextualized actions in this batch. Shape: (batch_size, n_features)
+            realized_rewards: The realized rewards of the chosen action in this batch. Shape: (batch_size,)
+        """
+
+        assert (
+            chosen_actions.shape[0] == realized_rewards.shape[0]
+        ), "Batch size of chosen actions and realized_rewards must match"
+
+        assert (
+            chosen_actions.shape[1] == self.bandit.n_features
+        ), "Chosen actions must have shape (batch_size, n_features) and n_features must match the bandit's n_features"
+
+        assert (
+            realized_rewards.ndim == 1
+        ), "Realized rewards must have shape (batch_size,)"
+
         # Calculate new precision Matrix M using the Sherman-Morrison formula
         denominator = 1 + (
             (chosen_actions @ self.bandit.precision_matrix) * chosen_actions
         ).sum(dim=1).sum(dim=0)
-        assert torch.abs(denominator - 0) > 0, "Denominator must not be zero"
+        assert torch.abs(denominator) > 0, "Denominator must not be zero or nan"
 
         self.bandit.precision_matrix = (
             self.bandit.precision_matrix
@@ -80,17 +119,14 @@ class LinearBanditModule(
         self.bandit.b += chosen_actions.T @ realized_rewards  # shape: (features,)
         self.bandit.theta = self.bandit.precision_matrix @ self.bandit.b
 
-        self.log(
-            "reward",
-            realized_rewards.mean(),
-            on_step=True,
-            on_epoch=False,
-            prog_bar=True,
-        )
-        regret = torch.max(rewards, dim=1).values - realized_rewards
-        self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
+        assert (
+            self.bandit.b.ndim == 1 and self.bandit.b.shape[0] == self.bandit.n_features
+        ), "updated b should have shape (n_features,)"
 
-        return -rewards.mean()
+        assert (
+            self.bandit.theta.ndim == 1
+            and self.bandit.theta.shape[0] == self.bandit.n_features
+        ), "Theta should have shape (n_features,)"
 
     def configure_optimizers(self) -> None:
         return None
