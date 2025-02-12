@@ -32,11 +32,10 @@ class LinearUCBBandit(LinearBandit):
             - p (torch.Tensor): The probability of the chosen actions. For LinUCB this will always return 1.
                 Shape: (batch_size, ).
         """
-        
+
         assert (
             contextualized_actions.shape[2] == self.hparams["n_features"]
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
-        n_arms = contextualized_actions.shape[1]
 
         result = torch.einsum(
             "ijk,k->ij", contextualized_actions, self.theta
@@ -49,9 +48,6 @@ class LinearUCBBandit(LinearBandit):
             )
         )
 
-        torch.nn.functional.one_hot(
-            torch.argmax(result, dim=1), num_classes=n_arms
-        ).reshape(-1, n_arms)
         return self.selector(result), torch.ones(
-            (contextualized_actions.shape[0]), device=contextualized_actions.device
+            contextualized_actions.shape[0], device=contextualized_actions.device
         )

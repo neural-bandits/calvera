@@ -1,15 +1,15 @@
-from typing import Optional
+from typing import Any, Optional
 
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
-from neural_bandits.algorithms.neural_linear_bandit import NeuralLinearBandit
-from neural_bandits.modules.abstract_bandit_module import AbstractBanditModule
+from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
+from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
+class NeuralLinearBandit(LinearTSBandit):
     """
-    Module for training a Neural Linear bandit model.
+    Lightning Module implementing a Neural Linear bandit.
     The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
     A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear head that is trained on the embeddings.
     Since updating the neural network (encoder) is computationally expensive, the neural network is only updated every `embedding_update_interval` steps.
@@ -19,8 +19,9 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
     def __init__(
         self,
         encoder: torch.nn.Module,
-        n_features: int,
+        n_encoder_input_size: int,
         n_embedding_size: Optional[int],
+        selector: AbstractSelector = ArgMaxSelector(),
         encoder_update_freq: int = 32,
         encoder_update_batch_size: int = 32,
         head_update_freq: int = 1,
@@ -32,8 +33,9 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
 
         Args:
             encoder: The encoder model (neural network) to be used.
-            n_features: The number of features in the input data.
-            n_embedding_size: The size of the embedding produced by the encoder model. Defaults to n_features.
+            n_encoder_input_size: The number of features in the input data.
+            n_embedding_size: The size of the embedding produced by the encoder model. Defaults to n_encoder_input_size.
+            selector: The selector used to choose the best action. Default is ArgMaxSelector.
             encoder_update_freq: The interval (in steps) at which the encoder model is updated. Default is 32. None means the encoder model is never updated.
             encoder_update_batch_size: The batch size for the encoder model update. Default is 32.
             head_update_freq: The interval (in steps) at which the encoder model is updated. Default is 1. None means the linear head is never updated independently.
@@ -41,12 +43,12 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             max_grad_norm: The maximum norm of the gradients for the encoder model. Default is 5.0.
             eta: The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). Default is 6.0.
         """
-        super().__init__()
-
         if n_embedding_size is None:
-            n_embedding_size = n_features
+            n_embedding_size = n_encoder_input_size
 
-        assert n_features > 0, "The number of features must be greater than 0."
+        super().__init__(n_features=n_embedding_size, selector=selector)
+
+        assert n_encoder_input_size > 0, "The number of features must be greater than 0."
         assert n_embedding_size > 0, "The embedding size must be greater than 0."
         assert (
             encoder_update_freq is None or encoder_update_freq > 0
@@ -55,44 +57,84 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             head_update_freq is None or head_update_freq > 0
         ), "The head_update_freq must be greater than 0. Set it to None to never update the head independently."
 
-        hyperparameters = {
-            "n_features": n_features,
-            "n_embedding_size": n_embedding_size,
+        self.hparams.update({
+            "n_encoder_input_size": n_encoder_input_size,
+            "n_embedding_size": n_embedding_size,  # same as n_features
             "encoder_update_freq": encoder_update_freq,
             "encoder_update_batch_size": encoder_update_batch_size,
             "head_update_freq": head_update_freq,
             "lr": lr,
             "max_grad_norm": max_grad_norm,
-        }
+        })
 
-        self.save_hyperparameters(hyperparameters)
+        self.encoder = encoder
 
-        # The bandit contains all of the code and models for making predictions
-        self.bandit = NeuralLinearBandit(
-            encoder=encoder,
-            n_features=n_features,
-            n_embedding_size=n_embedding_size,
-        )
+        # Initialize the linear head which receives the embeddings
+        self.precision_matrix = torch.eye(n_embedding_size)
+        self.b = torch.zeros(n_embedding_size)
+        self.theta = torch.zeros(n_embedding_size)
 
         # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder, hence the single output dimension.
         # TODO: it would be cleaner if this was a lightning module?
         self.net = torch.nn.Sequential(
-            self.bandit.encoder,
+            self.encoder,
             torch.nn.Linear(self.hparams["n_embedding_size"], 1),
         )
 
         self.contextualized_actions: torch.Tensor = torch.empty(
             0
-        )  # shape: (buffer_size, n_features)
+        )  # shape: (buffer_size, n_encoder_input_size)
         self.embedded_actions: torch.Tensor = torch.empty(
             0
-        )  # shape: (buffer_size, n_embedding_size)
+        )  # shape: (buffer_size, n_encoder_input_size)
         self.rewards: torch.Tensor = torch.empty(0)  # shape: (buffer_size,)
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
 
-    def training_step(
+    def predict(
+        self, contextualized_actions: torch.Tensor, **kwargs: Any
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Predict the action to take for the given input data according to neural linear.
+
+        Args:
+            contextualized_actions: The input data. Shape: (batch_size, n_arms, n_encoder_input_size)
+        """
+
+        assert (
+            contextualized_actions.ndim == 3
+            and contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
+        ), f"Contextualized actions must have shape (batch_size, n_arms, n_encoder_input_size)"
+
+        embedded_actions: torch.Tensor = self.encoder(
+            contextualized_actions
+        )  # shape: (batch_size, n_arms, n_embedding_size)
+
+        assert (
+            embedded_actions.ndim == 3
+            and embedded_actions.shape[0] == contextualized_actions.shape[0]
+            and embedded_actions.shape[1] == contextualized_actions.shape[1]
+            and embedded_actions.shape[2] == self.hparams["n_embedding_size"]
+        ), f"Embedded actions must have shape (batch_size, n_arms, n_encoder_input_size). Expected shape {(contextualized_actions.shape[0], contextualized_actions.shape[1], self.hparams['n_embedding_size'])} but got shape {embedded_actions.shape}"
+
+        # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward method here: because of inheriting it would call our forward and predict method again.
+        result, p = super().predict(embedded_actions)  # shape: (batch_size, n_arms)
+
+        assert (
+            result.shape[0] == contextualized_actions.shape[0]
+            and result.shape[1] == contextualized_actions.shape[1]
+        ), f"Linear head output must have shape (batch_size, n_arms). Expected shape {(contextualized_actions.shape[0], contextualized_actions.shape[1])} but got shape {result.shape}"
+
+        assert (
+            p.ndim == 1
+            and p.shape[0] == contextualized_actions.shape[0]
+            and torch.all(p >= 0)
+            and torch.all(p <= 1)
+        ), f"The probabilities must be between 0 and 1 and have shape ({contextualized_actions.shape[0]}, ) but got shape {p.shape}"
+
+        return result, p
+
+    def update_step(
         self,
         batch: torch.Tensor,
         batch_idx: int,
@@ -100,35 +142,27 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         """
         Perform a training step on the neural linear bandit model.
         """
-        contextualized_actions: torch.Tensor = batch[0]
-        rewards: torch.Tensor = batch[1]
+        chosen_contextualized_actions: torch.Tensor = batch[0]
+        realized_rewards: torch.Tensor = batch[1]
 
         assert (
-            contextualized_actions.shape[2] == self.hparams["n_features"]
-        ), "Contextualised actions must have shape (batch_size, n_arms, n_features)"
+            chosen_contextualized_actions.ndim == 3
+            and chosen_contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
+        ), "Contextualized actions must have shape (batch_size, n_chosen_arms, n_encoder_input_size)"
 
         assert (
-            rewards.shape[0] == contextualized_actions.shape[0]
-            and rewards.shape[1] == contextualized_actions.shape[1]
-        ), "Rewards must have shape (batch_size, n_arms) same as contextualized actions."
+            realized_rewards.shape[0] == chosen_contextualized_actions.shape[0]
+            and realized_rewards.shape[1] == chosen_contextualized_actions.shape[1]
+        ), "Rewards must have shape (batch_size, n_chosen_arms) same as contextualized actions."
+
+        assert (
+            chosen_contextualized_actions.shape[1] == 1
+        ), "The neural linear bandit can only choose one action at a time. Combinatorial Neural Linear is not supported at the moment."
 
         # retrieve an action
-        embedded_actions: torch.Tensor = self.bandit.encoder(
-            contextualized_actions
+        chosen_embedded_actions: torch.Tensor = self.encoder(
+            chosen_contextualized_actions
         )  # shape: (batch_size, n_arms, n_embedding_size)
-
-        chosen_actions_idx = self(contextualized_actions).argmax(dim=1)
-
-        batch_size = contextualized_actions.shape[0]
-        chosen_contextualized_actions = contextualized_actions[
-            torch.arange(batch_size), chosen_actions_idx
-        ]  # shape: (batch_size, n_features)
-        chosen_embedded_actions = embedded_actions[
-            torch.arange(batch_size), chosen_actions_idx
-        ]  # shape: (batch_size, n_embedding_size)
-        realized_rewards = rewards[
-            torch.arange(batch_size), chosen_actions_idx
-        ]  # shape: (batch_size,)
 
         # Log the reward and regret
         self.log(
@@ -138,23 +172,24 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             on_epoch=False,
             prog_bar=True,
         )
-        regret = torch.max(rewards, dim=1).values - realized_rewards
-        self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
+        # regret = torch.max(rewards, dim=1).values - realized_rewards
+        # self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
 
         # Update the replay buffer
         self.contextualized_actions = torch.cat(
-            [self.contextualized_actions, chosen_contextualized_actions], dim=0
+            [self.contextualized_actions, chosen_contextualized_actions.view(-1, chosen_contextualized_actions.size(-1))], dim=0
         )
         self.embedded_actions = torch.cat(
-            [self.embedded_actions, chosen_embedded_actions], dim=0
+            [self.embedded_actions, chosen_embedded_actions.view(-1, chosen_embedded_actions.size(-1))], dim=0
         )
-        self.rewards = torch.cat([self.rewards, realized_rewards], dim=0)
+        self.rewards = torch.cat([self.rewards, realized_rewards.squeeze()], dim=0)
 
         assert (
-            embedded_actions.shape[0] == contextualized_actions.shape[0]
-            and embedded_actions.shape[1] == contextualized_actions.shape[1]
-            and embedded_actions.shape[2] == self.hparams["n_embedding_size"]
-        ), "The embedding produced by the encoder must have the specified size (batch_size, n_arms, n_embedding_size)."
+            chosen_embedded_actions.shape[0] == chosen_contextualized_actions.shape[0]
+            and chosen_embedded_actions.shape[1]
+            == chosen_contextualized_actions.shape[1]
+            and chosen_embedded_actions.shape[2] == self.hparams["n_embedding_size"]
+        ), "The embeddings produced by the encoder must have the specified size (batch_size, n_chosen_arms, n_embedding_size)."
 
         # Update the neural network and the linear head
         should_update_encoder = (
@@ -173,7 +208,7 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         if should_update_head or should_update_encoder:
             self._update_head()
 
-        return -rewards.mean()
+        return -realized_rewards.mean()
 
     def _train_nn(
         self,
@@ -189,11 +224,11 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         batch_size: int = self.hparams["encoder_update_batch_size"]
         X, Z, Y = self.get_batches(num_steps, batch_size)
 
-        self.bandit.encoder.train()
+        self.encoder.train()
         for x, z, y in zip(X, Z, Y):
             self.optimizers().zero_grad()  # type: ignore
 
-            # x  # shape: (batch_size, n_features)
+            # x  # shape: (batch_size, n_encoder_input_size)
             # z  # shape: (batch_size, n_embedding_size)
             # y  # shape: (batch_size,)
 
@@ -224,7 +259,7 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             batch_size: The size of each batch.
 
         Returns: tuple
-            - X: The contextualized actions. Shape: (num_batches, batch_size, n_features)
+            - X: The contextualized actions. Shape: (num_batches, batch_size, n_encoder_input_size)
             - Z: The embedded actions. Shape: (num_batches, batch_size, n_embedding_size)
             - Y: The rewards. Shape: (num_batches, batch_size)
         """
@@ -269,11 +304,11 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
     def _update_embeddings(self) -> None:
         """Update the embeddings of the neural linear bandit"""
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
-        self.bandit.encoder.eval()
+        self.encoder.eval()
         with torch.no_grad():
             for i, x in enumerate(self.contextualized_actions):
                 # TODO: Do batched inference
-                self.embedded_actions[i] = self.bandit.encoder(x)
+                self.embedded_actions[i] = self.encoder(x)
 
     def _update_head(self) -> None:
         """Perform an update step on the head of the neural linear bandit. Currently, it recomputes the linear head from scratch."""
@@ -282,9 +317,9 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         # TODO: We could actually make this recompute configurable and not force a recompute but just continue using the old head.
 
         # Reset the parameters
-        self.bandit.precision_matrix = torch.eye(self.hparams["n_embedding_size"])
-        self.bandit.b = torch.zeros(self.hparams["n_embedding_size"])
-        self.bandit.theta = torch.zeros(self.hparams["n_embedding_size"])
+        self.precision_matrix = torch.eye(self.hparams["n_embedding_size"])
+        self.b = torch.zeros(self.hparams["n_embedding_size"])
+        self.theta = torch.zeros(self.hparams["n_embedding_size"])
 
         # Update the linear head
         z = self.embedded_actions  # shape: (buffer_size, n_embedding_size)
@@ -299,31 +334,29 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             y.dim() == 1 and y.shape[0] == data_size
         ), "Expected rewards (y) to be 1D (batch_size,) and of same length as embedded_actions (z)"
 
-        denominator = 1 + ((z @ self.bandit.precision_matrix) * z).sum(dim=1).sum(dim=0)
+        denominator = 1 + ((z @ self.precision_matrix) * z).sum(dim=1).sum(dim=0)
         assert torch.abs(denominator - 0) > 0, "Denominator must not be zero"
 
         # Update the precision matrix M using the Sherman-Morrison formula
-        self.bandit.precision_matrix = (
-            self.bandit.precision_matrix
+        self.precision_matrix = (
+            self.precision_matrix
             - (
-                self.bandit.precision_matrix
+                self.precision_matrix
                 @ torch.einsum("bi,bj->bij", z, z).sum(dim=0)
-                @ self.bandit.precision_matrix
+                @ self.precision_matrix
             )
             / denominator
         )
-        self.bandit.precision_matrix = 0.5 * (
-            self.bandit.precision_matrix + self.bandit.precision_matrix.T
-        )
+        self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)
 
         # should be symmetric
         assert torch.allclose(
-            self.bandit.precision_matrix, self.bandit.precision_matrix.T
+            self.precision_matrix, self.precision_matrix.T
         ), "M must be symmetric"
 
         # Finally, update the rest of the parameters of the linear head
-        self.bandit.b += z.T @ y  # shape: (features,)
-        self.bandit.theta = self.bandit.precision_matrix @ self.bandit.b
+        self.b += z.T @ y  # shape: (features,)
+        self.theta = self.precision_matrix @ self.b
 
     def configure_optimizers(
         self,

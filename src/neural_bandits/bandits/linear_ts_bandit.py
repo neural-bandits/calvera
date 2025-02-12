@@ -36,7 +36,7 @@ class LinearTSBandit(LinearBandit):
             - p (torch.Tensor): The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
                 Shape: (batch_size, ).
         """
-        
+
         assert (
             contextualized_actions.shape[2] == self.n_features
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
@@ -63,4 +63,6 @@ class LinearTSBandit(LinearBandit):
                 Shape: (batch_size, ).
         """
         # TODO: Implement the actual probability computation for Thompson Sampling.
-        return torch.ones(contextualized_actions.shape[0], device=contextualized_actions.device)
+        return torch.ones(
+            contextualized_actions.shape[0], device=contextualized_actions.device
+        )
