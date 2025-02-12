@@ -276,18 +276,7 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
                 self.embedded_actions[i] = self.bandit.encoder(x)
 
     def _update_head(self) -> None:
-        """Perform an update step on the head of the neural linear bandit.
-
-        It is implemented as a Bayesian linear regression with a normal-inverse-gamma prior:
-        - y ~ theta^T * x + epsilon
-        - theta | sigma^2 ~ N(mu, sigma^2/lambda * I)
-        - sigma^2 ~ IG(a, b)
-
-        Priors:
-        - mu = 0
-        - lambda = "lambda_prior" = 0.25
-        - a = b = "eta" = 6
-        """
+        """Perform an update step on the head of the neural linear bandit. Currently, it recomputes the linear head from scratch."""
         # TODO: make this sequential! Then we don't need to reset the parameters on every update.
         # TODO: But when we recompute after training the encoder, we need to actually reset these parameters. And we need to only load the latest data from the replay buffer.
         # TODO: We could actually make this recompute configurable and not force a recompute but just continue using the old head.
