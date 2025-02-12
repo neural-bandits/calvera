@@ -20,6 +20,7 @@ all:
 	make format
 	make lint
 	make mypy
+	make coverage
 
 .PHONY: test
 test:
