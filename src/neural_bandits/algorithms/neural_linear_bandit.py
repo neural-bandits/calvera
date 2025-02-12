@@ -13,13 +13,12 @@ class NeuralLinearBandit(AbstractBandit):
         n_embedding_size: int,
         encoder: nn.Module,
     ) -> None:
-        """
-        Initializes the NeuralLinearBandit.
+        """Initializes the NeuralLinearBandit.
 
         Args:
-        - n_features (int): The number of features in the contextualized actions that are fed into the encoder.
-        - n_embedding_size (int): The size of the tensors coming out of the encoder.
-        - encoder (torch.nn.Module): The embedding model (neural network) to be used.
+            n_features: The number of features in the contextualized actions that are fed into the encoder.
+            n_embedding_size: The size of the tensors coming out of the encoder.
+            encoder: The embedding model (neural network) to be used.
         """
         super().__init__(n_features)
 
@@ -36,11 +35,10 @@ class NeuralLinearBandit(AbstractBandit):
         self.theta = torch.zeros(n_embedding_size)
 
     def forward(self, contextualized_actions: torch.Tensor) -> torch.Tensor:
-        """
-        Predict the action to take for the given input data according to neural linear.
+        """Predict the action to take for the given input data according to neural linear.
 
         Args:
-        - contextualised_actions (torch.Tensor): The input data. Shape: (batch_size, n_arms, n_features)
+            contextualised_actions: The input data. Shape: (batch_size, n_arms, n_features)
         """
 
         assert (
@@ -69,11 +67,10 @@ class NeuralLinearBandit(AbstractBandit):
         return result
 
     def linear_ts_head(self, embedded_actions: torch.Tensor) -> torch.Tensor:
-        """
-        Linear head for the neural linear bandit model. Uses the Thompson Sampling algorithm to predict the best action.
+        """Linear head for the neural linear bandit model. Uses the Thompson Sampling algorithm to predict the best action.
 
         Args:
-        - embedded_actions (torch.Tensor): The embedded actions. Shape: (batch_size, n_arms, n_embedding_size)
+            embedded_actions: The embedded actions. Shape: (batch_size, n_arms, n_embedding_size)
         """
         batch_size, n_arms, _ = embedded_actions.shape
 

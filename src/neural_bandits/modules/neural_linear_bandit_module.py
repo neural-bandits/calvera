@@ -31,15 +31,15 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         Initializes the NeuralLinearBanditModule.
 
         Args:
-            encoder (torch.nn.Module): The encoder model (neural network) to be used.
-            n_features (int): The number of features in the input data.
-            n_embedding_size (Optional[int]): The size of the embedding produced by the encoder model. Defaults to n_features.
-            encoder_update_freq (int): The interval (in steps) at which the encoder model is updated. Default is 32. None means the encoder model is never updated.
-            encoder_update_batch_size (int): The batch size for the encoder model update. Default is 32.
-            head_update_freq (int): The interval (in steps) at which the encoder model is updated. Default is 1. None means the linear head is never updated independently.
-            lr (float): The learning rate for the optimizer of the encoder model. Default is 1e-3.
-            max_grad_norm (float): The maximum norm of the gradients for the encoder model. Default is 5.0.
-            eta (float): The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). Default is 6.0.
+            encoder: The encoder model (neural network) to be used.
+            n_features: The number of features in the input data.
+            n_embedding_size: The size of the embedding produced by the encoder model. Defaults to n_features.
+            encoder_update_freq: The interval (in steps) at which the encoder model is updated. Default is 32. None means the encoder model is never updated.
+            encoder_update_batch_size: The batch size for the encoder model update. Default is 32.
+            head_update_freq: The interval (in steps) at which the encoder model is updated. Default is 1. None means the linear head is never updated independently.
+            lr: The learning rate for the optimizer of the encoder model. Default is 1e-3.
+            max_grad_norm: The maximum norm of the gradients for the encoder model. Default is 5.0.
+            eta: The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). Default is 6.0.
         """
         super().__init__()
 
@@ -81,7 +81,6 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             torch.nn.Linear(self.hparams["n_embedding_size"], 1),
         )
 
-        # TODO: Unsure if these should be np.arrays or torch.Tensors
         self.contextualized_actions: torch.Tensor = torch.empty(
             0
         )  # shape: (buffer_size, n_features)
@@ -158,18 +157,20 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         ), "The embedding produced by the encoder must have the specified size (batch_size, n_arms, n_embedding_size)."
 
         # Update the neural network and the linear head
-        if (
+        should_update_encoder = (
             self.hparams["encoder_update_freq"] is not None
             and self.embedded_actions.shape[0] % self.hparams["encoder_update_freq"]
             == 0
-        ):
+        )
+        if should_update_encoder:
             self._train_nn()
             self._update_embeddings()
 
-        if (
+        should_update_head = (
             self.hparams["head_update_freq"] is not None
             and self.embedded_actions.shape[0] % self.hparams["head_update_freq"] == 0
-        ):
+        )
+        if should_update_head or should_update_encoder:
             self._update_head()
 
         return -rewards.mean()
@@ -219,14 +220,13 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         """Get a random batch of data from the replay buffer.
 
         Args:
-            num_batches (int): The number of batches to return.
-            batch_size (int): The size of each batch.
+            num_batches: The number of batches to return.
+            batch_size: The size of each batch.
 
-        Returns:
-            tuple of lists X, Z, Y:
-            - X (list[torch.Tensor]): The contextualized actions. Shape: (num_batches, batch_size, n_features)
-            - Z (list[torch.Tensor]): The embedded actions. Shape: (num_batches, batch_size, n_embedding_size)
-            - Y (list[torch.Tensor]): The rewards. Shape: (num_batches, batch_size)
+        Returns: tuple
+            - X: The contextualized actions. Shape: (num_batches, batch_size, n_features)
+            - Z: The embedded actions. Shape: (num_batches, batch_size, n_embedding_size)
+            - Y: The rewards. Shape: (num_batches, batch_size)
         """
         # TODO: Implement buffer that returns random samples from the n most recent data
         # TODO: possibly faster if those are stored in a tensor and then indexed
@@ -277,17 +277,27 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
 
     def _update_head(self) -> None:
         """Perform an update step on the head of the neural linear bandit.
-        It is implemented as a Bayesian linear regression with a normal-inverse-gamma prior:
-            - y ~ theta^T * x + epsilon
-            - theta | sigma^2 ~ N(mu, sigma^2/lambda * I)
-            - sigma^2 ~ IG(a, b)
-        Priors:
-            - mu = 0
-            - lambda = "lambda_prior" = 0.25
-            - a = b = "eta" = 6
-        """
-        # TODO: algorithm could be improved with sequential formula
 
+        It is implemented as a Bayesian linear regression with a normal-inverse-gamma prior:
+        - y ~ theta^T * x + epsilon
+        - theta | sigma^2 ~ N(mu, sigma^2/lambda * I)
+        - sigma^2 ~ IG(a, b)
+
+        Priors:
+        - mu = 0
+        - lambda = "lambda_prior" = 0.25
+        - a = b = "eta" = 6
+        """
+        # TODO: make this sequential! Then we don't need to reset the parameters on every update.
+        # TODO: But when we recompute after training the encoder, we need to actually reset these parameters. And we need to only load the latest data from the replay buffer.
+        # TODO: We could actually make this recompute configurable and not force a recompute but just continue using the old head.
+
+        # Reset the parameters
+        self.bandit.precision_matrix = torch.eye(self.hparams["n_embedding_size"])
+        self.bandit.b = torch.zeros(self.hparams["n_embedding_size"])
+        self.bandit.theta = torch.zeros(self.hparams["n_embedding_size"])
+
+        # Update the linear head
         z = self.embedded_actions  # shape: (buffer_size, n_embedding_size)
         y = self.rewards  # shape: (buffer_size,)
 
@@ -303,6 +313,7 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
         denominator = 1 + ((z @ self.bandit.precision_matrix) * z).sum(dim=1).sum(dim=0)
         assert torch.abs(denominator - 0) > 0, "Denominator must not be zero"
 
+        # Update the precision matrix M using the Sherman-Morrison formula
         self.bandit.precision_matrix = (
             self.bandit.precision_matrix
             - (
@@ -321,6 +332,7 @@ class NeuralLinearBanditModule(AbstractBanditModule[NeuralLinearBandit]):
             self.bandit.precision_matrix, self.bandit.precision_matrix.T
         ), "M must be symmetric"
 
+        # Finally, update the rest of the parameters of the linear head
         self.bandit.b += z.T @ y  # shape: (features,)
         self.bandit.theta = self.bandit.precision_matrix @ self.bandit.b
 
