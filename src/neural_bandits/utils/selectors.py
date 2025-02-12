@@ -15,65 +15,42 @@ class AbstractSelector(ABC):
         """Selects a single best action, or a set of actions in the case of combinatorial bandits.
 
         Args:
-            scores (torch.Tensor): Tensor of shape (batch_size, n_actions).
-            This may contain a probability distribution per sample (when used for thompson sampling) or simply a score per arm (e.g. for UCB).
-            In case of combinatorial bandits, these are the scores per arm from which the oracle selects a super arm (e.g. simply top-k).
+            scores (torch.Tensor): Tensor of shape (batch_size, n_arms).
+                This may contain a probability distribution per sample (when used for thompson sampling)
+                or simply a score per arm (e.g. for UCB).
+                In case of combinatorial bandits, these are the scores per arm from which
+                the oracle selects a super arm (e.g. simply top-k).
 
         Returns:
             chosen_actions (torch.Tensor): One hot encoded actions that were chosen.
-                Shape: (batch_size, n_actions).
+                Shape: (batch_size, n_arms).
         """
         pass
 
 
-# TODO: Merge this with the other selectors. This can be removed later but the output shape of this one is different because we need to one-hot encode!!!
-# Also I like the "ArgMax" more than the "Argmax" but you choose...
 class ArgMaxSelector(AbstractSelector):
+    """Selects the action with the highest score from a batch of scores."""
+
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
-        return torch.nn.functional.one_hot(
-            torch.argmax(scores, dim=1), num_classes=scores.shape[1]
-        )  # shape: (batch_size, n_actions)
-
-
-class ArgmaxSelector:
-    """Selects the action with the highest probability from a batch of distributions."""
-
-    def __call__(self, probabilities: torch.Tensor) -> torch.Tensor:
-        """
-        Select the action with the highest probability for each distribution in the batch.
+        """Select the action with the highest score for each sample in the batch.
 
         Args:
-            probabilities: Tensor of shape [batch, num_actions] (or 1D tensor for a single distribution).
-                           Each row must sum to 1.
+            scores: Tensor of shape (batch_size, n_arms) containing scores for each action.
 
         Returns:
-            Tensor of shape [batch] containing the index of the highest-probability action for each distribution.
+            Tensor of shape (batch_size, n_arms) containing one-hot encoded selected actions.
         """
-        self._validate_probabilities(probabilities)
-        return probabilities.argmax(dim=1)
-
-    def _validate_probabilities(self, probabilities: torch.Tensor) -> None:
-        """
-        Validates that each row in the probabilities tensor sums to 1 and that all values are in [0, 1].
-
-        Args:
-            probabilities: A 2D tensor of probabilities.
-        """
-        row_sums = probabilities.sum(dim=1)
-        assert torch.allclose(
-            row_sums, torch.ones_like(row_sums), rtol=1e-5
-        ), f"Each row must sum to 1, got sums {row_sums}"
-        assert (
-            (probabilities >= 0) & (probabilities <= 1)
-        ).all(), "All probabilities must be in the range [0, 1]"
+        _, n_arms = scores.shape
+        return torch.nn.functional.one_hot(
+            torch.argmax(scores, dim=1), num_classes=n_arms
+        )
 
 
-class EpsilonGreedySelector:
-    """Implements an epsilon-greedy action selection strategy for a batch of distributions."""
+class EpsilonGreedySelector(AbstractSelector):
+    """Implements an epsilon-greedy action selection strategy."""
 
     def __init__(self, epsilon: float = 0.1) -> None:
-        """
-        Initialize the epsilon-greedy selector.
+        """Initialize the epsilon-greedy selector.
 
         Args:
             epsilon: Exploration probability (default: 0.1). Must be between 0 and 1.
@@ -81,39 +58,59 @@ class EpsilonGreedySelector:
         assert 0 <= epsilon <= 1, "Epsilon must be between 0 and 1"
         self.epsilon = epsilon
 
-    def __call__(self, probabilities: torch.Tensor) -> torch.Tensor:
-        """
-        Select actions using the epsilon-greedy strategy for each distribution in the batch.
+    def __call__(self, scores: torch.Tensor) -> torch.Tensor:
+        """Select actions using the epsilon-greedy strategy for each sample in the batch.
 
         Args:
-            probabilities: Tensor of shape [batch, num_actions] (or 1D tensor for a single distribution).
-                           Each row must sum to 1.
+            scores: Tensor of shape (batch_size, n_arms) containing scores for each action.
 
         Returns:
-            Tensor of shape [batch] containing the selected action indices.
+            Tensor of shape (batch_size, n_arms) containing one-hot encoded selected actions.
         """
-        self._validate_probabilities(probabilities)
-        batch_size, num_actions = probabilities.shape
+        batch_size, n_arms = scores.shape
 
         random_vals = torch.rand(batch_size)
         explore_mask = random_vals < self.epsilon
 
-        greedy_actions = probabilities.argmax(dim=1)
-        random_actions = torch.randint(0, num_actions, (batch_size,))
+        greedy_actions = torch.argmax(scores, dim=1)
+        random_actions = torch.randint(0, n_arms, (batch_size,))
 
-        return torch.where(explore_mask, random_actions, greedy_actions)
+        selected_actions = torch.where(explore_mask, random_actions, greedy_actions)
 
-    def _validate_probabilities(self, probabilities: torch.Tensor) -> None:
-        """
-        Validates that each row in the probabilities tensor sums to 1 and that all values are in [0, 1].
+        return torch.nn.functional.one_hot(selected_actions, num_classes=n_arms)
+
+
+class TopKSelector(AbstractSelector):
+    """Selects the top k actions with the highest scores."""
+
+    def __init__(self, k: int):
+        """Initialize the top-k selector.
 
         Args:
-            probabilities: A 2D tensor of probabilities.
+            k: Number of actions to select. Must be positive.
         """
-        row_sums = probabilities.sum(dim=1)
-        assert torch.allclose(
-            row_sums, torch.ones_like(row_sums), rtol=1e-5
-        ), f"Each row must sum to 1, got sums {row_sums}"
+        assert k > 0, "k must be positive"
+        self.k = k
+
+    def __call__(self, scores: torch.Tensor) -> torch.Tensor:
+        """Select the top k actions with highest scores for each sample in the batch.
+
+        Args:
+            scores: Tensor of shape (batch_size, n_arms) containing scores for each action.
+
+        Returns:
+            Tensor of shape (batch_size, n_arms) containing one-hot encoded selected actions,
+            where exactly k entries are 1 per sample.
+        """
+        batch_size, n_arms = scores.shape
         assert (
-            (probabilities >= 0) & (probabilities <= 1)
-        ).all(), "All probabilities must be in the range [0, 1]"
+            self.k <= n_arms
+        ), f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
+
+        _, top_k_indices = torch.topk(scores, k=self.k, dim=1)
+
+        selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64)
+        batch_indices = torch.arange(batch_size).unsqueeze(1).expand(-1, self.k)
+        selected_actions[batch_indices, top_k_indices] = 1
+
+        return selected_actions
