@@ -252,8 +252,8 @@ def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -
     n_features = bandit.n_features
 
     # Create dummy data
-    chosen_actions = torch.randn(batch_size, n_features)
-    realized_rewards = torch.randn(batch_size)
+    chosen_actions = torch.randn(batch_size, 1, n_features)
+    realized_rewards = torch.randn(batch_size, 1)
 
     # Save initial state
     initial_precision_matrix = bandit.precision_matrix.clone()
@@ -288,10 +288,10 @@ def test_update_correct() -> None:
 
     bandit = LinearUCBBandit(n_features=1)
 
-    chosen_actions = torch.tensor([[2.0]])  # shape (1,1)
-    realized_rewards = torch.tensor([1.0])  # shape (1,)
+    chosen_contextualized_actions = torch.tensor([[[2.0]]])  # shape (1,1)
+    realized_rewards = torch.tensor([[1.0]])  # shape (1,1)
 
-    bandit.update(chosen_actions, realized_rewards)
+    bandit.update(chosen_contextualized_actions, realized_rewards)
 
     expected_M = torch.tensor([[0.2]])
     expected_b = torch.tensor([2.0])
@@ -318,8 +318,8 @@ def test_update_shapes_parameterized(BanditClass: BanditClassType) -> None:
     n_features = bandit.n_features
 
     # Create dummy data
-    chosen_actions = torch.randn(batch_size, n_features)
-    realized_rewards = torch.randn(batch_size)
+    chosen_actions = torch.randn(batch_size, 1, n_features)
+    realized_rewards = torch.randn(batch_size, 1)
 
     # Perform training step
     bandit.update(chosen_actions, realized_rewards)

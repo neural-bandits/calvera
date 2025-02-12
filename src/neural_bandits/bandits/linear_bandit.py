@@ -86,16 +86,28 @@ class LinearBandit(AbstractBandit):
         """
 
         assert (
+            chosen_actions.ndim == 3
+        ), f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) but got shape {chosen_actions.shape}"
+
+        assert (
+            realized_rewards.ndim == 2
+        ), f"Realized rewards must have shape (batch_size, n_chosen_actions) but got shape {realized_rewards.shape}"
+
+        assert (
             chosen_actions.shape[0] == realized_rewards.shape[0]
-        ), "Batch size of chosen actions and realized_rewards must match"
+            and chosen_actions.shape[1] == realized_rewards.shape[1]
+        ), f"Batch size and num_chosen actions of chosen_actions and realized_rewards must match. Got {chosen_actions.shape[0]} and {realized_rewards.shape[0]}."
 
         assert (
-            chosen_actions.shape[1] == self.hparams["n_features"]
-        ), "Chosen actions must have shape (batch_size, n_features) and n_features must match the bandit's n_features"
+            chosen_actions.shape[2] == self.hparams["n_features"]
+        ), f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) and n_features must match the bandit's n_features. Got {chosen_actions.shape[1]} but expected {self.hparams['n_features']}."
 
         assert (
-            realized_rewards.ndim == 1
-        ), "Realized rewards must have shape (batch_size,)"
+            chosen_actions.shape[1] == 1
+        ), f"For now we only support chosing one action at once. Instead got {chosen_actions.shape[1]}. Combinatorial bandits will be implemented in the future."
+        chosen_actions = chosen_actions.squeeze(1)
+        realized_rewards = realized_rewards.squeeze(1)
+        # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
         # Calculate new precision Matrix M using the Sherman-Morrison formula
         denominator = 1 + (
