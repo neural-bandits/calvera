@@ -3,7 +3,7 @@ from typing import Tuple
 import torch
 from ucimlrepo import fetch_ucirepo
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
 class StatlogDataset(AbstractDataset):

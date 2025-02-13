@@ -5,7 +5,7 @@ import torch
 from sklearn.datasets import fetch_openml
 from sklearn.utils import Bunch
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
 class MNISTDataset(AbstractDataset):
