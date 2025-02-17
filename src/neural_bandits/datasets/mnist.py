@@ -8,7 +8,7 @@ from sklearn.utils import Bunch
 from neural_bandits.datasets.abstract_dataset import AbstractDataset
 
 
-class MNISTDataset(AbstractDataset):
+class MNISTDataset(AbstractDataset[torch.Tensor]):
     """Loads the MNIST 784 (version=1) dataset as a PyTorch Dataset.
     See https://www.openml.org/search?type=data&status=active&id=554 for more information of the dataset.
 

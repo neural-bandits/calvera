@@ -1,13 +1,17 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Generic, Tuple, TypeVar
 
 import torch
 from torch.utils.data import Dataset
 
 from neural_bandits.utils.multiclass import MultiClassContextualizer
 
+ItemType = TypeVar(
+    "ItemType", torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+)
 
-class AbstractDataset(ABC, Dataset[Tuple[torch.Tensor, torch.Tensor]]):
+
+class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tensor]]):
     """
     Abstract class for a dataset that is derived from PyTorch's Dataset class.
     Additionally, it provides a reward method for the specific bandit setting.
@@ -33,7 +37,7 @@ class AbstractDataset(ABC, Dataset[Tuple[torch.Tensor, torch.Tensor]]):
         pass
 
     @abstractmethod
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[ItemType, torch.Tensor]:
         """
         Returns:
             A tuple with the context vectors of all available actions and the associated rewards.

@@ -83,7 +83,7 @@ def sample_rewards(
     return rewards
 
 
-class WheelBanditDataset(AbstractDataset):
+class WheelBanditDataset(AbstractDataset[torch.Tensor]):
     """Generates a dataset for the Wheel Bandit problem (https://arxiv.org/abs/1802.09127).
     Uses torch.Tensors instead of numpy arrays.
     """

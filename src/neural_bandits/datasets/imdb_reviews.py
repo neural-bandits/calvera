@@ -113,7 +113,9 @@ def _preprocess_text(text: str) -> str:
     return text
 
 
-class ImdbMovieReviews(AbstractDataset):
+class ImdbMovieReviews(
+    AbstractDataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+):
     """A dataset for the IMDB movie reviews sentiment classification task. See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
 
     Args:

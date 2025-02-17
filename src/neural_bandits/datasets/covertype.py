@@ -7,7 +7,7 @@ from sklearn.datasets import fetch_covtype
 from neural_bandits.datasets.abstract_dataset import AbstractDataset
 
 
-class CovertypeDataset(AbstractDataset):
+class CovertypeDataset(AbstractDataset[torch.Tensor]):
     """Loads the Covertype dataset as a PyTorch Dataset from the UCI repository (https://archive.ics.uci.edu/ml/datasets/covertype)."""
 
     num_actions: int = 7
