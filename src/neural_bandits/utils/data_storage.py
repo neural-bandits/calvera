@@ -119,6 +119,15 @@ class AbstractBanditDataBuffer(ABC):
         pass
 
     @abstractmethod
+    def update_embeddings(self, embedded_actions: torch.Tensor) -> None:
+        """Update the embedded actions in the buffer.
+
+        Args:
+            embedded_actions: New embeddings for all contexts in buffer
+        """
+        pass
+
+    @abstractmethod
     def __len__(self) -> int:
         """Get total number of data points in buffer."""
         pass
@@ -241,6 +250,13 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
             embedded_actions_batch = self.embedded_actions[batch_indices]
 
         return contextualized_actions_batch, embedded_actions_batch, rewards_batch
+
+    def update_embeddings(self, embedded_actions: torch.Tensor) -> None:
+        """Update the embedded actions in the buffer."""
+        assert len(embedded_actions) == len(
+            self
+        ), "Number of embeddings must match buffer size"
+        self.embedded_actions = embedded_actions
 
     def __len__(self) -> int:
         """Get total number of stored data points in buffer."""
