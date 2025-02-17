@@ -149,7 +149,7 @@ def test_neural_linear_bandit_module_forward_shape(
         torch.Tensor,
         torch.Tensor,
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
-    ]
+    ],
 ) -> None:
     """
     Test that calling the module's forward (bandit forward) yields shape (batch_size, n_arms).
@@ -182,7 +182,7 @@ def test_neural_linear_bandit_module_training_step(
         torch.Tensor,
         torch.Tensor,
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
-    ]
+    ],
 ) -> None:
     """
     Test that a training step runs without error on a small dataset and updates the replay buffer.

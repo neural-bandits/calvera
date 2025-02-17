@@ -83,7 +83,7 @@ def test_update_updates_parameters_parameterized(
 
 
 def test_update_correct(
-    setup_simple_bandit: Tuple[LinearUCBBandit, LinearBanditModule[LinearUCBBandit]]
+    setup_simple_bandit: Tuple[LinearUCBBandit, LinearBanditModule[LinearUCBBandit]],
 ) -> None:
     """
     In this simple scenario:
@@ -175,7 +175,7 @@ def test_update_invalid_shapes_parameterized(
 
 
 def test_update_zero_denominator(
-    setup_simple_bandit: Tuple[LinearUCBBandit, LinearBanditModule[LinearUCBBandit]]
+    setup_simple_bandit: Tuple[LinearUCBBandit, LinearBanditModule[LinearUCBBandit]],
 ) -> None:
     """
     Test if assertion error is raised when denominator is zero.
