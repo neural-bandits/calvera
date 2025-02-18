@@ -1,3 +1,5 @@
+import logging
+import logging.handlers
 import os
 import pathlib
 import re
@@ -11,6 +13,7 @@ from transformers import BertTokenizer, PreTrainedTokenizer
 
 from neural_bandits.datasets.abstract_dataset import AbstractDataset
 
+logger = logging.getLogger(__name__)
 
 def _download_imdb_data(dest_path: str) -> None:
     """
@@ -21,11 +24,11 @@ def _download_imdb_data(dest_path: str) -> None:
 
     tar_file = os.path.join(dest_path, "aclImdb_v1.tar.gz")
     if not os.path.exists(tar_file):
-        print("Downloading dataset...")
+        logger.info("Downloading dataset...")
         urllib.request.urlretrieve(url, tar_file)
-        print("Download completed.")
+        logger.info("Download completed.")
     else:
-        print("Dataset already downloaded.")
+        logger.info("Dataset already downloaded.")
 
 
 def _extract_data(tar_path: str, extract_dir: str) -> None:
@@ -33,12 +36,12 @@ def _extract_data(tar_path: str, extract_dir: str) -> None:
 
     extracted_folder = os.path.join(extract_dir, "aclImdb")
     if not os.path.exists(extracted_folder):
-        print("Extracting dataset...")
+        logger.info("Extracting dataset...")
         with tarfile.open(tar_path, "r:gz") as tar:
             tar.extractall(path=extract_dir)
-        print("Extraction completed.")
+        logger.info("Extraction completed.")
     else:
-        print("Dataset already extracted.")
+        logger.info("Dataset already extracted.")
 
 
 def _load_imdb_data(
