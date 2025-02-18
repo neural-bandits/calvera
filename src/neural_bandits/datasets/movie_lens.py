@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Tuple
+from typing import Literal, Tuple
 
 import pandas as pd
 import torch
@@ -14,13 +14,14 @@ import zipfile
 logger = logging.getLogger(__name__)
 
 
-def _download_movielens(dest_path: str = "./data") -> None:
-    """Downloads the 'Small' MovieLens dataset if it does not already exist. See
-    (from https://files.grouplens.org/datasets/movielens/ml-latest-small.zip)  for further information.
+def _download_movielens(dest_path: str = "./data", version: Literal["ml-32m", "ml-latest-small"] = "ml-latest-small") -> None:
+    """Downloads the 'small' MovieLens dataset if it does not already exist. See
+    (from https://files.grouplens.org/datasets/movielens)  for further information.
     """
-    url = "https://files.grouplens.org/datasets/movielens/ml-latest-small.zip"
+    file_name = f"{version}.zip"
+    url = "https://files.grouplens.org/datasets/movielens/" + file_name
 
-    zip_file = os.path.join(dest_path, "ml-latest-small.zip")
+    zip_file = os.path.join(dest_path, file_name)
     if not os.path.exists(zip_file):
         logger.info("Downloading dataset...")
         urllib.request.urlretrieve(url, zip_file)
@@ -30,14 +31,12 @@ def _download_movielens(dest_path: str = "./data") -> None:
 
 
 def _extract_movielens(zip_path: str, extract_dir: str) -> None:
-    """Extract the MovieLens dataset archive if `extract_dir` does not have a directory called ml-latest-small."""
-
-    if not os.path.exists(os.path.join(extract_dir, "ml-latest-small")):
-        logger.info("Extracting dataset...")
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(extract_dir)
-    else:
-        logger.info("Could not extract dataset; directory already exists.")
+    """Extract the MovieLens dataset archive if `extract_dir` exists."""
+    assert os.path.exists(zip_path), f"Could not find zip file at {zip_path}"
+    
+    logger.info("Extracting dataset...")
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_dir)
 
 
 def _load_movielens_data(data_dir: str) -> pd.DataFrame:
@@ -63,20 +62,38 @@ def _build_movielens_features(history: torch.Tensor, svd_rank: int = 64) -> Tupl
     return U_features, Vt_r.T
 
 
-def _setup_movielens(dest_path: str = "./data", k: int = 4, L: int = 200, min_movies = 10) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Download, extract, and load the MovieLens dataset."""
+def _setup_movielens(dest_path: str = "./data", k: int = 4, L: int = 200, min_movies = 10, store_features: bool = True, version: Literal["ml-latest-small", "ml-32m"] = "ml-latest-small") -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Download, extract, and load the MovieLens dataset
+    
+    Args:
+        dest_path: The directory where the dataset will be stored.
+        k: The number of movies to exclude per user.
+        L: The number of movies to include in the dataset.
+        min_movies: The minimum number of movies a user must have rated to be included in the dataset (after only 
+            taking the top `L` movies).
+        store_features: Whether to store the user and movie features.
+        version: The version of the MovieLens dataset to use. Either "small" or "32m".
+        
+    Returns:
+        user_features: The user features.
+        movie_features: The movie features.
+        history: The history matrix.
+        future: The future matrix.
+    """
+    file_postfix = f"_k{k}_L{L}_min{min_movies}"
+    
     
     # Check if features cached in `dest_path`. If not download and calculate.
-    if os.path.exists(os.path.join(dest_path, "ml-latest-small", "movielens_small_user_features.pt")):
-        user_features = torch.load(os.path.join(dest_path, "ml-latest-small", "movielens_small_user_features.pt"))
-        movie_features = torch.load(os.path.join(dest_path, "ml-latest-small", "movielens_small_movie_features.pt"))
-        history = torch.load(os.path.join(dest_path, "ml-latest-small", "movielens_small_history.pt"))
-        future = torch.load(os.path.join(dest_path, "ml-latest-small", "movielens_small_future.pt"))
+    if os.path.exists(os.path.join(dest_path, version, f"user_features{file_postfix}.pt")):
+        user_features = torch.load(os.path.join(dest_path, version, f"user_features{file_postfix}.pt"))
+        movie_features = torch.load(os.path.join(dest_path, version, f"movie_features{file_postfix}.pt"))
+        history = torch.load(os.path.join(dest_path, version, f"history{file_postfix}.pt"))
+        future = torch.load(os.path.join(dest_path, version, f"future{file_postfix}.pt"))
         return user_features, movie_features, history, future
     else:
-        _download_movielens(dest_path)
-        _extract_movielens(os.path.join(dest_path, "ml-latest-small.zip"), dest_path)
-        data = _load_movielens_data(os.path.join(dest_path, "ml-latest-small"))
+        _download_movielens(dest_path, version)
+        _extract_movielens(os.path.join(dest_path, version + ".zip"), dest_path)
+        data = _load_movielens_data(os.path.join(dest_path, version))
         data = data.dropna()
         data = data.reset_index(drop=True)
         
@@ -96,9 +113,9 @@ def _setup_movielens(dest_path: str = "./data", k: int = 4, L: int = 200, min_mo
         data["userId"] = data["userId"].astype("int")
         data["movieId"] = data["movieId"].astype("int")
         
-        # `data` now has columns `userId` (1->|Users|), `movieId` (1->|Movies|), `rating` (1-5), `timestamp`
         # We will only use `userId` and `movieId` for now (inspired by the approach from Li et. al., 2010 (see 
         # https://arxiv.org/abs/1003.0146))
+        # Additionally, we will use the `timestamp` to split the data into history and future.
         
         # Build the complete `viewed` relationship matrix.
         has_viewed = torch.zeros((data["userId"].nunique(), data["movieId"].nunique()), dtype=torch.float32)
@@ -119,54 +136,46 @@ def _setup_movielens(dest_path: str = "./data", k: int = 4, L: int = 200, min_mo
         
         user_features, movie_features = _build_movielens_features(history=history)
         
-        print(user_features.shape)
-        print(movie_features.shape)
-        
         # Store the features, history and future.
-        torch.save(user_features, os.path.join(dest_path, "ml-latest-small", "movielens_small_user_features.pt"))
-        torch.save(movie_features, os.path.join(dest_path, "ml-latest-small", "movielens_small_movie_features.pt"))
-        torch.save(history, os.path.join(dest_path, "ml-latest-small", "movielens_small_history.pt"))
-        torch.save(future, os.path.join(dest_path, "ml-latest-small", "movielens_small_future.pt"))
+        if store_features:
+            torch.save(user_features, os.path.join(dest_path, version, f"user_features{file_postfix}.pt"))
+            torch.save(movie_features, os.path.join(dest_path, version, f"movie_features{file_postfix}.pt"))
+            torch.save(history, os.path.join(dest_path, version, f"history{file_postfix}.pt"))
+            torch.save(future, os.path.join(dest_path, version, f"future{file_postfix}.pt"))
         
         return user_features, movie_features, history, future
     
 
 
 class MovieLensDataset(AbstractDataset[torch.Tensor]):
-    """
+    """MovieLens dataset for combinatorial contextual bandits. We build the context by using the SVD decomposition of the
+    user-movie matrix. The context is the outer product of the user and movie features.
+    
     Args:
-        csv_file: Path to a CSV file with MovieLens watch data.
-                        The CSV should have at least columns: 'user_id', 'movie_id'.
-        p: The probability that a watch event (A(i,j)=1) is placed in the history H.
-        num_movies: Number of movies to sample (the candidate set will be of this size).
-        num_steps: How many time steps (samples) the dataset will simulate.
+        dest_path: The directory where the dataset is / will be stored.
         svd_rank: Rank (number of latent dimensions) for the SVD decomposition.
-        random_state: Seed for reproducibility.
+        outer_product: Whether to use the outer product of the user and movie features as the context. If False, the
+            context will be the concatenation of the user and movie features. (Might perform better for Neural Bandits).
+        k: The number of movies to exclude per user.
+        L: The number of movies to include in the dataset. (Top L most common movies).
     """
     
-    num_actions: int = 87585 # Number of Movies.
-    context_size: int = 20 * 20 # Number of Latent Dimensions squared. The outer product of the user and movie features.
-    num_samples: int = 200948 # Number of Users.
+    num_actions: int = -1 # There is no constant number of actions in the MovieLens dataset.
+    num_samples: int = -1 
+    context_size: int = -1
     
     def __init__(
-        self, dest_path="./data", svd_rank=20, outer_product=True, k=4, L=200
+        self, dest_path="./data", svd_rank=20, outer_product=True, k=4, L=200, version: Literal["ml-latest-small", "ml-32m"] = "ml-latest-small"
     ):
-
         super().__init__(needs_disjoint_contextualization=False)
         self.user_features, self.movie_features, self.history, self.F = _setup_movielens(
-            dest_path=dest_path, k=k, L=L
+            dest_path=dest_path, k=k, L=L, version=version
         )
         
-        # Contexts per User:
-        self.contextualized_actions_per_user: torch.Tensor
-        if outer_product:
-            self.contextualized_actions_per_user = torch.einsum("ui,mj->umij", self.user_features, self.movie_features).flatten(start_dim=2)
-        else:
-            self.contextualized_actions_per_user = torch.cat(
-                (self.user_features.unsqueeze(1).expand(-1, self.movie_features.size(0), -1), self.movie_features.unsqueeze(0).expand(self.user_features.size(0), -1, -1)),
-                dim=-1
-            ) # Shape: (num_users, num_movies, 2 * svd_rank)
-            self.context_size = 2 * svd_rank
+        self.outer_product = outer_product
+        
+        # We can predict k movies per user. The idea is that we only predict a user once.
+        self.num_actions = self.history.shape[-1]
         
 
     def __len__(self) -> int:
@@ -177,7 +186,15 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         available_actions = (1.0 - self.history[idx]).bool()
         
         # Get the context for each action
-        contexts = self.contextualized_actions_per_user[idx][available_actions]
+        contexts: torch.Tensor
+        
+        if self.outer_product:
+            contexts = torch.einsum("ij,jk->ijk", self.user_features[idx], self.movie_features)
+        else:
+            contexts = torch.cat(
+                (self.user_features[idx].unsqueeze(0).expand(self.movie_features.size(0), -1), self.movie_features),
+                dim=-1
+            )
         
         return contexts, torch.tensor([self.reward(idx, movie_idx) for movie_idx in range(self.history.shape[-1]) if available_actions[movie_idx]], dtype=torch.float32)
         
