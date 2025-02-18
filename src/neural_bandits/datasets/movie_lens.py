@@ -113,7 +113,10 @@ def _setup_movielens(
         return user_features, movie_features, history, future
     else:
         _download_movielens(dest_path, version)
-        _extract_movielens(os.path.join(dest_path, version + ".zip"), dest_path)
+        if not os.path.exists(os.path.join(dest_path, version)):
+            _extract_movielens(os.path.join(dest_path, version + ".zip"), dest_path)
+        else:
+            logger.info("Dataset already extracted.")
         data = _load_movielens_data(os.path.join(dest_path, version))
         data = data.dropna()
         data = data.reset_index(drop=True)
