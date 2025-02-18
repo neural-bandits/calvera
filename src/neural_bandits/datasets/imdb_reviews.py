@@ -15,6 +15,7 @@ from neural_bandits.datasets.abstract_dataset import AbstractDataset
 
 logger = logging.getLogger(__name__)
 
+
 def _download_imdb_data(dest_path: str) -> None:
     """
     Download the IMDB dataset archive if it does not already exist. See
