@@ -1,6 +1,7 @@
 import pytest
 
 from neural_bandits.datasets.covertype import CovertypeDataset
+from neural_bandits.datasets.imdb_reviews import ImdbMovieReviews
 from neural_bandits.datasets.mnist import MNISTDataset
 from neural_bandits.datasets.statlog import StatlogDataset
 from neural_bandits.datasets.wheel import WheelBanditDataset
@@ -89,3 +90,24 @@ class TestWheelBanditDataset:
         for i in range(100):
             reward = dataset.reward(i, 0)
             assert 0.7 <= reward <= 1.5 or 49.5 <= reward <= 50.5
+
+
+class TestImdbReviewsDataset:
+    @pytest.fixture
+    def dataset(self) -> ImdbMovieReviews:
+        return ImdbMovieReviews(dest_path="./data")
+
+    def test_len(self, dataset: ImdbMovieReviews) -> None:
+        assert len(dataset) == 24904
+
+    def test_getitem(self, dataset: ImdbMovieReviews) -> None:
+        for _ in range(10):
+            X, rewards = dataset[0]
+            assert len(X) == 3
+            assert all(X_i.shape == (255) for X_i in X)
+            assert rewards.shape == (2,)
+
+    def test_reward(self, dataset: ImdbMovieReviews) -> None:
+        for i in range(10):
+            reward = dataset.reward(i, 1)
+            assert reward == (dataset.data["label"][i] == 1)
