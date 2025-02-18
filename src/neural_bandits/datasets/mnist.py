@@ -13,20 +13,19 @@ class MNISTDataset(AbstractDataset[torch.Tensor]):
     See https://www.openml.org/search?type=data&status=active&id=554 for more information of the dataset.
 
     Args:
-        root (str): Where to store the dataset
-        download (bool): Whether to download the dataset
+        dest_path: Where to store the dataset
     """
 
     num_actions: int = 10
     context_size: int = 784
     num_samples: int = 70000
 
-    def __init__(self, root: str = "./data", download: bool = True):
+    def __init__(self, dest_path: str = "./data") -> None:
         super().__init__(needs_disjoint_contextualization=True)
         self.data: Bunch = fetch_openml(
             name="mnist_784",
             version=1,
-            data_home=root,
+            data_home=dest_path,
             as_frame=False,
         )
         self.X = self.data.data.astype(np.float32)

@@ -70,10 +70,16 @@ class TestStatlogDataset:
 class TestWheelBanditDataset:
     @pytest.fixture
     def dataset(self) -> WheelBanditDataset:
-        return WheelBanditDataset(num_samples=1000, delta=0.8)
+        return WheelBanditDataset(num_samples=100, delta=0.8, seed=42)
 
     def test_len(self, dataset: WheelBanditDataset) -> None:
-        assert len(dataset) == 1000
+        assert len(dataset) == 100
+
+    def test_reproducible(self, dataset: WheelBanditDataset) -> None:
+        dataset2 = WheelBanditDataset(num_samples=100, delta=0.8, seed=42)
+
+        assert dataset2[0][0].equal(dataset[0][0])
+        assert dataset2[0][1].equal(dataset[0][1])
 
     def test_getitem(self, dataset: WheelBanditDataset) -> None:
         for _ in range(50):
@@ -104,10 +110,10 @@ class TestImdbReviewsDataset:
         for _ in range(10):
             X, rewards = dataset[0]
             assert len(X) == 3
-            assert all(X_i.shape == (255) for X_i in X)
             assert rewards.shape == (2,)
+            assert [X_i.shape == (255,) for X_i in X]
 
     def test_reward(self, dataset: ImdbMovieReviews) -> None:
         for i in range(10):
             reward = dataset.reward(i, 1)
-            assert reward == (dataset.data["label"][i] == 1)
+            assert reward == (dataset.data["sentiment"][i] == 1)

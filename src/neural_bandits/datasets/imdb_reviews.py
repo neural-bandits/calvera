@@ -65,29 +65,22 @@ def _load_imdb_data(
 def _setup_dataset(
     partition: Literal["train", "test"] = "train",
     dest_path: str | None = None,
-    download: bool = True,
 ) -> pd.DataFrame:
     """Download and setup the dataset."""
 
-    if download:
-        dest_path_or_current_path = (
-            dest_path
-            if dest_path is not None
-            else os.path.join(pathlib.Path(__file__).parent.absolute())
+    dest_path_or_current_path = (
+        dest_path
+        if dest_path is not None
+        else os.path.join(pathlib.Path(__file__).parent.absolute())
+    )
+    if os.path.exists(dest_path_or_current_path) and not os.path.exists(
+        os.path.join(dest_path_or_current_path, "aclImdb")
+    ):
+        _download_imdb_data(dest_path_or_current_path)
+        _extract_data(
+            os.path.join(dest_path_or_current_path, "aclImdb_v1.tar.gz"),
+            dest_path_or_current_path,
         )
-        if os.path.exists(dest_path_or_current_path) and not os.path.exists(
-            os.path.join(dest_path_or_current_path, "aclImdb")
-        ):
-            _download_imdb_data(dest_path_or_current_path)
-            _extract_data(
-                os.path.join(dest_path_or_current_path, "aclImdb_v1.tar.gz"),
-                dest_path_or_current_path,
-            )
-        elif not os.path.exists(dest_path_or_current_path):
-            print(f"The destination path, {dest_path_or_current_path}, does not exist.")
-            return None
-        else:
-            print("The dataset is already downloaded and extracted.")
 
     texts, sentiments = _load_imdb_data(
         os.path.join(dest_path_or_current_path, "aclImdb"), partition
@@ -119,10 +112,9 @@ class ImdbMovieReviews(
     """A dataset for the IMDB movie reviews sentiment classification task. See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
 
     Args:
-        max_len: The maximum length of the input text. If the text is longer than this, it will be truncated.
-        download: If True, download the dataset if it does not exist. Otherwise, assume the dataset is already downloaded.
-        partition: The partition of the dataset to use. Either "train" or "test".
         dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded to the current directory.
+        partition: The partition of the dataset to use. Either "train" or "test".
+        max_len: The maximum length of the input text. If the text is longer than this, it will be truncated.
         tokenizer: A tokenizer from the `transformers` library. If None, the `BertTokenizer` will be used.
     """
 
@@ -136,17 +128,17 @@ class ImdbMovieReviews(
 
     def __init__(
         self,
-        max_len: int = 255,
-        download: bool = True,
-        partition: Literal["train", "test"] = "train",
         dest_path: str | None = None,
+        partition: Literal["train", "test"] = "train",
+        max_len: int = 255,
         tokenizer: PreTrainedTokenizer | None = None,
     ):
         # Using disjoint contextualization for this dataset does not work. We have a sequence of tokens.
         super().__init__(needs_disjoint_contextualization=False)
 
         self.data = _setup_dataset(
-            partition=partition, dest_path=dest_path, download=download
+            partition=partition,
+            dest_path=dest_path,
         )
         self.max_len = max_len
 
