@@ -44,6 +44,8 @@ class BanditBenchmarkEnvironment:
         return self
 
     def __next__(self) -> torch.Tensor:
+        assert self._iterator is not None, "No iterator was created."
+
         # Retrieve one batch from the DataLoader
         contextualized_actions, all_rewards = next(self._iterator)  # type: ignore
 
@@ -176,4 +178,5 @@ class BanditBenchmarkEnvironment:
         )  # shape (n, m)
 
     def __len__(self):
-        return self._length
+        assert self._iterator is not None, "No iterator was created."
+        return self._iterator.__len__()
