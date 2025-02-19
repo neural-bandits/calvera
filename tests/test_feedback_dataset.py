@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from neural_bandits.benchmark.feedback_dataset import BanditFeedbackDataset
+from neural_bandits.benchmark.datasets.feedback_dataset import BanditFeedbackDataset
 
 
 def test_feedback_dataset_basic() -> None:

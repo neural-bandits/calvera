@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 
-from neural_bandits.benchmark.feedback_dataset import BanditFeedbackDataset
+from neural_bandits.benchmark.datasets.feedback_dataset import BanditFeedbackDataset
 
 
 class BanditBenchmarkEnvironment:
