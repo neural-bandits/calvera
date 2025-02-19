@@ -222,19 +222,8 @@ class NeuralUCBBandit(AbstractBandit):
             on_epoch=False,
             prog_bar=True,
         )
-        # regret = torch.max(rewards, dim=1).values - realized_rewards
-        # self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
 
-        # self.total_regret += regret.sum().item()
         self.total_samples += batch_size
-
-        # self.log(
-        #     "average_regret",
-        #     self.total_regret / self.total_samples,
-        #     on_step=True,
-        #     on_epoch=False,
-        #     prog_bar=True,
-        # )
 
         return -realized_rewards.mean()
 

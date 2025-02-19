@@ -58,7 +58,6 @@ class LinearBandit(AbstractBandit):
         # Update the self.bandit
         self.update(chosen_contextualized_actions, realized_rewards)
 
-        # TODO: If we don't log the regret I feel like we might want to move the reward logging somewhere else as well.
         self.log(
             "reward",
             realized_rewards.mean(),
@@ -66,9 +65,6 @@ class LinearBandit(AbstractBandit):
             on_epoch=False,
             prog_bar=True,
         )
-        # TODO: We can't log this here because we don't have the rewards, only the realized_rewards. Is there another way to log this?
-        # regret = torch.max(rewards, dim=1).values - realized_rewards
-        # self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
 
         return -realized_rewards.mean()
 

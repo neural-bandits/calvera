@@ -171,7 +171,7 @@ class NeuralLinearBandit(LinearTSBandit):
             chosen_contextualized_actions
         )  # shape: (batch_size, n_arms, n_embedding_size)
 
-        # Log the reward and regret
+        # Log the reward
         self.log(
             "reward",
             realized_rewards.mean(),
@@ -179,8 +179,6 @@ class NeuralLinearBandit(LinearTSBandit):
             on_epoch=False,
             prog_bar=True,
         )
-        # regret = torch.max(rewards, dim=1).values - realized_rewards
-        # self.log("regret", regret.mean(), on_step=True, on_epoch=False, prog_bar=True)
 
         # Update the replay buffer
         self.contextualized_actions = torch.cat(
