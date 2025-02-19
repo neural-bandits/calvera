@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from torch.utils.data import Sampler
+from typing import Any, Callable, Iterator, Optional
+
 import torch
-from typing import Iterator, Optional, Callable, Any
+from torch.utils.data import Sampler
 
 from neural_bandits.datasets.abstract_dataset import AbstractDataset
 
