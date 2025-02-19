@@ -4,7 +4,7 @@ import torch
 from neural_bandits.benchmark.feedback_dataset import BanditFeedbackDataset
 
 
-def test_feedback_dataset_basic():
+def test_feedback_dataset_basic() -> None:
     n, i, k = 3, 2, 4
     chosen_contextualized_actions = torch.randn(n, i, k)
     realized_rewards = torch.randn(n, i)
@@ -18,7 +18,7 @@ def test_feedback_dataset_basic():
         assert y.shape == (i,)
 
 
-def test_feedback_dataset_shape_mismatch():
+def test_feedback_dataset_shape_mismatch() -> None:
     with pytest.raises(AssertionError):
         # Mismatch in first dimension
         BanditFeedbackDataset(torch.randn(2, 2, 4), torch.randn(3, 2))
