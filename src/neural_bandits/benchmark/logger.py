@@ -38,7 +38,7 @@ class OnlineBanditLoggerDecorator(Logger):
     ```
     """
 
-    def __init__(self, logger: Logger, enable_console_logging=True):
+    def __init__(self, logger: Logger, enable_console_logging: bool = True) -> None:
         """
         Args:
             logger: The logger to decorate.
@@ -53,7 +53,7 @@ class OnlineBanditLoggerDecorator(Logger):
         self.training_run: int = 0
         self.pre_training_metrics: Optional[dict[str, float]] = None
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         """
         Automatically delegate to the wrapped logger for any attribute or method
         not found in this decorator class.
@@ -61,11 +61,11 @@ class OnlineBanditLoggerDecorator(Logger):
         return getattr(self._logger_wrappee, name)
 
     @property
-    def name(self):
+    def name(self) -> Optional[str]:
         return self._logger_wrappee.name
 
     @property
-    def version(self):
+    def version(self) -> Optional[str | int]:
         return self._logger_wrappee.version
 
     @rank_zero_only

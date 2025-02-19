@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-class BanditFeedbackDataset(Dataset):
+class BanditFeedbackDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """
     Dataset that contains only those actions & rewards chosen by the bandit. It is used to do a single update on the bandit.
     Supports multiple chosen actions (combinatorial bandits) but must be the same for all rows.

@@ -29,7 +29,9 @@ class BanditBenchmarkEnvironment:
     ```
     """
 
-    def __init__(self, dataloader: DataLoader) -> None:
+    def __init__(
+        self, dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]]
+    ) -> None:
         """
         Parameters:
             dataloader: DataLoader that yields batches of (contextualized_actions, all_rewards) tuples.
@@ -39,7 +41,7 @@ class BanditBenchmarkEnvironment:
         self._last_contextualized_actions: Optional[torch.Tensor] = None
         self._last_all_rewards: Optional[torch.Tensor] = None
 
-    def __iter__(self):
+    def __iter__(self) -> "BanditBenchmarkEnvironment":
         self._iterator = iter(self._dataloader)
         return self
 
@@ -47,7 +49,9 @@ class BanditBenchmarkEnvironment:
         assert self._iterator is not None, "No iterator was created."
 
         # Retrieve one batch from the DataLoader
-        contextualized_actions, all_rewards = next(self._iterator)  # type: ignore
+        batch = next(self._iterator)
+        contextualized_actions: torch.Tensor = batch[0]
+        all_rewards: torch.Tensor = batch[1]
 
         assert contextualized_actions.size(0) == all_rewards.size(
             0
@@ -62,7 +66,9 @@ class BanditBenchmarkEnvironment:
         # Return only the contextualized actions for the bandit to pick from
         return contextualized_actions
 
-    def get_feedback(self, chosen_actions: torch.Tensor) -> Dataset:
+    def get_feedback(
+        self, chosen_actions: torch.Tensor
+    ) -> Dataset[tuple[torch.Tensor, torch.Tensor]]:
         """
         Returns a small dataset with only the chosen actions & realized rewards of the last batch.
         For combinatorial bandits, this feedback is semi-bandit feedback.
@@ -177,6 +183,6 @@ class BanditBenchmarkEnvironment:
             .view(self._last_all_rewards.size(0), -1)
         )  # shape (n, m)
 
-    def __len__(self):
+    def __len__(self) -> int:
         assert self._iterator is not None, "No iterator was created."
         return self._iterator.__len__()
