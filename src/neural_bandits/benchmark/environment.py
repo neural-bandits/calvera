@@ -1,10 +1,11 @@
 from typing import Optional
 
-from torch.utils.data import DataLoader, Dataset
 import torch
-from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.dataloader import _BaseDataLoaderIter
 
 from neural_bandits.benchmark.feedback_dataset import BanditFeedbackDataset
+
 
 class BanditBenchmarkEnvironment:
     """
@@ -166,7 +167,7 @@ class BanditBenchmarkEnvironment:
 
     def _get_realized_rewards(self, chosen_actions: torch.Tensor) -> torch.Tensor:
         assert self._last_all_rewards is not None, "No rewards were stored."
-        
+
         mask = chosen_actions.bool()
         return (
             (self._last_all_rewards * chosen_actions.float())

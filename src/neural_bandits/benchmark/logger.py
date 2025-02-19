@@ -1,7 +1,8 @@
-from typing import Any, Optional
 import sys
-from lightning.pytorch.utilities import rank_zero_only
+from typing import Any, Optional
+
 from lightning.pytorch.loggers.logger import Logger
+from lightning.pytorch.utilities import rank_zero_only
 
 
 class OnlineBanditLoggerDecorator(Logger):
