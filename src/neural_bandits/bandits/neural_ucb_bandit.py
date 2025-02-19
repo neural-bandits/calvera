@@ -92,7 +92,7 @@ class NeuralUCBBandit(AbstractBandit):
             (self.total_params,), device=self.device
         )
 
-    def predict(
+    def _predict_action(
         self,
         contextualized_actions: torch.Tensor,
         **kwargs: Any,
@@ -161,15 +161,22 @@ class NeuralUCBBandit(AbstractBandit):
         # Select a_t = argmax_a U_t,a
         chosen_actions = self.selector(U_t)
 
+        assert (
+            chosen_actions.sum(dim=1) == 1
+        ).all(), "Currently only supports non-combinatorial bandits"
+        chosen_actions_idx = chosen_actions.argmax(
+            dim=1
+        )  # TODO: this only works for non-combinatorial bandits!
+
         # Update Z_t using g(x_t,a_t; θ_t-1)
         for b in range(batch_size):
-            a_t = chosen_actions[b]
+            a_t = chosen_actions_idx[b]
             self.Z_t += all_gradients[b, a_t] * all_gradients[b, a_t]
 
         # Return chosen actions and
         return chosen_actions, torch.ones(batch_size, device=self.device)
 
-    def update_step(
+    def _update(
         self,
         batch: torch.Tensor,
         batch_idx: int,
