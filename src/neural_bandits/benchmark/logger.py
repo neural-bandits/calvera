@@ -61,8 +61,8 @@ class OnlineBanditLoggerDecorator(Logger):
 
     @property
     def name(self):
-        return "OnlineBandit" + self._logger_wrappee.name
-    
+        return self._logger_wrappee.name
+
     @property
     def version(self):
         return self._logger_wrappee.version
@@ -76,7 +76,7 @@ class OnlineBanditLoggerDecorator(Logger):
             metrics: The metrics to log.
         """
         self.pre_training_metrics = metrics
-    
+
     @rank_zero_only
     def log_hyperparams(self, params: Any, *args: Any, **kwargs: Any) -> None:
         self._logger_wrappee.log_hyperparams(params, *args, **kwargs)
