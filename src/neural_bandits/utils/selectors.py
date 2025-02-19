@@ -112,10 +112,18 @@ class TopKSelector(AbstractSelector):
             self.k <= n_arms
         ), f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
 
-        _, top_k_indices = torch.topk(scores, k=self.k, dim=1)
-
         selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64)
-        batch_indices = torch.arange(batch_size).unsqueeze(1).expand(-1, self.k)
-        selected_actions[batch_indices, top_k_indices] = 1
+        remaining_scores = scores.clone()
+
+        selected_mask = torch.zeros_like(scores, dtype=torch.bool)
+
+        for _ in range(self.k):
+            max_indices = torch.argmax(remaining_scores, dim=1)
+
+            batch_indices = torch.arange(batch_size)
+            selected_actions[batch_indices, max_indices] = 1
+            selected_mask[batch_indices, max_indices] = True
+
+            remaining_scores[selected_mask] = float("-inf")
 
         return selected_actions
