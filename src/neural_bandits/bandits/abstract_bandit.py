@@ -29,10 +29,10 @@ class AbstractBandit(ABC, pl.LightningModule):
                 this will be a super set of actions. Non-probabilistic algorithms should always return 1.
                 Shape: (batch_size, n_chosen_actions).
         """
-        return self.predict(*args, **kwargs)
+        return self._predict_action(*args, **kwargs)
 
     @abstractmethod
-    def predict(
+    def _predict_action(
         self,
         contextualized_actions: torch.Tensor,
         **kwargs: Any,
@@ -58,7 +58,7 @@ class AbstractBandit(ABC, pl.LightningModule):
 
     def training_step(self, *args: Any, **kwargs: Any) -> torch.Tensor:
         """Perform a single update step. See the documentation for the LightningModule's `training_step` method.
-        Acts as a wrapper for the `update_step` method in case we want to change something for every bandit or
+        Acts as a wrapper for the `_update` method in case we want to change something for every bandit or
         use the update independently from lightning, e.g. in tests.
 
         Args:
@@ -76,10 +76,10 @@ class AbstractBandit(ABC, pl.LightningModule):
                 Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """
-        return self.update_step(*args, **kwargs)
+        return self._update(*args, **kwargs)
 
     @abstractmethod
-    def update_step(
+    def _update(
         self,
         *args: Any,
         **kwargs: Any,

@@ -33,7 +33,7 @@ class LinearBandit(AbstractBandit):
         self.b = torch.zeros(n_features)
         self.theta = torch.zeros(n_features)
 
-    def update_step(
+    def _update(
         self,
         batch: torch.Tensor,
         batch_idx: int,

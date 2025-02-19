@@ -96,10 +96,10 @@ class NeuralLinearBandit(LinearTSBandit):
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
 
-    def predict(
+    def _predict_action(
         self, contextualized_actions: torch.Tensor, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Predict the action to take for the given input data according to neural linear.
+        """_predict_action the action to take for the given input data according to neural linear.
 
         Args:
             contextualized_actions: The input data. Shape: (batch_size, n_arms, n_encoder_input_size)
@@ -121,8 +121,10 @@ class NeuralLinearBandit(LinearTSBandit):
             and embedded_actions.shape[2] == self.hparams["n_embedding_size"]
         ), f"Embedded actions must have shape (batch_size, n_arms, n_encoder_input_size). Expected shape {(contextualized_actions.shape[0], contextualized_actions.shape[1], self.hparams['n_embedding_size'])} but got shape {embedded_actions.shape}"
 
-        # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward method here: because of inheriting it would call our forward and predict method again.
-        result, p = super().predict(embedded_actions)  # shape: (batch_size, n_arms)
+        # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward method here: because of inheriting it would call our forward and _predict_action method again.
+        result, p = super()._predict_action(
+            embedded_actions
+        )  # shape: (batch_size, n_arms)
 
         assert (
             result.shape[0] == contextualized_actions.shape[0]
@@ -138,7 +140,7 @@ class NeuralLinearBandit(LinearTSBandit):
 
         return result, p
 
-    def update_step(
+    def _update(
         self,
         batch: torch.Tensor,
         batch_idx: int,
@@ -197,7 +199,7 @@ class NeuralLinearBandit(LinearTSBandit):
             ],
             dim=0,
         )
-        self.rewards = torch.cat([self.rewards, realized_rewards.squeeze()], dim=0)
+        self.rewards = torch.cat([self.rewards, realized_rewards.squeeze(1)], dim=0)
 
         assert (
             chosen_embedded_actions.shape[0] == chosen_contextualized_actions.shape[0]
@@ -307,7 +309,7 @@ class NeuralLinearBandit(LinearTSBandit):
         """Compute the loss of the neural linear bandit.
 
         Args:
-            y_pred (torch.Tensor): The predicted rewards. Shape: (batch_size,)
+            y_pred (torch.Tensor): The _predict_actioned rewards. Shape: (batch_size,)
             y (torch.Tensor): The actual rewards. Shape: (batch_size,)
 
         Returns:
