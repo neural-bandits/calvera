@@ -4,6 +4,7 @@ from typing import Any
 import lightning as pl
 import torch
 
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
 
 class AbstractBandit(ABC, pl.LightningModule):
     """Defines the interface for all Bandit algorithms by implementing pytorch Lightning Module methods."""
@@ -101,3 +102,8 @@ class AbstractBandit(ABC, pl.LightningModule):
                 for logging/visualization of the training process.
         """
         pass
+
+    def configure_optimizers(self) -> OptimizerLRScheduler:
+        """Configure the optimizers and learning rate schedulers. This method is required by LightningModule.
+        Can be overwritten by the concrete bandit classes."""
+        return None
