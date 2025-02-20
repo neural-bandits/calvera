@@ -239,7 +239,7 @@ def run(
     training_params: dict[str, Any] = {},
     bandit_hparams: dict[str, Any] = {},
 ) -> None:
-    random.seed(42)
+    pl.seed_everything(42)
 
     Bandit = bandits[bandit_name]
     dataset = datasets[dataset_name]()
