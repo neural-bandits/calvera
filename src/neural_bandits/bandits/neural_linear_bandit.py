@@ -103,7 +103,7 @@ class NeuralLinearBandit(LinearTSBandit):
 
         Args:
             contextualized_actions: The input data. Shape: (batch_size, n_arms, n_encoder_input_size)
-        
+
         Returns:
             tuple:
             - chosen_actions: The one-hot encoded tensor of the chosen actions. Shape: (batch_size, n_arms).
