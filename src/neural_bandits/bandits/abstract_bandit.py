@@ -3,7 +3,6 @@ from typing import Any
 
 import lightning as pl
 import torch
-from lightning.pytorch.utilities.types import OptimizerLRScheduler
 
 
 class AbstractBandit(ABC, pl.LightningModule):

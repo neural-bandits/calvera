@@ -29,13 +29,13 @@ class LinearTSBandit(LinearBandit):
         """Given contextualized actions, _predict_actions the best action using LinTS.
 
         Args:
-            contextualized_actions (torch.Tensor): The input tensor of shape (batch_size, n_arms, n_features).
+            contextualized_actions: The input tensor of shape (batch_size, n_arms, n_features).
 
         Returns:
             tuple:
-            - chosen_actions (torch.Tensor): The one-hot encoded tensor of the chosen actions.
+            - chosen_actions: The one-hot encoded tensor of the chosen actions.
                 Shape: (batch_size, n_arms).
-            - p (torch.Tensor): The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
+            - p: The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
                 Shape: (batch_size, ).
         """
 
@@ -60,12 +60,12 @@ class LinearTSBandit(LinearBandit):
         """Compute the probability of the chosen actions.
 
         Args:
-            contextualized_actions (torch.Tensor): The input tensor of shape (batch_size, n_arms, n_features).
-            theta_tilde (torch.Tensor): The sampled theta from the posterior distribution of the model.
+            contextualized_actions: The input tensor of shape (batch_size, n_arms, n_features).
+            theta_tilde: The sampled theta from the posterior distribution of the model.
                 Shape: (batch_size, n_features).
 
         Returns:
-            torch.Tensor: The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
+            The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
                 Shape: (batch_size, ).
         """
         # TODO: Implement the actual probability computation for Thompson Sampling.

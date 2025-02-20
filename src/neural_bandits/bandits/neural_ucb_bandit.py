@@ -71,7 +71,6 @@ class NeuralUCBBandit(AbstractBandit):
 
         self.selector = selector
 
-        # self.total_regret: float = 0.0
         self.total_samples: int = 0
 
         # Model parameters
