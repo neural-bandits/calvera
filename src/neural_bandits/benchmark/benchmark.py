@@ -61,16 +61,18 @@ class BanditBenchmark:
     def _initialize_dataloader(
         self, dataset: AbstractDataset
     ) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
+        if "max_samples" in self.training_params:
+            max_samples = self.training_params.max_samples
+            indices = list(range(len(dataset)))
+            random.shuffle(indices)
+            subset_indices = indices[:max_samples]
+            subset = torch.utils.data.Subset(dataset, subset_indices)
+        else:
+            subset = dataset
+
         # TODO: Add a non-iid data loader as a special setting. Then we need to load a special DataLoader.
-
-        max_samples = self.training_params.get("max_samples", 1e6)
-        indices = list(range(len(dataset)))
-        random.shuffle(indices)
-        subset_indices = indices[:max_samples]
-        subset = torch.utils.data.Subset(dataset, subset_indices)
-
         return DataLoader(
-            subset,
+            dataset,
             batch_size=self.training_params.get("feedback_delay", 1),
         )
 
