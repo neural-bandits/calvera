@@ -61,7 +61,7 @@ class BanditBenchmarkEnvironment:
         Returns the next batch of contextualized actions from the DataLoader.
 
         Returns:
-            torch.Tensor: The contextualized actions for the bandit to pick from.
+            The contextualized actions for the bandit to pick from.
 
         Raises:
             AssertionError: If the iterator is not initialized with `__iter__`.

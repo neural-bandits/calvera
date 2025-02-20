@@ -87,8 +87,8 @@ class AbstractBandit(ABC, pl.LightningModule):
 
         Args:
             batch: The output of your data iterable, usually a DataLoader:
-                contextualized_actions (torch.Tensor): shape (batch_size, n_chosen_actions, n_features).
-                realized_rewards (torch.Tensor): shape (batch_size, n_chosen_actions).
+                contextualized_actions: shape (batch_size, n_chosen_actions, n_features).
+                realized_rewards: shape (batch_size, n_chosen_actions).
 
             batch_idx: The index of this batch. Note that if a separate DataLoader is used for each step,
                 this will be reset for each new data loader.

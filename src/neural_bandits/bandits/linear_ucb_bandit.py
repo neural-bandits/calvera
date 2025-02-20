@@ -23,13 +23,13 @@ class LinearUCBBandit(LinearBandit):
         """Given contextualized actions, predicts the best action using LinUCB.
 
         Args:
-            contextualized_actions (torch.Tensor): The input tensor of shape (batch_size, n_arms, n_features).
+            contextualized_actions: The input tensor of shape (batch_size, n_arms, n_features).
 
         Returns:
             tuple:
-            - chosen_actions (torch.Tensor): The one-hot encoded tensor of the chosen actions.
+            - chosen_actions: The one-hot encoded tensor of the chosen actions.
             Shape: (batch_size, n_arms).
-            - p (torch.Tensor): The probability of the chosen actions. For LinUCB this will always return 1.
+            - p: The probability of the chosen actions. For LinUCB this will always return 1.
             Shape: (batch_size, ).
         """
 

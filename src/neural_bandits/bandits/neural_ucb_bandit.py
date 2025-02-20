@@ -99,12 +99,12 @@ class NeuralUCBBandit(AbstractBandit):
         """Calculate UCB scores for each action using diagonal approximation with batch support.
 
         Args:
-            contextualized_actions (torch.Tensor): Contextualized action tensor. Shape: (batch_size, n_arms, n_features).
+            contextualized_actions: Contextualized action tensor. Shape: (batch_size, n_arms, n_features).
 
         Returns:
             tuple:
-            - chosen_actions (torch.Tensor): One-hot encoding of which actions were chosen. Shape: (batch_size, num_actions).
-            - p (torch.Tensor): Will always return a tensor of ones because UCB does not work on probabilities. Shape: (batch_size, ).
+            - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, num_actions).
+            - p: Will always return a tensor of ones because UCB does not work on probabilities. Shape: (batch_size, ).
         """
         contextualized_actions = contextualized_actions.to(self.device)
         batch_size, n_arms, n_features = contextualized_actions.shape

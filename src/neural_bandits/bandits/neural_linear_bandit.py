@@ -312,11 +312,11 @@ class NeuralLinearBandit(LinearTSBandit):
         """Compute the loss of the neural linear bandit.
 
         Args:
-            y_pred (torch.Tensor): The predicted rewards. Shape: (batch_size,)
-            y (torch.Tensor): The actual rewards. Shape: (batch_size,)
+            y_pred: The predicted rewards. Shape: (batch_size,)
+            y: The actual rewards. Shape: (batch_size,)
 
         Returns:
-            torch.Tensor: The loss.
+            The loss.
         """
         # TODO: Should this be configurable?
         return torch.nn.functional.mse_loss(y_pred, y)

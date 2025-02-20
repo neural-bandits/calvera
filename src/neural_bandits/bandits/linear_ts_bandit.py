@@ -26,7 +26,7 @@ class LinearTSBandit(LinearBandit):
     def _predict_action(
         self, contextualized_actions: torch.Tensor, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Given contextualized actions, _predict_actions the best action using LinTS.
+        """Given contextualized actions, predicts the best action using LinTS.
 
         Args:
             contextualized_actions: The input tensor of shape (batch_size, n_arms, n_features).
