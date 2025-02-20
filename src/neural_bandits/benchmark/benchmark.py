@@ -8,7 +8,7 @@ import lightning as pl
 import random
 from lightning.pytorch.loggers import Logger, CSVLogger
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, Subset
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
 from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
@@ -61,14 +61,13 @@ class BanditBenchmark:
     def _initialize_dataloader(
         self, dataset: AbstractDataset
     ) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
+        subset: Dataset[tuple[torch.Tensor, torch.Tensor]] = dataset
         if "max_samples" in self.training_params:
             max_samples = self.training_params["max_samples"]
             indices = list(range(len(dataset)))
             random.shuffle(indices)
             subset_indices = indices[:max_samples]
-            subset = torch.utils.data.Subset(dataset, subset_indices)
-        else:
-            subset = dataset
+            subset = Subset(dataset, subset_indices)
 
         # TODO: Add a non-iid data loader as a special setting. Then we need to load a special DataLoader.
         return DataLoader(
