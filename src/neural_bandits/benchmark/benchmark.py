@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -25,6 +25,8 @@ from neural_bandits.benchmark.datasets.mnist import MNISTDataset
 from neural_bandits.benchmark.datasets.statlog import StatlogDataset
 from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
 
+from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
+
 
 class BanditBenchmark:
 
@@ -46,7 +48,6 @@ class BanditBenchmark:
             bandit_hparams: Dictionary of bandit hyperparameters.
             logger: Optional Lightning logger to record metrics.
         """
-        bandit_hparams["n_features"] = dataset.context_size * dataset.num_actions
         self.bandit = BanditClass(**bandit_hparams)
         # TODO: how to load hyperparams properly from file, cli, sweep, etc.?
         self.training_params = training_params or {}
@@ -226,11 +227,58 @@ bandits: dict[str, type[AbstractBandit]] = {
     "neural_ucb": NeuralUCBBandit,
 }
 
-datasets = {
+datasets: dict[str, type[AbstractDataset]] = {
     "covertype": CovertypeDataset,
     "mnist": MNISTDataset,
     "statlog": StatlogDataset,
     "wheel": WheelBanditDataset,
+}
+
+selectors: dict[str, type[AbstractSelector]] = {
+    "argmax": ArgMaxSelector,
+}
+# map of functions
+networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
+    "none": lambda in_size, out_size: torch.nn.Identity(),
+    "linear": lambda in_size, out_size: torch.nn.Linear(in_size, out_size),
+    "tiny_mlp": lambda in_size, out_size: torch.nn.Sequential(
+        torch.nn.Linear(in_size, 64),
+        torch.nn.ReLU(),
+        torch.nn.Linear(64, out_size),
+    ),
+    "small_mlp": lambda in_size, out_size: torch.nn.Sequential(
+        torch.nn.Linear(in_size, 128),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 128),
+        torch.nn.ReLU(),
+        torch.nn.Linear(128, out_size),
+    ),
+    "large_mlp": lambda in_size, out_size: torch.nn.Sequential(
+        torch.nn.Linear(in_size, 256),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 256),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 256),
+        torch.nn.ReLU(),
+        torch.nn.Linear(256, out_size),
+    ),
+    "deep_mlp": lambda in_size, out_size: torch.nn.Sequential(
+        torch.nn.Linear(in_size, 64),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 64),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 64),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 64),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 64),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 64),
+        torch.nn.ReLU(),
+        torch.nn.Linear(in_size, 64),
+        torch.nn.ReLU(),
+        torch.nn.Linear(64, out_size),
+    ),
 }
 
 
@@ -244,6 +292,19 @@ def run(
 
     Bandit = bandits[bandit_name]
     dataset = datasets[dataset_name]()
+
+    bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")]()
+
+    bandit_hparams["n_features"] = dataset.input_size
+    network_input_size = bandit_hparams["n_features"]
+    network_output_size = (
+        bandit_hparams.get("n_embedding_size", bandit_hparams["n_features"])
+        if bandit_name == "neural_linear"
+        else 1
+    )
+    bandit_hparams["network"] = networks[bandit_hparams.get("network", "none")](
+        network_input_size, network_output_size
+    )
 
     logger = CSVLogger("logs/")
     benchmark = BanditBenchmark(
