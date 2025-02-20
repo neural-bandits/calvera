@@ -12,18 +12,18 @@ class NeuralLinearBandit(LinearTSBandit):
     Lightning Module implementing a Neural Linear bandit.
     The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
     A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear head that is trained on the embeddings.
-    Since updating the neural network (encoder) is computationally expensive, the neural network is only updated every `embedding_update_interval` steps.
+    Since updating the neural network which encodes the inputs into embeddings is computationally expensive, the neural network is only updated every `embedding_update_interval` steps.
     On the other hand, the linear head is updated every `head_update_freq` steps which should be much lower.
     """
 
     def __init__(
         self,
-        encoder: torch.nn.Module,
-        n_encoder_input_size: int,
+        network: torch.nn.Module,
+        n_network_input_size: int,
         n_embedding_size: Optional[int],
         selector: AbstractSelector = ArgMaxSelector(),
-        encoder_update_freq: int = 32,
-        encoder_update_batch_size: int = 32,
+        network_update_freq: int = 32,
+        network_update_batch_size: int = 32,
         head_update_freq: int = 1,
         lr: float = 1e-3,
         max_grad_norm: float = 5.0,
@@ -32,65 +32,65 @@ class NeuralLinearBandit(LinearTSBandit):
         Initializes the NeuralLinearBanditModule.
 
         Args:
-            encoder: The encoder model (neural network) to be used.
-            n_encoder_input_size: The number of features in the input data.
-            n_embedding_size: The size of the embedding produced by the encoder model. Defaults to n_encoder_input_size.
+            network: The neural network to be used to encode the input data into an embedding.
+            n_network_input_size: The number of features in the input data.
+            n_embedding_size: The size of the embedding produced by the neural network. Defaults to n_network_input_size.
             selector: The selector used to choose the best action. Default is ArgMaxSelector.
-            encoder_update_freq: The interval (in steps) at which the encoder model is updated. Default is 32. None means the encoder model is never updated.
-            encoder_update_batch_size: The batch size for the encoder model update. Default is 32.
-            head_update_freq: The interval (in steps) at which the encoder model is updated. Default is 1. None means the linear head is never updated independently.
-            lr: The learning rate for the optimizer of the encoder model. Default is 1e-3.
-            max_grad_norm: The maximum norm of the gradients for the encoder model. Default is 5.0.
+            network_update_freq: The interval (in steps) at which the neural network is updated. Default is 32. None means the neural network is never updated.
+            network_update_batch_size: The batch size for the neural network update. Default is 32.
+            head_update_freq: The interval (in steps) at which the neural network is updated. Default is 1. None means the linear head is never updated independently.
+            lr: The learning rate for the optimizer of the neural network. Default is 1e-3.
+            max_grad_norm: The maximum norm of the gradients for the neural network. Default is 5.0.
             eta: The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). Default is 6.0.
         """
         if n_embedding_size is None:
-            n_embedding_size = n_encoder_input_size
+            n_embedding_size = n_network_input_size
 
         super().__init__(n_features=n_embedding_size, selector=selector)
 
         assert (
-            n_encoder_input_size > 0
+            n_network_input_size > 0
         ), "The number of features must be greater than 0."
         assert n_embedding_size > 0, "The embedding size must be greater than 0."
         assert (
-            encoder_update_freq is None or encoder_update_freq > 0
-        ), "The encoder_update_freq must be greater than 0. Set it to None to never update the neural network."
+            network_update_freq is None or network_update_freq > 0
+        ), "The network_update_freq must be greater than 0. Set it to None to never update the neural network."
         assert (
             head_update_freq is None or head_update_freq > 0
         ), "The head_update_freq must be greater than 0. Set it to None to never update the head independently."
 
         self.hparams.update(
             {
-                "n_encoder_input_size": n_encoder_input_size,
+                "n_network_input_size": n_network_input_size,
                 "n_embedding_size": n_embedding_size,  # same as n_features
-                "encoder_update_freq": encoder_update_freq,
-                "encoder_update_batch_size": encoder_update_batch_size,
+                "network_update_freq": network_update_freq,
+                "network_update_batch_size": network_update_batch_size,
                 "head_update_freq": head_update_freq,
                 "lr": lr,
                 "max_grad_norm": max_grad_norm,
             }
         )
 
-        self.encoder = encoder
+        self.network = network
 
         # Initialize the linear head which receives the embeddings
         self.precision_matrix = torch.eye(n_embedding_size)
         self.b = torch.zeros(n_embedding_size)
         self.theta = torch.zeros(n_embedding_size)
 
-        # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder, hence the single output dimension.
+        # We use this network to train the neural network. We mock a linear head with the final layer of the neural network, hence the single output dimension.
         # TODO: it would be cleaner if this was a lightning module?
         self.net = torch.nn.Sequential(
-            self.encoder,
+            self.network,
             torch.nn.Linear(self.hparams["n_embedding_size"], 1),
         )
 
         self.contextualized_actions: torch.Tensor = torch.empty(
             0
-        )  # shape: (buffer_size, n_encoder_input_size)
+        )  # shape: (buffer_size, n_network_input_size)
         self.embedded_actions: torch.Tensor = torch.empty(
             0
-        )  # shape: (buffer_size, n_encoder_input_size)
+        )  # shape: (buffer_size, n_network_input_size)
         self.rewards: torch.Tensor = torch.empty(0)  # shape: (buffer_size,)
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
@@ -102,7 +102,7 @@ class NeuralLinearBandit(LinearTSBandit):
         """Predicts the action to take for the given input data according to neural linear.
 
         Args:
-            contextualized_actions: The input data. Shape: (batch_size, n_arms, n_encoder_input_size)
+            contextualized_actions: The input data. Shape: (batch_size, n_arms, n_network_input_size)
 
         Returns:
             tuple:
@@ -112,10 +112,10 @@ class NeuralLinearBandit(LinearTSBandit):
 
         assert (
             contextualized_actions.ndim == 3
-            and contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
-        ), f"Contextualized actions must have shape (batch_size, n_arms, n_encoder_input_size). Expected shape {(contextualized_actions.shape)} but got shape {contextualized_actions.shape}"
+            and contextualized_actions.shape[2] == self.hparams["n_network_input_size"]
+        ), f"Contextualized actions must have shape (batch_size, n_arms, n_network_input_size). Expected shape {(contextualized_actions.shape)} but got shape {contextualized_actions.shape}"
 
-        embedded_actions: torch.Tensor = self.encoder(
+        embedded_actions: torch.Tensor = self.network(
             contextualized_actions
         )  # shape: (batch_size, n_arms, n_embedding_size)
 
@@ -124,7 +124,7 @@ class NeuralLinearBandit(LinearTSBandit):
             and embedded_actions.shape[0] == contextualized_actions.shape[0]
             and embedded_actions.shape[1] == contextualized_actions.shape[1]
             and embedded_actions.shape[2] == self.hparams["n_embedding_size"]
-        ), f"Embedded actions must have shape (batch_size, n_arms, n_encoder_input_size). Expected shape {(contextualized_actions.shape[0], contextualized_actions.shape[1], self.hparams['n_embedding_size'])} but got shape {embedded_actions.shape}"
+        ), f"Embedded actions must have shape (batch_size, n_arms, n_network_input_size). Expected shape {(contextualized_actions.shape[0], contextualized_actions.shape[1], self.hparams['n_embedding_size'])} but got shape {embedded_actions.shape}"
 
         # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward method here: because of inheriting it would call our forward and _predict_action method again.
         result, p = super()._predict_action(
@@ -159,8 +159,8 @@ class NeuralLinearBandit(LinearTSBandit):
         assert (
             chosen_contextualized_actions.ndim == 3
             and chosen_contextualized_actions.shape[2]
-            == self.hparams["n_encoder_input_size"]
-        ), "Contextualized actions must have shape (batch_size, n_chosen_arms, n_encoder_input_size)"
+            == self.hparams["n_network_input_size"]
+        ), "Contextualized actions must have shape (batch_size, n_chosen_arms, n_network_input_size)"
 
         assert (
             realized_rewards.shape[0] == chosen_contextualized_actions.shape[0]
@@ -172,7 +172,7 @@ class NeuralLinearBandit(LinearTSBandit):
         ), "The neural linear bandit can only choose one action at a time. Combinatorial Neural Linear is not supported at the moment."
 
         # retrieve an action
-        chosen_embedded_actions: torch.Tensor = self.encoder(
+        chosen_embedded_actions: torch.Tensor = self.network(
             chosen_contextualized_actions
         )  # shape: (batch_size, n_arms, n_embedding_size)
 
@@ -209,15 +209,15 @@ class NeuralLinearBandit(LinearTSBandit):
             and chosen_embedded_actions.shape[1]
             == chosen_contextualized_actions.shape[1]
             and chosen_embedded_actions.shape[2] == self.hparams["n_embedding_size"]
-        ), "The embeddings produced by the encoder must have the specified size (batch_size, n_chosen_arms, n_embedding_size)."
+        ), "The embeddings produced by the neural network must have the specified size (batch_size, n_chosen_arms, n_embedding_size)."
 
         # Update the neural network and the linear head
-        should_update_encoder = (
-            self.hparams["encoder_update_freq"] is not None
-            and self.embedded_actions.shape[0] % self.hparams["encoder_update_freq"]
+        should_update_network = (
+            self.hparams["network_update_freq"] is not None
+            and self.embedded_actions.shape[0] % self.hparams["network_update_freq"]
             == 0
         )
-        if should_update_encoder:
+        if should_update_network:
             self._train_nn()
             self._update_embeddings()
 
@@ -225,7 +225,7 @@ class NeuralLinearBandit(LinearTSBandit):
             self.hparams["head_update_freq"] is not None
             and self.embedded_actions.shape[0] % self.hparams["head_update_freq"] == 0
         )
-        if should_update_head or should_update_encoder:
+        if should_update_head or should_update_network:
             self._update_head()
 
         return -realized_rewards.mean()
@@ -237,18 +237,18 @@ class NeuralLinearBandit(LinearTSBandit):
         """Perform a full update on the network of the neural linear bandit."""
         # TODO: How can we use a Lightning trainer here? Possibly extract into a separate BanditNeuralNetwork module?
 
-        # We train the encoder so that it produces embeddings that are useful for a linear head.
-        # The actual linear head is trained in a seperate step but we "mock" a linear head with the final layer of the encoder.
+        # We train the neural network so that it produces embeddings that are useful for a linear head.
+        # The actual linear head is trained in a seperate step but we "mock" a linear head with the final layer of the network.
 
         # TODO: optimize by not passing Z since X and Y are enough
-        batch_size: int = self.hparams["encoder_update_batch_size"]
+        batch_size: int = self.hparams["network_update_batch_size"]
         X, Z, Y = self.get_batches(num_steps, batch_size)
 
-        self.encoder.train()
+        self.network.train()
         for x, z, y in zip(X, Z, Y):
             self.optimizers().zero_grad()  # type: ignore
 
-            # x  # shape: (batch_size, n_encoder_input_size)
+            # x  # shape: (batch_size, n_network_input_size)
             # z  # shape: (batch_size, n_embedding_size)
             # y  # shape: (batch_size,)
 
@@ -279,7 +279,7 @@ class NeuralLinearBandit(LinearTSBandit):
             batch_size: The size of each batch.
 
         Returns: tuple
-            - X: The contextualized actions. Shape: (num_batches, batch_size, n_encoder_input_size)
+            - X: The contextualized actions. Shape: (num_batches, batch_size, n_network_input_size)
             - Z: The embedded actions. Shape: (num_batches, batch_size, n_embedding_size)
             - Y: The rewards. Shape: (num_batches, batch_size)
         """
@@ -324,17 +324,17 @@ class NeuralLinearBandit(LinearTSBandit):
     def _update_embeddings(self) -> None:
         """Update the embeddings of the neural linear bandit"""
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
-        self.encoder.eval()
+        self.network.eval()
         with torch.no_grad():
             for i, x in enumerate(self.contextualized_actions):
                 # TODO: Do batched inference
-                self.embedded_actions[i] = self.encoder(x)
-        self.encoder.train()
+                self.embedded_actions[i] = self.network(x)
+        self.network.train()
 
     def _update_head(self) -> None:
         """Perform an update step on the head of the neural linear bandit. Currently, it recomputes the linear head from scratch."""
         # TODO: make this sequential! Then we don't need to reset the parameters on every update (+ update the method comment).
-        # TODO: But when we recompute after training the encoder, we need to actually reset these parameters. And we need to only load the latest data from the replay buffer.
+        # TODO: But when we recompute after training the neural network, we need to actually reset these parameters. And we need to only load the latest data from the replay buffer.
         # TODO: We could actually make this recompute configurable and not force a recompute but just continue using the old head.
 
         # Reset the parameters

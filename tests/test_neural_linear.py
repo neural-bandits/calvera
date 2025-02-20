@@ -20,17 +20,17 @@ def test_neural_linear_bandit_forward_shape() -> None:
     """
     batch_size, n_arms, n_features, n_embeddings = 2, 3, 4, 5
 
-    # Simple encoder: embed from 4 to 5 dimensions
-    encoder = nn.Sequential(
+    # Simple network: embed from 4 to 5 dimensions
+    network = nn.Sequential(
         nn.Linear(n_features, n_embeddings, bias=False),
         # don't add a ReLU here because its the final layer
     )
 
     # Create bandit
     bandit = NeuralLinearBandit(
-        n_encoder_input_size=n_features,
-        n_embedding_size=n_embeddings,  # same as input if encoder is identity
-        encoder=encoder,
+        n_network_input_size=n_features,
+        n_embedding_size=n_embeddings,  # same as input if network is identity
+        network=network,
     )
 
     contextualized_actions = torch.randn(batch_size, n_arms, n_features)
@@ -52,11 +52,11 @@ def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
     If the bandit is random or identity, we just confirm shape & no errors.
     """
     n_features = 2
-    encoder = nn.Identity()
+    network = nn.Identity()
     bandit = NeuralLinearBandit(
-        n_encoder_input_size=n_features,
+        n_network_input_size=n_features,
         n_embedding_size=n_features,
-        encoder=encoder,
+        network=network,
     )
 
     # Provide a simple known input
@@ -79,18 +79,18 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
     Actually confirm the correct output.
     """
     n_features = 2
-    encoder = nn.Sequential(
+    network = nn.Sequential(
         nn.Linear(n_features, n_features, bias=False),
         # don't add a ReLU here because its the final layer
     )
 
-    # fix the weights of the encoder to only regard the first feature, and the second one a litple bit
-    encoder[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 0.1]])
+    # fix the weights of the network to only regard the first feature, and the second one a litple bit
+    network[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 0.1]])
 
     bandit = NeuralLinearBandit(
-        n_encoder_input_size=n_features,
+        n_network_input_size=n_features,
         n_embedding_size=n_features,
-        encoder=encoder,
+        network=network,
     )
 
     # Provide a simple known input
@@ -167,16 +167,16 @@ def test_neural_linear_bandit_training_step(
     n_features = actions.shape[2]
     n_embedding_size = 4
 
-    encoder = nn.Sequential(
+    network = nn.Sequential(
         nn.Linear(n_features, n_embedding_size, bias=False),
         # don't add a ReLU because its the final layer
     )
 
     bandit = NeuralLinearBandit(
-        encoder=encoder,
-        n_encoder_input_size=n_features,
+        network=network,
+        n_network_input_size=n_features,
         n_embedding_size=n_embedding_size,
-        encoder_update_freq=4,
+        network_update_freq=4,
         head_update_freq=2,
         lr=1e-3,
     )
@@ -184,7 +184,7 @@ def test_neural_linear_bandit_training_step(
     theta_1 = bandit.theta.clone()
     precision_matrix_1 = bandit.precision_matrix.clone()
     b_1 = bandit.b.clone()
-    nn_before = encoder[0].weight.clone()
+    nn_before = network[0].weight.clone()
 
     # Initially empty buffer
     assert bandit.contextualized_actions.numel() == 0
@@ -217,8 +217,8 @@ def test_neural_linear_bandit_training_step(
         vals > 0
     ), "Precision matrix must be positive definite, but eigenvalues are not all positive."
 
-    # But the encoder should not have been updated
-    assert torch.allclose(nn_before, encoder[0].weight)
+    # But the network should not have been updated
+    assert torch.allclose(nn_before, network[0].weight)
 
     # Store the updated values
     theta_2 = bandit.theta.clone()
@@ -251,8 +251,8 @@ def test_neural_linear_bandit_training_step(
         vals > 0
     ), "Precision matrix must be positive definite, but eigenvalues are not all positive."
 
-    # And the encoder should have been updated
-    assert not torch.allclose(nn_before, encoder[0].weight)
+    # And the network should have been updated
+    assert not torch.allclose(nn_before, network[0].weight)
 
 
 def test_neural_linear_bandit_hparams_effect() -> None:
@@ -263,25 +263,25 @@ def test_neural_linear_bandit_hparams_effect() -> None:
     n_features = 4
     n_embedding_size = 10
 
-    # Dummy encoder
-    encoder = nn.Linear(n_features, n_embedding_size, bias=False)
+    # Dummy network
+    network = nn.Linear(n_features, n_embedding_size, bias=False)
 
     bandit = NeuralLinearBandit(
-        encoder=encoder,
-        n_encoder_input_size=n_features,
+        network=network,
+        n_network_input_size=n_features,
         n_embedding_size=n_embedding_size,
-        encoder_update_freq=10,
+        network_update_freq=10,
         head_update_freq=5,
         lr=1e-2,
     )
 
     # Check hparams
-    assert bandit.hparams["n_encoder_input_size"] == n_features
+    assert bandit.hparams["n_network_input_size"] == n_features
     assert (
         bandit.hparams["n_features"] == n_embedding_size
     )  # these are the features after embedding that are input into the linear head... this is a little ugly but it comes from the inheritance of the LinearTSBandit
     assert bandit.hparams["n_embedding_size"] == n_embedding_size
-    assert bandit.hparams["encoder_update_freq"] == 10
+    assert bandit.hparams["network_update_freq"] == 10
     assert bandit.hparams["head_update_freq"] == 5
     assert bandit.hparams["lr"] == 1e-2
 
