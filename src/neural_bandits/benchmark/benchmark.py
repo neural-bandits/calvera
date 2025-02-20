@@ -267,6 +267,8 @@ if __name__ == "__main__":
             "batch_size": 1,
             "forward_batch_size": 1,
             "feedback_delay": 1,
-        },
-        {"alpha": 1.0},
+        },  # training parameters
+        {
+            "alpha": 1.0,
+        },  # bandit hyperparameters
     )
