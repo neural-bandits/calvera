@@ -3,7 +3,6 @@ from typing import Any
 
 import lightning as pl
 import torch
-from lightning.pytorch.utilities.types import OptimizerLRScheduler
 
 
 class AbstractBandit(ABC, pl.LightningModule):
@@ -19,13 +18,13 @@ class AbstractBandit(ABC, pl.LightningModule):
         for many samples in one batch.
 
         Args:
-            contextualized_actions (torch.Tensor): Tensor of shape (batch_size, n_actions, n_features).
+            contextualized_actions: Tensor of shape (batch_size, n_actions, n_features).
 
         Returns:
             tuple:
-            - chosen_actions (torch.Tensor): One-hot encoding of which actions were chosen.
+            - chosen_actions: One-hot encoding of which actions were chosen.
                 Shape: (batch_size, n_chosen_actions).
-            - p (torch.Tensor): The probability of the chosen actions. In the combinatorial case,
+            - p: The probability of the chosen actions. In the combinatorial case,
                 this will be a super set of actions. Non-probabilistic algorithms should always return 1.
                 Shape: (batch_size, n_chosen_actions).
         """
@@ -44,13 +43,13 @@ class AbstractBandit(ABC, pl.LightningModule):
         Deterministic algorithms like UCB will always return 1.
 
         Args:
-            contextualized_actions (torch.Tensor): Tensor of shape (batch_size, n_actions, n_features).
+            contextualized_actions: Tensor of shape (batch_size, n_actions, n_features).
 
         Returns:
             tuple:
-            - chosen_actions (torch.Tensor): One-hot encoding of which actions were chosen.
+            - chosen_actions: One-hot encoding of which actions were chosen.
                 Shape: (batch_size, n_chosen_actions).
-            - p (torch.Tensor): The probability of the chosen actions. In the combinatorial case,
+            - p: The probability of the chosen actions. In the combinatorial case,
                 this will be one probability for the super set of actions. Deterministic algorithms (like UCB) should always return 1.
                 Shape: (batch_size, ).
         """
@@ -62,17 +61,17 @@ class AbstractBandit(ABC, pl.LightningModule):
         use the update independently from lightning, e.g. in tests.
 
         Args:
-            batch (torch.Tensor): The output of your data iterable, usually a DataLoader:
-                contextualized_actions (torch.Tensor): shape (batch_size, n_chosen_actions, n_features).
-                realized_rewards (torch.Tensor): shape (batch_size, n_chosen_actions).
+            batch: The output of your data iterable, usually a DataLoader:
+                contextualized_actions: shape (batch_size, n_chosen_actions, n_features).
+                realized_rewards: shape (batch_size, n_chosen_actions).
 
-            batch_idx (int): The index of this batch. Note that if a separate DataLoader is used for each step,
+            batch_idx: The index of this batch. Note that if a separate DataLoader is used for each step,
                 this will be reset for each new data loader.
 
-            data_loader_idx (int): The index of the data loader. This is useful if you have multiple data loaders
+            data_loader_idx: The index of the data loader. This is useful if you have multiple data loaders
                 at once and want to do something different for each one.
         Returns:
-            torch.Tensor: The loss value. In most cases, it makes sense to return the negative reward.
+            The loss value. In most cases, it makes sense to return the negative reward.
                 Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """
@@ -87,24 +86,18 @@ class AbstractBandit(ABC, pl.LightningModule):
         """Abstract method to perform a single update step. Should be implemented by the concrete bandit classes.
 
         Args:
-            batch (torch.Tensor): The output of your data iterable, usually a DataLoader:
-                contextualized_actions (torch.Tensor): shape (batch_size, n_chosen_actions, n_features).
-                realized_rewards (torch.Tensor): shape (batch_size, n_chosen_actions).
+            batch: The output of your data iterable, usually a DataLoader:
+                contextualized_actions: shape (batch_size, n_chosen_actions, n_features).
+                realized_rewards: shape (batch_size, n_chosen_actions).
 
-            batch_idx (int): The index of this batch. Note that if a separate DataLoader is used for each step,
+            batch_idx: The index of this batch. Note that if a separate DataLoader is used for each step,
                 this will be reset for each new data loader.
 
-            data_loader_idx (int): The index of the data loader. This is useful if you have multiple data loaders
+            data_loader_idx: The index of the data loader. This is useful if you have multiple data loaders
                 at once and want to do something different for each one.
         Returns:
-            torch.Tensor: The loss value. In most cases, it makes sense to return the negative reward.
+            The loss value. In most cases, it makes sense to return the negative reward.
                 Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """
         pass
-
-    def configure_optimizers(self) -> OptimizerLRScheduler:
-        """Usually, this method is required for pytorch lightning to define which optimizers are used for training.
-        Since we do not use the lightning optimizer and optimize on our own, we return None per default.
-        """
-        return None

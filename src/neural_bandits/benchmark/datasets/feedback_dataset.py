@@ -19,7 +19,7 @@ class BanditFeedbackDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         i = # of actions chosen per row
         k = # size of the contextualized action vector
 
-        Parameters:
+        Args:
             chosen_contextualized_actions: shape (n, i, k)
             realized_rewards: shape (n, i)
         """

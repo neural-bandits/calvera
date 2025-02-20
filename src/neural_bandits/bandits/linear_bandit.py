@@ -41,14 +41,14 @@ class LinearBandit(AbstractBandit):
         """Perform an update step on the linear bandit model.
 
         Args:
-            batch (tuple): The output of your data iterable, normally a DataLoader:
-                chosen_contextualized_actions (torch.Tensor): shape (batch_size, n_chosen_actions, n_features).
-                realized_rewards (torch.Tensor): shape (batch_size, n_chosen_actions).
-            batch_idx (int): The index of this batch. Note that if a separate DataLoader is used for each step,
+            batch: The output of your data iterable, normally a DataLoader:
+                chosen_contextualized_actions: shape (batch_size, n_chosen_actions, n_features).
+                realized_rewards: shape (batch_size, n_chosen_actions).
+            batch_idx: The index of this batch. Note that if a separate DataLoader is used for each step,
                 this will be reset for each new data loader.
 
         Returns:
-            torch.Tensor: The loss value as the negative mean of all realized_rewards in this batch.
+            The loss value as the negative mean of all realized_rewards in this batch.
                 Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """

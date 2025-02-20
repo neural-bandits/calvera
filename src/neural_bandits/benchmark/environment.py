@@ -9,14 +9,14 @@ from neural_bandits.benchmark.datasets.feedback_dataset import BanditFeedbackDat
 
 class BanditBenchmarkEnvironment:
     """
-    Environment that iterates over a DataLoader, yielding only 'contextualized_actions'.
-    Internally stores 'rewards', which can be retrieved by a helper method.
+    Environment that iterates over a DataLoader, yielding only `contextualized_actions`.
+    Internally stores `rewards`, which can be retrieved by a helper method.
     This is used to simulate a bandit environment with delayed feedback where the bandit can only see the actions and not the rewards.
 
-    The bandit should first sample contextualized_actions by iterating over the environment.
+    The bandit should first sample `contextualized_actions` by iterating over the environment.
     The bandit can then choose the best actions.
-    Finally, the bandit can receive rewards by calling get_rewards_dataset(chosen_actions).
-    Since this is a simulation, the bandit can also compute the regret by calling compute_regret(chosen_actions).
+    Finally, the bandit can receive rewards by calling `get_rewards_dataset(chosen_actions)`.
+    Since this is a simulation, the bandit can also compute the regret by calling `compute_regret(chosen_actions)`.
 
     Usage:
     ```python
@@ -33,7 +33,8 @@ class BanditBenchmarkEnvironment:
         self, dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]]
     ) -> None:
         """
-        Parameters:
+        Initializes a BanditBenchmarkEnvironment.
+        Args:
             dataloader: DataLoader that yields batches of (contextualized_actions, all_rewards) tuples.
         """
         self._dataloader = dataloader
@@ -42,10 +43,29 @@ class BanditBenchmarkEnvironment:
         self._last_all_rewards: Optional[torch.Tensor] = None
 
     def __iter__(self) -> "BanditBenchmarkEnvironment":
+        """
+        Returns an iterator object for the BanditBenchmarkEnvironment.
+
+        This method initializes an iterator for the dataloader and returns the
+        BanditBenchmarkEnvironment instance itself, allowing it to be used as an
+        iterator in a loop. Needs to be called before the first iteration.
+
+        Returns:
+            BanditBenchmarkEnvironment: The instance of the environment itself.
+        """
         self._iterator = iter(self._dataloader)
         return self
 
     def __next__(self) -> torch.Tensor:
+        """
+        Returns the next batch of contextualized actions from the DataLoader.
+
+        Returns:
+            The contextualized actions for the bandit to pick from.
+
+        Raises:
+            AssertionError: If the iterator is not initialized with `__iter__`.
+        """
         assert self._iterator is not None, "No iterator was created."
 
         # Retrieve one batch from the DataLoader
@@ -73,8 +93,9 @@ class BanditBenchmarkEnvironment:
         Returns a small dataset with only the chosen actions & realized rewards of the last batch.
         For combinatorial bandits, this feedback is semi-bandit feedback.
 
-        Parameters:
+        Args:
             chosen_actions: shape (n, m) (one-hot, possibly multiple "1"s). The actions chosen by the bandit. Must contain at least one and the same number of chosen actions ("1s") for all rows.
+
         Returns:
             BanditFeedbackDataset with the chosen actions (shape: (n, m, k)) and realized rewards (shape: (n, m)).
         """
@@ -99,8 +120,9 @@ class BanditBenchmarkEnvironment:
           regret = best_reward - chosen_reward
         Important: For combinatorial bandits assumes that the reward of a super-action is the sum of each chosen arm.
 
-        Parameters:
+        Args:
             chosen_actions: shape (n, k), one-hot, possibly multiple "1"s. The actions chosen by the bandit. Must contain at least one and the same number of chosen actions ("1s") for all rows.
+
         Returns:
             Tensor of regrets shape (n, ).
         """
@@ -185,4 +207,4 @@ class BanditBenchmarkEnvironment:
 
     def __len__(self) -> int:
         assert self._iterator is not None, "No iterator was created."
-        return self._iterator.__len__()
+        return len(self._iterator)

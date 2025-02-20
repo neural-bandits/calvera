@@ -99,10 +99,15 @@ class NeuralLinearBandit(LinearTSBandit):
     def _predict_action(
         self, contextualized_actions: torch.Tensor, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """_predict_action the action to take for the given input data according to neural linear.
+        """Predicts the action to take for the given input data according to neural linear.
 
         Args:
             contextualized_actions: The input data. Shape: (batch_size, n_arms, n_encoder_input_size)
+
+        Returns:
+            tuple:
+            - chosen_actions: The one-hot encoded tensor of the chosen actions. Shape: (batch_size, n_arms).
+            - p: The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future. Shape: (batch_size, ).
         """
 
         assert (
@@ -307,11 +312,11 @@ class NeuralLinearBandit(LinearTSBandit):
         """Compute the loss of the neural linear bandit.
 
         Args:
-            y_pred (torch.Tensor): The _predict_actioned rewards. Shape: (batch_size,)
-            y (torch.Tensor): The actual rewards. Shape: (batch_size,)
+            y_pred: The predicted rewards. Shape: (batch_size,)
+            y: The actual rewards. Shape: (batch_size,)
 
         Returns:
-            torch.Tensor: The loss.
+            The loss.
         """
         # TODO: Should this be configurable?
         return torch.nn.functional.mse_loss(y_pred, y)
@@ -324,6 +329,7 @@ class NeuralLinearBandit(LinearTSBandit):
             for i, x in enumerate(self.contextualized_actions):
                 # TODO: Do batched inference
                 self.embedded_actions[i] = self.encoder(x)
+        self.encoder.train()
 
     def _update_head(self) -> None:
         """Perform an update step on the head of the neural linear bandit. Currently, it recomputes the linear head from scratch."""
