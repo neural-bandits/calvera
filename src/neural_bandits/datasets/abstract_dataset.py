@@ -6,8 +6,13 @@ from torch.utils.data import Dataset
 
 from neural_bandits.utils.multiclass import MultiClassContextualizer
 
+# TextItemType is a tuple of three torch tensors. We use this type to represent the 
+# input to a model from the `transformers` library. Corresponds to the `input_ids`,
+# `attention_mask`, and `token_type_ids`.
+TextItemType = TypeVar("TextItemType", tuple[torch.Tensor, torch.Tensor, torch.Tensor]) # 
+
 ItemType = TypeVar(
-    "ItemType", torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    "ItemType", torch.Tensor, TextItemType
 )
 
 

@@ -11,7 +11,7 @@ import pandas as pd
 import torch
 from transformers import BertTokenizer, PreTrainedTokenizer
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.datasets.abstract_dataset import AbstractDataset, TextItemType
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ def _preprocess_text(text: str) -> str:
 
 
 class ImdbMovieReviews(
-    AbstractDataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+    AbstractDataset[TextItemType]
 ):
     """A dataset for the IMDB movie reviews sentiment classification task. See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
 
@@ -156,7 +156,7 @@ class ImdbMovieReviews(
 
     def __getitem__(
         self, idx: int
-    ) -> Tuple[Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> Tuple[TextItemType, torch.Tensor]:
         """Return the input and reward for the given index.
 
         Args:
