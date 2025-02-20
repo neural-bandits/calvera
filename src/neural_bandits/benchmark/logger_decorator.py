@@ -87,7 +87,7 @@ class OnlineBanditLoggerDecorator(Logger):
         self, metrics: dict[str, float], step: Optional[int] = None
     ) -> None:
         if step is not None:
-            self.global_step = self.final_step_of_last_run + step
+            self.global_step = self.final_step_of_last_run + step + 1
         else:
             assert (
                 self.global_step is not None
