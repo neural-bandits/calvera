@@ -1,5 +1,4 @@
 import pytest
-
 from ucimlrepo.fetch import DatasetNotFoundError
 
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
