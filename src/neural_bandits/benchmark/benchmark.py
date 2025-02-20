@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 import matplotlib.pyplot as plt
 import lightning as pl
+import random
 from lightning.pytorch.loggers import Logger, CSVLogger
 import torch
 from torch.utils.data import DataLoader
@@ -26,12 +27,13 @@ from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
 
 
 class BanditBenchmark:
+
     def __init__(
         self,
         BanditClass: type[AbstractBandit],
         dataset: AbstractDataset,
-        training_params: Optional[Dict[str, Any]] = None,
-        bandit_hparams: Optional[Dict[str, Any]] = None,
+        training_params: Dict[str, Any],
+        bandit_hparams: Dict[str, Any],
         logger: Optional[Logger] = None,
     ) -> None:
         """
@@ -44,14 +46,15 @@ class BanditBenchmark:
             bandit_hparams: Dictionary of bandit hyperparameters.
             logger: Optional Lightning logger to record metrics.
         """
-        self.bandit = BanditClass(bandit_hparams)
+        bandit_hparams["n_features"] = dataset.context_size * dataset.num_actions
+        self.bandit = BanditClass(**bandit_hparams)
         # TODO: how to load hyperparams properly from file, cli, sweep, etc.?
-        self.dataloader = self._initialize_dataloader(dataset)
         self.training_params = training_params or {}
         self.logger: Optional[OnlineBanditLoggerDecorator] = (
             OnlineBanditLoggerDecorator(logger) if logger is not None else None
         )
 
+        self.dataloader = self._initialize_dataloader(dataset)
         # Wrap the dataloader in an environment to simulate delayed feedback.
         self.environment = BanditBenchmarkEnvironment(self.dataloader)
 
@@ -60,8 +63,14 @@ class BanditBenchmark:
     ) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
         # TODO: Add a non-iid data loader as a special setting. Then we need to load a special DataLoader.
 
+        max_samples = self.training_params.get("max_samples", 1e6)
+        indices = list(range(len(dataset)))
+        random.shuffle(indices)
+        subset_indices = indices[:max_samples]
+        subset = torch.utils.data.Subset(dataset, subset_indices)
+
         return DataLoader(
-            dataset,
+            subset,
             batch_size=self.training_params.get("feedback_delay", 1),
         )
 
@@ -78,12 +87,6 @@ class BanditBenchmark:
 
         Metrics are logged and can be analyzed later, e.g. using the BenchmarkAnalyzer.
         """
-        trainer = pl.Trainer(
-            max_epochs=1,
-            logger=self.logger,
-            enable_progress_bar=False,
-            log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
-        )
         logging.getLogger("lightning.pytorch.utilities.rank_zero").setLevel(
             logging.FATAL
         )
@@ -99,11 +102,20 @@ class BanditBenchmark:
 
             # Get feedback dataset for the chosen actions.
             feedback_dataset = self.environment.get_feedback(chosen_actions)
-            assert training_batch_size < contextualized_actions.size(
+            assert training_batch_size <= contextualized_actions.size(
                 0
-            ), "training_batch_size must be smaller than the data loaders batch_size (feedback_delay)."
+            ), "training_batch_size must be lower than or equal to the data loaders batch_size (feedback_delay)."
             feedback_loader = DataLoader(
                 feedback_dataset, batch_size=training_batch_size
+            )
+
+            trainer = pl.Trainer(
+                max_epochs=1,
+                logger=self.logger,
+                enable_progress_bar=False,
+                enable_checkpointing=False,
+                enable_model_summary=False,
+                log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
             )
 
             # Train the bandit on the current feedback.
@@ -195,7 +207,9 @@ class BenchmarkAnalyzer:
 
     def plot_loss(self) -> None:
         # Generate a plot for the loss
-        import matplotlib.pyplot as plt
+        if "loss" not in self.df.columns:
+            print("\nNo loss data found in logs.")
+            return
 
         plt.figure(figsize=(10, 5))
         plt.plot(self.df["loss"])
@@ -222,9 +236,11 @@ datasets = {
 def run(
     bandit_name: str,
     dataset_name: str,
-    training_params: dict[str, Any],
-    bandit_hparams: dict[str, Any],
+    training_params: dict[str, Any] = {},
+    bandit_hparams: dict[str, Any] = {},
 ) -> None:
+    random.seed(42)
+
     Bandit = bandits[bandit_name]
     dataset = datasets[dataset_name]()
 
@@ -240,3 +256,17 @@ def run(
     analyzer.plot_average_metric("reward")
     analyzer.plot_average_metric("regret")
     analyzer.plot_loss()
+
+
+if __name__ == "__main__":
+    run(
+        "lin_ucb",
+        "covertype",
+        {
+            "max_samples": 5000,
+            "batch_size": 1,
+            "forward_batch_size": 1,
+            "feedback_delay": 1,
+        },
+        {"alpha": 1.0},
+    )
