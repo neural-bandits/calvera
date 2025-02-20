@@ -248,6 +248,12 @@ def run(
     benchmark = BanditBenchmark(
         Bandit, dataset, training_params, bandit_hparams, logger
     )
+    print(f"Running benchmark for {bandit_name} on {dataset_name} dataset.")
+    print(f"Training parameters: {training_params}")
+    print(f"Bandit hyperparameters: {bandit_hparams}")
+    print(
+        f"Dataset {dataset_name}: {len(dataset)} samples with {dataset.context_size} features and {dataset.num_actions} actions."
+    )
     benchmark.run()
 
     analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv")
