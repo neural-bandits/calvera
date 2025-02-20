@@ -15,12 +15,12 @@ class AbstractSelector(ABC):
         """Selects a single best action, or a set of actions in the case of combinatorial bandits.
 
         Args:
-            scores (torch.Tensor): Tensor of shape (batch_size, n_actions).
+            scores: Tensor of shape (batch_size, n_actions).
             This may contain a probability distribution per sample (when used for thompson sampling) or simply a score per arm (e.g. for UCB).
             In case of combinatorial bandits, these are the scores per arm from which the oracle selects a super arm (e.g. simply top-k).
 
         Returns:
-            chosen_actions (torch.Tensor): One hot encoded actions that were chosen.
+            chosen_actions: One hot encoded actions that were chosen.
                 Shape: (batch_size, n_actions).
         """
         pass
