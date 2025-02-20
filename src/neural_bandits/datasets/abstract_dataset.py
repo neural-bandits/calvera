@@ -6,14 +6,12 @@ from torch.utils.data import Dataset
 
 from neural_bandits.utils.multiclass import MultiClassContextualizer
 
-# TextItemType is a tuple of three torch tensors. We use this type to represent the 
+# TextItemType is a tuple of three torch tensors. We use this type to represent the
 # input to a model from the `transformers` library. Corresponds to the `input_ids`,
 # `attention_mask`, and `token_type_ids`.
-TextItemType = TypeVar("TextItemType", tuple[torch.Tensor, torch.Tensor, torch.Tensor]) # 
+TextItemType = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
-ItemType = TypeVar(
-    "ItemType", torch.Tensor, TextItemType
-)
+ItemType = TypeVar("ItemType", torch.Tensor, TextItemType)
 
 
 class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tensor]]):

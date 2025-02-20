@@ -110,9 +110,7 @@ def _preprocess_text(text: str) -> str:
     return text
 
 
-class ImdbMovieReviews(
-    AbstractDataset[TextItemType]
-):
+class ImdbMovieReviews(AbstractDataset[TextItemType]):
     """A dataset for the IMDB movie reviews sentiment classification task. See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
 
     Args:
@@ -154,9 +152,7 @@ class ImdbMovieReviews(
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(
-        self, idx: int
-    ) -> Tuple[TextItemType, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[TextItemType, torch.Tensor]:
         """Return the input and reward for the given index.
 
         Args:
