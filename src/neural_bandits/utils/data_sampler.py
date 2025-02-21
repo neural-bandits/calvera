@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional, Tuple
 
 import torch
-from torch.utils.data import Sampler
-
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
+from torch.utils.data import Dataset, Sampler
 
 
 class AbstractDataSampler(Sampler[int], ABC):
@@ -20,13 +18,13 @@ class AbstractDataSampler(Sampler[int], ABC):
 
     def __init__(
         self,
-        data_source: AbstractDataset,
+        data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
     ) -> None:
         # super().__init__(data_source)
         self.data_source = data_source
 
     def __len__(self) -> int:
-        return len(self.data_source)
+        return len(self.data_source)  # type: ignore
 
     def __iter__(self) -> Iterator[int]:
         return self._get_iterator()
@@ -46,7 +44,9 @@ class RandomDataSampler(AbstractDataSampler):
     """
 
     def __init__(
-        self, data_source: AbstractDataset, generator: Optional[torch.Generator] = None
+        self,
+        data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
+        generator: Optional[torch.Generator] = None,
     ) -> None:
         super().__init__(data_source)
         self.generator = generator
@@ -54,7 +54,7 @@ class RandomDataSampler(AbstractDataSampler):
     def _get_iterator(self) -> Iterator[int]:
         """Returns an iterator that yields indices in random order."""
         indices = torch.randperm(
-            len(self.data_source), generator=self.generator, dtype=torch.int64
+            len(self.data_source), generator=self.generator, dtype=torch.int64  # type: ignore
         ).tolist()
 
         return iter(indices)
@@ -71,7 +71,7 @@ class SortedDataSampler(AbstractDataSampler):
 
     def __init__(
         self,
-        data_source: AbstractDataset,
+        data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
         key_fn: Callable[[int], Any],
         reverse: bool = False,
     ) -> None:
@@ -81,6 +81,6 @@ class SortedDataSampler(AbstractDataSampler):
 
     def _get_iterator(self) -> Iterator[int]:
         """Returns an iterator that yields indices in sorted order."""
-        indices = range(len(self.data_source))
+        indices = range(len(self.data_source))  # type: ignore
         sorted_indices = sorted(indices, key=self.key_fn, reverse=self.reverse)
         return iter(sorted_indices)
