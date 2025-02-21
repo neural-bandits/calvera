@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Optional
 
 import numpy as np
@@ -28,7 +29,7 @@ class NeuralUCBBandit(AbstractBandit):
         lambda_: float = 0.00001,
         nu: float = 0.00001,
         learning_rate: float = 0.01,
-        train_freq: int = 100,
+        train_interval: int = 100,
         initial_train_steps: int = 1000,
         max_grad_norm: float = 20.0,
         **kw_args: Any,
@@ -44,8 +45,8 @@ class NeuralUCBBandit(AbstractBandit):
             lambda_: Regularization parameter.
             nu: Exploration parameter for UCB.
             learning_rate: Learning rate for SGD optimizer.
-            train_freq: Frequency of network training after initial training.
-            initial_train_steps: Number of initial training steps.
+            train_interval: Interval between different trainings (in samples).
+            initial_train_steps: Number of initial training steps in samples.
             max_grad_norm: Maximum gradient norm for gradient clipping.
             **kw_args: Additional arguments passed to parent class.
         """
@@ -62,7 +63,7 @@ class NeuralUCBBandit(AbstractBandit):
             "lambda_": lambda_,
             "nu": nu,
             "learning_rate": learning_rate,
-            "train_freq": train_freq,
+            "train_interval": train_interval,
             "initial_train_steps": initial_train_steps,
             "max_grad_norm": max_grad_norm,
             **kw_args,
@@ -72,6 +73,7 @@ class NeuralUCBBandit(AbstractBandit):
         self.selector = selector
 
         self.total_samples: int = 0
+        self._trained_once: bool = False
 
         # Model parameters
 
@@ -204,14 +206,15 @@ class NeuralUCBBandit(AbstractBandit):
         self.reward_history.append(realized_rewards)
 
         # Train network based on schedule
-        should_train = batch_idx < self.hparams["initial_train_steps"] or (
-            batch_idx >= self.hparams["initial_train_steps"]
-            and batch_idx % self.hparams["train_freq"] == 0
+        should_train = self.total_samples < self.hparams["initial_train_steps"] or (
+            self.total_samples >= self.hparams["initial_train_steps"]
+            and (self.total_samples - self.hparams["initial_train_steps"]) % self.hparams["train_interval"] == 0
         )
 
         if should_train:
             loss = self._train_network()
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
+            self._trained_once = True
 
         # Logging
         self.log(
@@ -225,6 +228,16 @@ class NeuralUCBBandit(AbstractBandit):
         self.total_samples += batch_size
 
         return -realized_rewards.mean()
+
+    def on_train_epoch_end(self):
+        if not self._trained_once:
+            logging.warning(
+                "Finished the epoch without training the network. Consider decreasing `train_interval`."
+            )
+
+    def on_train_epoch_start(self):
+        self._trained_once = False
+        
 
     def _train_network(self) -> float:
         optimizer = self.optimizers()
