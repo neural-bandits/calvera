@@ -1,6 +1,8 @@
 import sys
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
+import torch
+from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.loggers.logger import Logger
 from lightning.pytorch.utilities import rank_zero_only
 
@@ -49,9 +51,9 @@ class OnlineBanditLoggerDecorator(Logger):
         self.enable_console_logging = enable_console_logging
 
         self.global_step: int = 0
-        self.final_step_of_last_run: int = 0
+        self.start_step_of_current_run: int = 0
         self.training_run: int = 0
-        self.pre_training_metrics: Optional[dict[str, float]] = None
+        self.pre_training_metrics: Optional[dict[str, torch.Tensor]] = None
 
     def __getattr__(self, name: str) -> Any:
         """
@@ -61,37 +63,67 @@ class OnlineBanditLoggerDecorator(Logger):
         return getattr(self._logger_wrappee, name)
 
     @property
+    def root_dir(self) -> Optional[str]:
+        """Return the root directory where all versions of an experiment get saved, or `None` if the logger does not
+        save data locally."""
+        return self._logger_wrappee.root_dir
+
+    @property
+    def log_dir(self) -> Optional[str]:
+        """Return directory the current version of the experiment gets saved, or `None` if the logger does not save
+        data locally."""
+        return self._logger_wrappee.log_dir
+
+    @property
+    def save_dir(self) -> Optional[str]:
+        """Return the root directory where experiment logs get saved, or `None` if the logger does not save data locally."""
+        return self._logger_wrappee.save_dir
+
+    @property
+    def group_separator(self) -> str:
+        """Return the default separator used by the logger to group the data into subfolders."""
+        return self._logger_wrappee.group_separator
+
+    @property
     def name(self) -> Optional[str]:
+        """Return the experiment name."""
         return self._logger_wrappee.name
 
     @property
     def version(self) -> Optional[str | int]:
+        """Return the experiment version."""
         return self._logger_wrappee.version
 
     @rank_zero_only
-    def pre_training_log(self, metrics: dict[str, float]) -> None:
-        """Log metrics for an entire training run before the trianing run is actually started.
-        The metrics will be added to the first row of this training run.
+    def pre_training_log(self, metrics: dict[str, torch.Tensor]) -> None:
+        """Log a batch of metrics for an entire training run before the trianing run is actually started.
+        The metrics will be added to the according step in the next training run.
 
         Args:
-            metrics: The metrics to log.
+            metrics: The metrics to log. Each entry should be a torch.Tensor with shape (n, 1) where n is the number of steps in the training run.
         """
+        for k, v in metrics.items():
+            assert isinstance(
+                v, torch.Tensor
+            ), f"Metrics value for {k} must be a torch.Tensor."
+            assert (
+                v.ndim == 1
+            ), f"Metrics value for {k} must have shape (1,) but got {v.shape}."
         self.pre_training_metrics = metrics
-
-    @rank_zero_only
-    def log_hyperparams(self, params: Any, *args: Any, **kwargs: Any) -> None:
-        self._logger_wrappee.log_hyperparams(params, *args, **kwargs)
 
     @rank_zero_only
     def log_metrics(
         self, metrics: dict[str, float], step: Optional[int] = None
     ) -> None:
-        if step is not None:
-            self.global_step = self.final_step_of_last_run + step + 1
-        else:
-            assert (
-                self.global_step is not None
-            ), "Step must be set before logging metrics."
+        """Records metrics. This method logs metrics as soon as it received them.
+
+        Args:
+            metrics: Dictionary with metric names as keys and measured quantities as values
+            step: Step number at which the metrics should be recorded
+
+        """
+        assert self.global_step is not None, "Step must be set before logging metrics."
+        step = cast(int, step)
 
         # add custom metric
         updated_metrics = {
@@ -100,18 +132,61 @@ class OnlineBanditLoggerDecorator(Logger):
         }
 
         if self.pre_training_metrics:
-            updated_metrics.update(self.pre_training_metrics)
-            self.pre_training_metrics = None
+            assert self.pre_training_metrics
+            for k, v in self.pre_training_metrics.items():
+                assert (
+                    step < v.shape[0]
+                ), f"Step {step} is out of bounds for pre-training metric {k}."
+                m = v[step].item()
+                updated_metrics[k] = m
 
         if self.enable_console_logging:
             sys.stdout.flush()
             sys.stdout.write(f"\rStep: {self.global_step} {str(updated_metrics)}")
 
+        self.global_step = self.start_step_of_current_run + step
         self._logger_wrappee.log_metrics(updated_metrics, self.global_step)
+
+    @rank_zero_only
+    def log_hyperparams(self, params: Any, *args: Any, **kwargs: Any) -> None:
+        """Record hyperparameters.
+
+        Args:
+            params: :class:`~argparse.Namespace` or `Dict` containing the hyperparameters
+            args: Optional positional arguments, depends on the specific logger being used
+            kwargs: Optional keyword arguments, depends on the specific logger being used
+
+        """
+        self._logger_wrappee.log_hyperparams(params, *args, **kwargs)
+
+    @rank_zero_only
+    def log_graph(
+        self, model: torch.nn.Module, input_array: Optional[torch.Tensor] = None
+    ) -> None:
+        """Record model graph.
+
+        Args:
+            model: the model with an implementation of ``forward``.
+            input_array: input passes to `model.forward`
+        """
+        self._logger_wrappee.log_graph(model, input_array)
+
+    def save(self) -> None:
+        """Save log data."""
+        return self._logger_wrappee.save()
 
     @rank_zero_only
     def finalize(self, status: str) -> None:
         self.training_run += 1
-        self.final_step_of_last_run = self.global_step
+        self.start_step_of_current_run = self.global_step + 1
         self.pre_training_metrics = None
         self._logger_wrappee.finalize(status)
+
+    def after_save_checkpoint(self, checkpoint_callback: ModelCheckpoint) -> None:
+        """Called after model checkpoint callback saves a new checkpoint.
+
+        Args:
+            checkpoint_callback: the model checkpoint callback instance
+
+        """
+        return self._logger_wrappee.after_save_checkpoint(checkpoint_callback)

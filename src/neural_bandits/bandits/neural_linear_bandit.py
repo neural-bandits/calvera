@@ -20,7 +20,7 @@ class NeuralLinearBandit(LinearTSBandit):
         self,
         network: torch.nn.Module,
         n_network_input_size: int,
-        n_embedding_size: Optional[int],
+        n_embedding_size: Optional[int] = None,
         selector: AbstractSelector = ArgMaxSelector(),
         network_update_freq: int = 32,
         network_update_batch_size: int = 32,

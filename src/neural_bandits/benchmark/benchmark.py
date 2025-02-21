@@ -1,30 +1,27 @@
 import logging
 import os
+import random
 from typing import Any, Callable, Dict, Optional
 
-import pandas as pd
-import matplotlib.pyplot as plt
 import lightning as pl
-import random
-from lightning.pytorch.loggers import Logger, CSVLogger
+import matplotlib.pyplot as plt
+import pandas as pd
 import torch
+from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
-from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
-from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
-
-from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
 from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
+from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
 from neural_bandits.benchmark.datasets.mnist import MNISTDataset
 from neural_bandits.benchmark.datasets.statlog import StatlogDataset
 from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
-
+from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
+from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
@@ -100,7 +97,7 @@ class BanditBenchmark:
             # Optional: compute and log regret.
             if self.logger is not None:
                 regret = self.environment.compute_regret(chosen_actions)
-                self.logger.pre_training_log({"regret": regret.sum().item()})
+                self.logger.pre_training_log({"regret": regret})
 
             # Get feedback dataset for the chosen actions.
             feedback_dataset = self.environment.get_feedback(chosen_actions)
@@ -167,7 +164,7 @@ class BenchmarkAnalyzer:
     Keeping analysis separate from training improves modularity.
     """
 
-    def __init__(self, log_path: str, metrics_file: str="metrics.csv") -> None:
+    def __init__(self, log_path: str, metrics_file: str = "metrics.csv") -> None:
         """
         Args:
             log_path: Path to the log data.
