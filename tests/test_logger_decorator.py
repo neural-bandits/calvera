@@ -1,8 +1,8 @@
-import pytest
 from unittest.mock import MagicMock
 
-from lightning.pytorch.loggers.logger import Logger
+import pytest
 import torch
+from lightning.pytorch.loggers.logger import Logger
 
 from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
 
