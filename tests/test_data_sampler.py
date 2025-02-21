@@ -2,13 +2,14 @@ from typing import Set, Tuple, cast
 
 import pytest
 import torch
-from torch.utils.data import DataLoader, Dataset, Subset, TensorDataset
+from torch.utils.data import DataLoader, Subset, TensorDataset
 
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 from neural_bandits.utils.data_sampler import RandomDataSampler, SortedDataSampler
 
 
 @pytest.fixture
-def sample_data() -> Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]:
+def sample_data() -> Tuple[AbstractDataset, torch.Tensor]:
     """
     Returns a tuple (dataset, sort_values).
     Dataset contains contexts and rewards, sort_values are used for sorting.
@@ -20,14 +21,12 @@ def sample_data() -> Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Ten
     # values to sort by (simulating class labels like in MNIST example)
     sort_values = torch.tensor([4, 1, 3, 0, 2])
 
-    dataset = cast(
-        Dataset[Tuple[torch.Tensor, torch.Tensor]], TensorDataset(contexts, rewards)
-    )
+    dataset = cast(AbstractDataset, TensorDataset(contexts, rewards))
     return dataset, sort_values
 
 
 def test_sorted_sampler_ascending(
-    sample_data: Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]
+    sample_data: Tuple[AbstractDataset, torch.Tensor]
 ) -> None:
     """Test that sampler correctly sorts indices in ascending order"""
     dataset, sort_values = sample_data
@@ -35,7 +34,7 @@ def test_sorted_sampler_ascending(
     def key_fn(idx: int) -> int:
         return int(sort_values[idx])
 
-    sampler = SortedDataSampler(dataset, key_fn=key_fn)  # type: ignore
+    sampler = SortedDataSampler(dataset, key_fn=key_fn)
 
     sorted_indices = list(iter(sampler))
     expected_indices = [3, 1, 4, 2, 0]  # indices that would sort [4,1,3,0,2]
@@ -47,7 +46,7 @@ def test_sorted_sampler_ascending(
 
 
 def test_sorted_sampler_descending(
-    sample_data: Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]
+    sample_data: Tuple[AbstractDataset, torch.Tensor]
 ) -> None:
     """Test that sampler correctly sorts indices in descending order"""
     dataset, sort_values = sample_data
@@ -55,7 +54,7 @@ def test_sorted_sampler_descending(
     def key_fn(idx: int) -> int:
         return int(sort_values[idx])
 
-    sampler = SortedDataSampler(dataset, key_fn=key_fn, reverse=True)  # type: ignore
+    sampler = SortedDataSampler(dataset, key_fn=key_fn, reverse=True)
 
     sorted_indices = list(iter(sampler))
     expected_indices = [0, 2, 4, 1, 3]  # indices that would sort [4,1,3,0,2] in reverse
@@ -67,7 +66,7 @@ def test_sorted_sampler_descending(
 
 
 def test_sorted_sampler_with_dataloader(
-    sample_data: Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]
+    sample_data: Tuple[AbstractDataset, torch.Tensor]
 ) -> None:
     """Test that sampler works correctly with DataLoader by checking the order of loaded values"""
     dataset, sort_values = sample_data
@@ -75,14 +74,14 @@ def test_sorted_sampler_with_dataloader(
     def key_fn(idx: int) -> int:
         return int(sort_values[idx])
 
-    sampler = SortedDataSampler(dataset, key_fn=key_fn)  # type: ignore
+    sampler = SortedDataSampler(dataset, key_fn=key_fn)
 
     dataloader = DataLoader(dataset, batch_size=2, sampler=sampler)
 
     loaded_sort_values: list[int] = []
     for contexts, rewards in dataloader:
         for context, reward in zip(contexts, rewards):
-            for i in range(len(dataset)):  # type: ignore
+            for i in range(len(dataset)):
                 orig_context, orig_reward = dataset[i]
                 if torch.equal(context, orig_context) and torch.equal(
                     reward, orig_reward
@@ -96,17 +95,17 @@ def test_sorted_sampler_with_dataloader(
 
 
 def test_sorted_sampler_with_subset(
-    sample_data: Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]
+    sample_data: Tuple[AbstractDataset, torch.Tensor]
 ) -> None:
     """Test that sampler works correctly with dataset subset"""
     dataset, sort_values = sample_data
     subset_indices = range(3)
-    subset = Subset(dataset, subset_indices)
+    subset = cast(AbstractDataset, Subset(dataset, subset_indices))
 
     def key_fn(idx: int) -> int:
         return int(sort_values[subset_indices[idx]])
 
-    sampler = SortedDataSampler(subset, key_fn=key_fn)  # type: ignore
+    sampler = SortedDataSampler(subset, key_fn=key_fn)
 
     sorted_indices = list(iter(sampler))
     # Expected sorting of first 3 values [4,1,3]
@@ -121,12 +120,12 @@ def test_sorted_sampler_with_subset(
 
 
 def test_random_sampler_basic(
-    sample_data: Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]
+    sample_data: Tuple[AbstractDataset, torch.Tensor]
 ) -> None:
     """Test that random sampler returns all indices in random order"""
     dataset, _ = sample_data
     generator = torch.Generator().manual_seed(42)
-    sampler = RandomDataSampler(dataset, generator=generator)  # type: ignore
+    sampler = RandomDataSampler(dataset, generator=generator)
 
     sampled_indices = list(iter(sampler))
 
@@ -136,22 +135,22 @@ def test_random_sampler_basic(
 
 
 def test_random_sampler_reproducibility(
-    sample_data: Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]
+    sample_data: Tuple[AbstractDataset, torch.Tensor]
 ) -> None:
     """Test that random sampler produces same sequence with same seed"""
     dataset, _ = sample_data
     seed = 42
 
     generator1 = torch.Generator().manual_seed(seed)
-    sampler1 = RandomDataSampler(dataset, generator=generator1)  # type: ignore
+    sampler1 = RandomDataSampler(dataset, generator=generator1)
     indices1 = list(iter(sampler1))
 
     generator2 = torch.Generator().manual_seed(seed)
-    sampler2 = RandomDataSampler(dataset, generator=generator2)  # type: ignore
+    sampler2 = RandomDataSampler(dataset, generator=generator2)
     indices2 = list(iter(sampler2))
 
     generator3 = torch.Generator().manual_seed(seed + 1)
-    sampler3 = RandomDataSampler(dataset, generator=generator3)  # type: ignore
+    sampler3 = RandomDataSampler(dataset, generator=generator3)
     indices3 = list(iter(sampler3))
 
     assert indices1 == indices2, "Same seed should produce same sequence"
@@ -159,12 +158,12 @@ def test_random_sampler_reproducibility(
 
 
 def test_random_sampler_with_dataloader(
-    sample_data: Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]
+    sample_data: Tuple[AbstractDataset, torch.Tensor]
 ) -> None:
     """Test that random sampler works correctly with DataLoader"""
     dataset, _ = sample_data
     generator = torch.Generator().manual_seed(42)
-    sampler = RandomDataSampler(dataset, generator=generator)  # type: ignore
+    sampler = RandomDataSampler(dataset, generator=generator)
 
     dataloader = DataLoader(dataset, batch_size=2, sampler=sampler)
 
@@ -183,15 +182,15 @@ def test_random_sampler_with_dataloader(
 
 
 def test_random_sampler_with_subset(
-    sample_data: Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]
+    sample_data: Tuple[AbstractDataset, torch.Tensor]
 ) -> None:
     """Test that random sampler works correctly with dataset subset"""
     dataset, _ = sample_data
     subset_indices = range(3)
-    subset = Subset(dataset, subset_indices)
+    subset = cast(AbstractDataset, Subset(dataset, subset_indices))
 
     generator = torch.Generator().manual_seed(42)
-    sampler = RandomDataSampler(subset, generator=generator)  # type: ignore
+    sampler = RandomDataSampler(subset, generator=generator)
 
     sampled_indices = list(iter(sampler))
     assert len(sampled_indices) == len(subset)
