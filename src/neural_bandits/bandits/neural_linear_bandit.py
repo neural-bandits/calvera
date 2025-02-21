@@ -59,7 +59,7 @@ class NeuralLinearBandit(LinearTSBandit):
             head_update_freq is None or head_update_freq > 0
         ), "The head_update_freq must be greater than 0. Set it to None to never update the head independently."
 
-        self.hparams.update(
+        self.save_hyperparameters(
             {
                 "n_network_input_size": n_network_input_size,
                 "n_embedding_size": n_embedding_size,  # same as n_features
