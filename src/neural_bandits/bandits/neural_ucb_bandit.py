@@ -208,7 +208,9 @@ class NeuralUCBBandit(AbstractBandit):
         # Train network based on schedule
         should_train = self.total_samples < self.hparams["initial_train_steps"] or (
             self.total_samples >= self.hparams["initial_train_steps"]
-            and (self.total_samples - self.hparams["initial_train_steps"]) % self.hparams["train_interval"] == 0
+            and (self.total_samples - self.hparams["initial_train_steps"])
+            % self.hparams["train_interval"]
+            == 0
         )
 
         if should_train:
@@ -230,14 +232,15 @@ class NeuralUCBBandit(AbstractBandit):
         return -realized_rewards.mean()
 
     def on_train_epoch_end(self):
+        super().on_train_epoch_end()
         if not self._trained_once:
             logging.warning(
                 "Finished the epoch without training the network. Consider decreasing `train_interval`."
             )
 
     def on_train_epoch_start(self):
+        super().on_train_epoch_start()
         self._trained_once = False
-        
 
     def _train_network(self) -> float:
         optimizer = self.optimizers()

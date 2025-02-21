@@ -1,8 +1,11 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
 import lightning as pl
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 class AbstractBandit(ABC, pl.LightningModule):
@@ -101,3 +104,10 @@ class AbstractBandit(ABC, pl.LightningModule):
                 for logging/visualization of the training process.
         """
         pass
+
+    def on_train_start(self):
+        super().on_train_start()
+        if self.trainer.max_epochs > 1:
+            logger.warning(
+                "The trainer will run for more than one epoch. This is not recommended for bandit algorithms."
+            )
