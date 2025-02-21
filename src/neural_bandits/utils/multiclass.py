@@ -17,10 +17,10 @@ class MultiClassContextualizer:
         Example: [[1, 0]] with 2 arms becomes [[1, 0, 0, 0], [0, 0, 1, 0]]
 
         Args:
-            feature_vector (torch.Tensor): Input feature vector of shape (batch_size, n_features)
+            feature_vector: Input feature vector of shape (batch_size, n_features)
 
         Returns:
-            torch.Tensor: contextualized actions of shape (batch_size, n_arms, n_features * n_arms)
+            contextualized actions of shape (batch_size, n_arms, n_features * n_arms)
         """
         assert (
             len(feature_vector.shape) == 2
