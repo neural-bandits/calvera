@@ -231,14 +231,14 @@ class NeuralUCBBandit(AbstractBandit):
 
         return -realized_rewards.mean()
 
-    def on_train_epoch_end(self):
+    def on_train_epoch_end(self) -> None:
         super().on_train_epoch_end()
         if not self._trained_once:
             logging.warning(
                 "Finished the epoch without training the network. Consider decreasing `train_interval`."
             )
 
-    def on_train_epoch_start(self):
+    def on_train_epoch_start(self) -> None:
         super().on_train_epoch_start()
         self._trained_once = False
 

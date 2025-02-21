@@ -105,9 +105,9 @@ class AbstractBandit(ABC, pl.LightningModule):
         """
         pass
 
-    def on_train_start(self):
+    def on_train_start(self) -> None:
         super().on_train_start()
-        if self.trainer.max_epochs > 1:
+        if self.trainer.max_epochs is None or self.trainer.max_epochs > 1:
             logger.warning(
                 "The trainer will run for more than one epoch. This is not recommended for bandit algorithms."
             )
