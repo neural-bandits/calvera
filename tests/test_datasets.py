@@ -4,6 +4,7 @@ from ucimlrepo.fetch import DatasetNotFoundError
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
 from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from neural_bandits.benchmark.datasets.mnist import MNISTDataset
+from neural_bandits.benchmark.datasets.movie_lens import MovieLensDataset
 from neural_bandits.benchmark.datasets.statlog import StatlogDataset
 from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
 
@@ -122,3 +123,33 @@ class TestImdbReviewsDataset:
         for i in range(10):
             reward = dataset.reward(i, 1)
             assert reward == (dataset.data["sentiment"][i] == 1)
+
+
+class TestMovieLensDataset:
+    @pytest.fixture
+    def dataset(self) -> MovieLensDataset:
+        return MovieLensDataset()
+
+    @pytest.fixture
+    def dataset_concat(self) -> MovieLensDataset:
+        return MovieLensDataset(outer_product=False)
+
+    def test_len(self, dataset: MovieLensDataset) -> None:
+        assert len(dataset) == 525
+
+    def test_getitem(self, dataset: MovieLensDataset) -> None:
+        for _ in range(10):
+            X, rewards = dataset[0]
+            assert X.shape == (200, 20 * 20)
+            assert rewards.shape == (200,)
+
+    def test_getitem_concat(self, dataset_concat: MovieLensDataset) -> None:
+        for _ in range(10):
+            X, rewards = dataset_concat[0]
+            assert X.shape == (200, 40)
+            assert rewards.shape == (200,)
+
+    def test_reward(self, dataset: MovieLensDataset) -> None:
+        for i in range(10):
+            reward = dataset.reward(i, 0)
+            assert reward == dataset.F[i, 0]

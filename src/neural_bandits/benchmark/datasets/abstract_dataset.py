@@ -4,7 +4,7 @@ from typing import Any, Callable, Generic, Tuple, TypeVar
 import torch
 from torch.utils.data import Dataset
 
-from neural_bandits.utils.multiclass import MultiClassContextualizer
+from neural_bandits.benchmark.multiclass import MultiClassContextualizer
 
 # TextItemType is a tuple of three torch tensors. We use this type to represent the
 # input to a model from the `transformers` library. Corresponds to the `input_ids`,
