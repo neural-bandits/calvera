@@ -4,10 +4,9 @@ from typing import Any, Callable, Iterator, Optional
 import torch
 from torch.utils.data import Sampler
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
-# TODO: Correct docstring format
 class AbstractDataSampler(Sampler[int], ABC):
     """Base class for all custom samplers.
 
@@ -23,6 +22,7 @@ class AbstractDataSampler(Sampler[int], ABC):
         self,
         data_source: AbstractDataset,
     ) -> None:
+        # super().__init__(data_source)
         self.data_source = data_source
 
     def __len__(self) -> int:
@@ -34,7 +34,7 @@ class AbstractDataSampler(Sampler[int], ABC):
     @abstractmethod
     def _get_iterator(self) -> Iterator[int]:
         """Core sampling logic to be implemented by subclasses."""
-        raise NotImplementedError
+        pass
 
 
 class RandomDataSampler(AbstractDataSampler):
