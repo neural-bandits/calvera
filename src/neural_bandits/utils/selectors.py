@@ -1,34 +1,129 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import torch
 
 
 class AbstractSelector(ABC):
     """Defines the interface for all bandit action selectors.
-    Given a tensor of scores per action, the selector chooses the best action (i.e. an arm)
-    or the best set of actions (i.e. a super arm in combinatorial bandits). The selector
+    Given a tensor of scores per action, the selector chooses an action (i.e. an arm)
+    or a set of actions (i.e. a super arm in combinatorial bandits). The selector
     returns a one hot encoded tensor of the chosen actions.
     """
 
     @abstractmethod
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
-        """Selects a single best action, or a set of actions in the case of combinatorial bandits.
+        """Selects a single action, or a set of actions in the case of combinatorial bandits.
 
         Args:
-            scores: Tensor of shape (batch_size, n_actions).
-            This may contain a probability distribution per sample (when used for thompson sampling) or simply a score per arm (e.g. for UCB).
-            In case of combinatorial bandits, these are the scores per arm from which the oracle selects a super arm (e.g. simply top-k).
+            scores: Scores for each action. Shape: (batch_size, n_arms).
+                This may contain a probability distribution per sample or simply a score per
+                arm (e.g. for UCB). In case of combinatorial bandits, these are the scores
+                per arm from which the oracle selects a super arm (e.g. simply top-k).
 
         Returns:
-            chosen_actions: One hot encoded actions that were chosen.
-                Shape: (batch_size, n_actions).
+            One hot encoded actions that were chosen. Shape: (batch_size, n_arms).
         """
         pass
 
 
-# TODO: Documentation
 class ArgMaxSelector(AbstractSelector):
+    """Selects the action with the highest score from a batch of scores."""
+
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
+        """Select the action with the highest score for each sample in the batch.
+
+        Args:
+            scores: Scores for each action. Shape: (batch_size, n_arms).
+
+        Returns:
+            One-hot encoded selected actions. Shape: (batch_size, n_arms).
+        """
+        _, n_arms = scores.shape
         return torch.nn.functional.one_hot(
-            torch.argmax(scores, dim=1), num_classes=scores.shape[1]
+            torch.argmax(scores, dim=1), num_classes=n_arms
         )
+
+
+class EpsilonGreedySelector(AbstractSelector):
+    """Implements an epsilon-greedy action selection strategy."""
+
+    def __init__(self, epsilon: float = 0.1, seed: Optional[int] = None) -> None:
+        """Initialize the epsilon-greedy selector.
+
+        Args:
+            epsilon: Exploration probability. Must be between 0 and 1. Defaults to 0.1.
+            seed: Random seed for the generator. Defaults to None.
+        """
+        assert 0 <= epsilon <= 1, "Epsilon must be between 0 and 1"
+        self.epsilon = epsilon
+        self.generator = torch.Generator()
+        if seed is not None:
+            self.generator.manual_seed(seed)
+
+    def __call__(self, scores: torch.Tensor) -> torch.Tensor:
+        """Select actions using the epsilon-greedy strategy for each sample in the batch.
+
+        Args:
+            scores: Scores for each action. Shape: (batch_size, n_arms).
+
+        Returns:
+            One-hot encoded selected actions. Shape: (batch_size, n_arms).
+        """
+        batch_size, n_arms = scores.shape
+
+        random_vals = torch.rand(batch_size, generator=self.generator)
+        explore_mask = random_vals < self.epsilon
+
+        greedy_actions = torch.argmax(scores, dim=1)
+        random_actions = torch.randint(
+            0, n_arms, (batch_size,), generator=self.generator
+        )
+
+        selected_actions = torch.where(explore_mask, random_actions, greedy_actions)
+
+        return torch.nn.functional.one_hot(selected_actions, num_classes=n_arms)
+
+
+class TopKSelector(AbstractSelector):
+    """Selects the top k actions with the highest scores."""
+
+    def __init__(self, k: int):
+        """Initialize the top-k selector.
+
+        Args:
+            k: Number of actions to select. Must be positive.
+        """
+        assert k > 0, "k must be positive"
+        self.k = k
+
+    def __call__(self, scores: torch.Tensor) -> torch.Tensor:
+        """Select the top k actions with highest scores for each sample in the batch.
+
+        Args:
+            scores: Scores for each action. Shape: (batch_size, n_arms).
+
+        Returns:
+            One-hot encoded selected actions where exactly k entries are 1 per sample.
+            Shape: (batch_size, n_arms).
+        """
+        batch_size, n_arms = scores.shape
+        assert (
+            self.k <= n_arms
+        ), f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
+
+        selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64)
+        remaining_scores = scores.clone()
+
+        selected_mask = torch.zeros_like(scores, dtype=torch.bool)
+
+        for _ in range(self.k):
+            max_indices = torch.argmax(remaining_scores, dim=1)
+
+            batch_indices = torch.arange(batch_size)
+            selected_actions[batch_indices, max_indices] = 1
+            selected_mask[batch_indices, max_indices] = True
+
+            remaining_scores[selected_mask] = float("-inf")
+
+        return selected_actions
