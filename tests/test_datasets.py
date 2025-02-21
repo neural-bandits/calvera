@@ -2,10 +2,10 @@ import pytest
 from ucimlrepo.fetch import DatasetNotFoundError
 
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
+from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from neural_bandits.benchmark.datasets.mnist import MNISTDataset
 from neural_bandits.benchmark.datasets.statlog import StatlogDataset
 from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
-from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 
 
 class TestCoverTypeDataset:
