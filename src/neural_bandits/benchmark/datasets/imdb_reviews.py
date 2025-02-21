@@ -11,7 +11,7 @@ import pandas as pd
 import torch
 from transformers import BertTokenizer, PreTrainedTokenizer
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset, TextItemType
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset, TextItemType
 
 logger = logging.getLogger(__name__)
 

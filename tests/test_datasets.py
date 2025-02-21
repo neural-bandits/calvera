@@ -1,10 +1,11 @@
 import pytest
+from ucimlrepo.fetch import DatasetNotFoundError
 
-from neural_bandits.datasets.covertype import CovertypeDataset
-from neural_bandits.datasets.imdb_reviews import ImdbMovieReviews
-from neural_bandits.datasets.mnist import MNISTDataset
-from neural_bandits.datasets.statlog import StatlogDataset
-from neural_bandits.datasets.wheel import WheelBanditDataset
+from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
+from neural_bandits.benchmark.datasets.mnist import MNISTDataset
+from neural_bandits.benchmark.datasets.statlog import StatlogDataset
+from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
+from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 
 
 class TestCoverTypeDataset:
@@ -50,7 +51,11 @@ class TestMNISTDataset:
 class TestStatlogDataset:
     @pytest.fixture
     def dataset(self) -> StatlogDataset:
-        return StatlogDataset()
+        try:
+            ds = StatlogDataset()
+        except DatasetNotFoundError as e:
+            pytest.skip(f"Skipping StatlogDataset tests: {e}")
+        return ds
 
     def test_len(self, dataset: StatlogDataset) -> None:
         assert len(dataset) == 58000
