@@ -32,7 +32,7 @@ def sample_data() -> (
 def test_environment_iterator_length(
     sample_data: tuple[
         DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ]
+    ],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -43,7 +43,7 @@ def test_environment_iterator_length(
 def test_environment_iteration(
     sample_data: tuple[
         DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ]
+    ],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -65,7 +65,7 @@ def test_environment_iteration(
 def test_get_feedback(
     sample_data: tuple[
         DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ]
+    ],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -99,7 +99,7 @@ def test_get_feedback(
 def test_compute_regret(
     sample_data: tuple[
         DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ]
+    ],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)

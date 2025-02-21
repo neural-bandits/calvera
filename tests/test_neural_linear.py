@@ -158,7 +158,7 @@ def test_neural_linear_bandit_training_step(
         torch.Tensor,
         torch.Tensor,
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
-    ]
+    ],
 ) -> None:
     """
     Test that a training step runs without error on a small dataset and updates the replay buffer.

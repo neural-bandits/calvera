@@ -1,17 +1,11 @@
 name: neural_bandits
 channels:
   - conda-forge
-  - nvidia # nvidia channel for cuda packages
   # We want to have a reproducible setup, so we don't want default channels,
   # which may be different for different users. All required channels should
   # be listed explicitly here.
-  - pytorch
 dependencies:
   - python=3.10 # or don't specify the version and use latest stable
-  - pytorch
-  - pytorch-cuda=12.1
-  - torchaudio
-  - torchvision
   - wandb
   - lightning
 
@@ -38,6 +32,10 @@ dependencies:
   # pip dependencies
   - pip
   - pip:
+      - torch
+      - torchvision
+      - torchaudio
+      - transformers
       - simple_parsing
       - print-on-steroids[exceptions]
       - wandb[sweeps]
