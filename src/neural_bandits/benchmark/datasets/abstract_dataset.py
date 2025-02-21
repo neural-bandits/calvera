@@ -1,13 +1,20 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Generic, Tuple, TypeVar
 
 import torch
 from torch.utils.data import Dataset
 
 from neural_bandits.utils.multiclass import MultiClassContextualizer
 
+# TextItemType is a tuple of three torch tensors. We use this type to represent the
+# input to a model from the `transformers` library. Corresponds to the `input_ids`,
+# `attention_mask`, and `token_type_ids`.
+TextItemType = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
-class AbstractDataset(ABC, Dataset[Tuple[torch.Tensor, torch.Tensor]]):
+ItemType = TypeVar("ItemType", torch.Tensor, TextItemType)
+
+
+class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tensor]]):
     """
     Abstract class for a dataset that is derived from PyTorch's Dataset class.
     Additionally, it provides a reward method for the specific bandit setting.
@@ -33,7 +40,7 @@ class AbstractDataset(ABC, Dataset[Tuple[torch.Tensor, torch.Tensor]]):
         pass
 
     @abstractmethod
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[ItemType, torch.Tensor]:
         """
         Returns:
             A tuple with the context vectors of all available actions and the associated rewards.

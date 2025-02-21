@@ -6,8 +6,9 @@ from ucimlrepo import fetch_ucirepo
 from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
-class StatlogDataset(AbstractDataset):
-    """Loads the Statlog (Shuttle) dataset as a PyTorch Dataset from the UCI repository (https://archive.ics.uci.edu/dataset/148/statlog+shuttle)."""
+class StatlogDataset(AbstractDataset[torch.Tensor]):
+    """Loads the Statlog (Shuttle) dataset as a PyTorch Dataset from the UCI repository
+    (https://archive.ics.uci.edu/dataset/148/statlog+shuttle)."""
 
     num_actions: int = 9
     context_size: int = 7
