@@ -7,7 +7,7 @@ from typing import Literal, Tuple
 import pandas as pd
 import torch
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 logger = logging.getLogger(__name__)
 
