@@ -5,28 +5,27 @@ import torch
 from sklearn.datasets import fetch_openml
 from sklearn.utils import Bunch
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
-class MNISTDataset(AbstractDataset):
+class MNISTDataset(AbstractDataset[torch.Tensor]):
     """Loads the MNIST 784 (version=1) dataset as a PyTorch Dataset.
     See https://www.openml.org/search?type=data&status=active&id=554 for more information of the dataset.
 
     Args:
-        root (str): Where to store the dataset
-        download (bool): Whether to download the dataset
+        dest_path: Where to store the dataset
     """
 
     num_actions: int = 10
     context_size: int = 784
     num_samples: int = 70000
 
-    def __init__(self, root: str = "./data", download: bool = True):
+    def __init__(self, dest_path: str = "./data") -> None:
         super().__init__(needs_disjoint_contextualization=True)
         self.data: Bunch = fetch_openml(
             name="mnist_784",
             version=1,
-            data_home=root,
+            data_home=dest_path,
             as_frame=False,
         )
         self.X = self.data.data.astype(np.float32)

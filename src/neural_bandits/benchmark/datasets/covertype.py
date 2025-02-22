@@ -4,19 +4,24 @@ import numpy as np
 import torch
 from sklearn.datasets import fetch_covtype
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
-class CovertypeDataset(AbstractDataset):
-    """Loads the Covertype dataset as a PyTorch Dataset from the UCI repository (https://archive.ics.uci.edu/ml/datasets/covertype)."""
+class CovertypeDataset(AbstractDataset[torch.Tensor]):
+    """Loads the Covertype dataset as a PyTorch Dataset from the UCI repository (see:
+    https://archive.ics.uci.edu/ml/datasets/covertype).
+
+    Args:
+        dest_path: Where to store and look for the dataset.
+    """
 
     num_actions: int = 7
     context_size: int = 54
     num_samples: int = 581012
 
-    def __init__(self) -> None:
+    def __init__(self, dest_path: str = "./data") -> None:
         super().__init__(needs_disjoint_contextualization=True)
-        self.data = fetch_covtype()
+        self.data = fetch_covtype(data_home=dest_path)
         X_np = self.data.data.astype(np.float32)
         y_np = self.data.target.astype(np.int64)
 

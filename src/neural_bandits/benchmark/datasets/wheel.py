@@ -2,10 +2,11 @@ from typing import List, Optional, Tuple
 
 import torch
 
-from neural_bandits.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
 def sample_rewards(
+    generator: torch.Generator,
     contexts: torch.Tensor,
     actions: torch.Tensor,
     delta: float,
@@ -41,6 +42,7 @@ def sample_rewards(
     rewards = torch.normal(
         mean=torch.tensor([mu_small], dtype=torch.float32).expand(num_samples),
         std=torch.tensor([std_small], dtype=torch.float32).expand(num_samples),
+        generator=generator,
     )
     norms = torch.norm(contexts, dim=1)
     above_delta = norms > delta
@@ -49,11 +51,13 @@ def sample_rewards(
     r_big = torch.normal(
         mean=torch.tensor([mu_large], dtype=torch.float32).expand(num_samples),
         std=torch.tensor([std_large], dtype=torch.float32).expand(num_samples),
+        generator=generator,
     )
 
     r_medium = torch.normal(
         mean=torch.tensor([mu_medium], dtype=torch.float32).expand(num_samples),
         std=torch.tensor([std_medium], dtype=torch.float32).expand(num_samples),
+        generator=generator,
     )
 
     # Determine optimal actions based on context quadrant when norm > delta
@@ -83,9 +87,19 @@ def sample_rewards(
     return rewards
 
 
-class WheelBanditDataset(AbstractDataset):
+class WheelBanditDataset(AbstractDataset[torch.Tensor]):
     """Generates a dataset for the Wheel Bandit problem (https://arxiv.org/abs/1802.09127).
-    Uses torch.Tensors instead of numpy arrays.
+
+    Args:
+        num_samples: Number of samples to generate.
+        delta: Exploration parameter: high reward in one region if norm above delta
+        mu_small: Mean of the small reward distribution.
+        std_small: Standard deviation of the small reward distribution.
+        mu_medium: Mean of the medium reward distribution.
+        std_medium: Standard deviation of the medium reward distribution.
+        mu_large: Mean of the large reward distribution.
+        std_large: Standard deviation of the large reward distribution.
+        seed: Seed for the random number generator.
     """
 
     num_actions: int = 5
@@ -116,20 +130,28 @@ class WheelBanditDataset(AbstractDataset):
         self.mu_large = mu_large
         self.std_large = std_large
 
-        if seed is not None:
-            torch.manual_seed(seed)
-
-        data, rewards = self._generate_data()
+        data, rewards = self._generate_data(seed)
         self.data = data
         self.rewards = rewards
 
     def _generate_data(
-        self,
+        self, seed: Optional[int] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Pregenerate the dataset for the Wheel Bandit problem.
-        We do this because we need to make the dataset compatible with PyTorch's Dataset.
+        Pregenerate the dataset for the Wheel Bandit problem. We do this because we need to make the dataset compatible
+        with PyTorch's Dataset.
+
+        Args:
+            seed: Seed for the random number generator.
+
+        Returns:
+            contexts: A torch.Tensor of shape (num_samples, context_size) representing the sampled contexts.
+            rewards: A torch.Tensor of shape (num_samples, num_actions) with sampled rewards
         """
+
+        generator = torch.Generator()
+        if seed is not None:
+            generator.manual_seed(seed)
 
         # Sample uniform contexts in the unit ball
         # We'll attempt a similar approach: sample more and filter.
@@ -138,7 +160,10 @@ class WheelBanditDataset(AbstractDataset):
         data_list: List[torch.Tensor] = []
         batch_size = max(int(self.num_samples / 3), 1)
         while len(data_list) < self.num_samples:
-            raw_data = (torch.rand(batch_size, self.context_size) * 2.0 - 1.0).float()
+            raw_data = (
+                torch.rand(batch_size, self.context_size, generator=generator) * 2.0
+                - 1.0
+            ).float()
             norms = torch.norm(raw_data, dim=1)
             # filter points inside unit norm
             inside = raw_data[norms <= 1]
@@ -155,6 +180,7 @@ class WheelBanditDataset(AbstractDataset):
             self.num_samples
         )  # shape (num_samples * num_actions)
         rewards = sample_rewards(
+            generator,
             contexts_repeat,
             actions,
             self.delta,
