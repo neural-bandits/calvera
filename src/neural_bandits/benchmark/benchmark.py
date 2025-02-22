@@ -1,7 +1,7 @@
 import logging
 import os
 import random
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Generic, Optional
 
 import lightning as pl
 import matplotlib.pyplot as plt
@@ -15,22 +15,24 @@ from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
 from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset, ItemType
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
 from neural_bandits.benchmark.datasets.mnist import MNISTDataset
 from neural_bandits.benchmark.datasets.statlog import StatlogDataset
 from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
+from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
+from neural_bandits.benchmark.datasets.movie_lens import MovieLensDataset
 from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
 from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class BanditBenchmark:
+class BanditBenchmark(Generic[ItemType]):
 
     def __init__(
         self,
         BanditClass: type[AbstractBandit],
-        dataset: AbstractDataset,
+        dataset: AbstractDataset[ItemType],
         training_params: Dict[str, Any],
         bandit_hparams: Dict[str, Any],
         logger: Optional[Logger] = None,
@@ -57,9 +59,9 @@ class BanditBenchmark:
         self.environment = BanditBenchmarkEnvironment(self.dataloader)
 
     def _initialize_dataloader(
-        self, dataset: AbstractDataset
-    ) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
-        subset: Dataset[tuple[torch.Tensor, torch.Tensor]] = dataset
+        self, dataset: AbstractDataset[ItemType]
+    ) -> DataLoader[tuple[ItemType, torch.Tensor]]:
+        subset: Dataset[tuple[ItemType, torch.Tensor]] = dataset
         if "max_samples" in self.training_params:
             max_samples = self.training_params["max_samples"]
             indices = list(range(len(dataset)))
@@ -224,11 +226,13 @@ bandits: dict[str, type[AbstractBandit]] = {
     "neural_ucb": NeuralUCBBandit,
 }
 
-datasets: dict[str, type[AbstractDataset]] = {
+datasets: dict[str, type[AbstractDataset[Any]]] = {
     "covertype": CovertypeDataset,
     "mnist": MNISTDataset,
     "statlog": StatlogDataset,
     "wheel": WheelBanditDataset,
+    "imdb": ImdbMovieReviews,
+    "movielens": MovieLensDataset,
 }
 
 selectors: dict[str, type[AbstractSelector]] = {
