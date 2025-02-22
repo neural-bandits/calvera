@@ -17,11 +17,11 @@ from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
 from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset, ItemType
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
+from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from neural_bandits.benchmark.datasets.mnist import MNISTDataset
+from neural_bandits.benchmark.datasets.movie_lens import MovieLensDataset
 from neural_bandits.benchmark.datasets.statlog import StatlogDataset
 from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
-from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
-from neural_bandits.benchmark.datasets.movie_lens import MovieLensDataset
 from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
 from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
@@ -54,7 +54,9 @@ class BanditBenchmark(Generic[ItemType]):
             OnlineBanditLoggerDecorator(logger) if logger is not None else None
         )
 
-        self.dataloader = self._initialize_dataloader(dataset)
+        self.dataloader: DataLoader[tuple[ItemType, torch.Tensor]] = (
+            self._initialize_dataloader(dataset)
+        )
         # Wrap the dataloader in an environment to simulate delayed feedback.
         self.environment = BanditBenchmarkEnvironment(self.dataloader)
 
