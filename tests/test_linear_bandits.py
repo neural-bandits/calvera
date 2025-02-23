@@ -286,7 +286,7 @@ def test_update_correct() -> None:
       theta_new = [0.4]
     """
 
-    bandit = LinearUCBBandit(n_features=1)
+    bandit = LinearUCBBandit(n_features=1, eps = 0.0)
 
     chosen_contextualized_actions = torch.tensor([[[2.0]]])  # shape (1,1)
     realized_rewards = torch.tensor([[1.0]])  # shape (1,1)
