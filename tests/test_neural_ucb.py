@@ -4,10 +4,7 @@ import torch
 import torch.nn as nn
 
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.utils.data_storage import (
-    AllDataBufferStrategy,
-    InMemoryDataBuffer,
-)
+from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer
 
 
 @pytest.fixture(autouse=True)
