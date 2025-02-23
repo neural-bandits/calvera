@@ -18,6 +18,8 @@ class NeuralUCBBandit(AbstractBandit):
         bandit: The underlying NeuralUCBBandit instance.
     """
 
+    Z_t: torch.Tensor
+
     def __init__(
         self,
         n_features: int,
@@ -87,8 +89,10 @@ class NeuralUCBBandit(AbstractBandit):
         )
 
         # Initialize Z_0 = λI
-        self.Z_t = self.hparams["lambda_"] * torch.ones(
-            (self.total_params,), device=self.device
+        self.register_buffer(
+            "Z_t",
+            self.hparams["lambda_"]
+            * torch.ones((self.total_params,), device=self.device),
         )
 
     def _predict_action(
@@ -106,7 +110,6 @@ class NeuralUCBBandit(AbstractBandit):
             - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, num_actions).
             - p: Will always return a tensor of ones because UCB does not work on probabilities. Shape: (batch_size, ).
         """
-        contextualized_actions = contextualized_actions.to(self.device)
         batch_size, n_arms, n_features = contextualized_actions.shape
 
         assert (
@@ -216,7 +219,7 @@ class NeuralUCBBandit(AbstractBandit):
         # Logging
         self.log(
             "reward",
-            realized_rewards.mean(),
+            realized_rewards.sum(),
             on_step=True,
             on_epoch=False,
             prog_bar=True,
@@ -224,7 +227,7 @@ class NeuralUCBBandit(AbstractBandit):
 
         self.total_samples += batch_size
 
-        return -realized_rewards.mean()
+        return -realized_rewards.sum()
 
     def _train_network(self) -> float:
         optimizer = self.optimizers()
