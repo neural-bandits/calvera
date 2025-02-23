@@ -214,9 +214,11 @@ class NeuralTSBandit(AbstractBandit):
         )
 
         # Train network based on schedule
-        should_train = len(self.buffer) < self.hparams["initial_train_steps"] or (
-            len(self.buffer) >= self.hparams["initial_train_steps"]
-            and len(self.buffer) % self.hparams["train_freq"] == 0
+        should_train = len(self.buffer) <= self.hparams["initial_train_steps"] or (
+            len(self.buffer) > self.hparams["initial_train_steps"]
+            and (len(self.buffer) - self.hparams["initial_train_steps"])
+            % self.hparams["train_freq"]
+            == 0
         )
 
         if should_train:
