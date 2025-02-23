@@ -200,6 +200,10 @@ class NeuralTSBandit(AbstractBandit):
         ]  # shape: (batch_size, n_arms, n_features)
         realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
 
+        assert (
+            self.hparams["batch_size"] <= self.hparams["train_freq"]
+        ), f"Batch size ({self.hparams['batch_size']}) must be less than or equal to train frequency ({self.hparams['train_freq']})"
+
         # Update bandit's history
         self.buffer.add_batch(
             contextualized_actions=contextualized_actions.view(

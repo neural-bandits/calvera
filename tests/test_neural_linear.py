@@ -185,6 +185,7 @@ def test_neural_linear_bandit_training_step(
         encoder=encoder,
         n_encoder_input_size=n_features,
         n_embedding_size=n_embedding_size,
+        encoder_update_batch_size=2,
         encoder_update_freq=4,
         head_update_freq=2,
         lr=1e-3,

@@ -153,6 +153,11 @@ class NeuralLinearBandit(LinearTSBandit):
         realized_rewards: torch.Tensor = batch[1]
 
         assert (
+            self.hparams["encoder_update_batch_size"]
+            <= self.hparams["encoder_update_freq"]
+        ), f"Encoder update batch size ({self.hparams['encoder_update_batch_size']}) must be less than or equal to encoder update frequency ({self.hparams['encoder_update_freq']})"
+
+        assert (
             chosen_contextualized_actions.ndim == 3
             and chosen_contextualized_actions.shape[2]
             == self.hparams["n_encoder_input_size"]
