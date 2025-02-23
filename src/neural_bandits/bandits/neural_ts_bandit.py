@@ -1,11 +1,11 @@
 from typing import Any, Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
+from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
@@ -21,6 +21,8 @@ class NeuralTSBandit(AbstractBandit):
         self,
         n_features: int,
         network: nn.Module,
+        buffer: AbstractBanditDataBuffer,
+        batch_size: int = 32,
         selector: AbstractSelector = ArgMaxSelector(),
         early_stop_threshold: Optional[float] = 1e-3,
         num_grad_steps: int = 1000,
@@ -37,6 +39,8 @@ class NeuralTSBandit(AbstractBandit):
         Args:
             n_features: Number of input features.
             network: Neural network module for function approximation.
+            buffer: Buffer for storing bandit interaction data.
+            batch_size: Size of mini-batches for training. Defaults to 32.
             selector: Action selector for the bandit. Defaults to ArgMaxSelector.
             early_stop_threshold: Loss threshold for early stopping. None to disable.
             num_grad_steps: Maximum number of gradient steps per training iteration.
@@ -58,6 +62,7 @@ class NeuralTSBandit(AbstractBandit):
             "n_features": n_features,
             "early_stop_threshold": early_stop_threshold,
             "num_grad_steps": num_grad_steps,
+            "batch_size": batch_size,
             "lambda_": lambda_,
             "nu": nu,
             "learning_rate": learning_rate,
@@ -70,16 +75,13 @@ class NeuralTSBandit(AbstractBandit):
 
         self.selector = selector
 
-        self.total_samples: int = 0
-
         # Model parameters
 
         # Initialize θ_t
         self.theta_t = network.to(self.device)
 
         # Track {x_i,a_i, r_i,a_i} history
-        self.context_history: list[torch.Tensor] = []
-        self.reward_history: list[torch.Tensor] = []
+        self.buffer = buffer
 
         self.total_params = sum(
             p.numel() for p in self.theta_t.parameters() if p.requires_grad
@@ -197,16 +199,20 @@ class NeuralTSBandit(AbstractBandit):
             0
         ]  # shape: (batch_size, n_arms, n_features)
         realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
-        batch_size = realized_rewards.shape[0]
 
         # Update bandit's history
-        self.context_history.append(contextualized_actions)
-        self.reward_history.append(realized_rewards)
+        self.buffer.add_batch(
+            contextualized_actions=contextualized_actions.view(
+                -1, contextualized_actions.size(-1)
+            ),
+            embedded_actions=None,
+            rewards=realized_rewards.squeeze(1),
+        )
 
         # Train network based on schedule
-        should_train = batch_idx < self.hparams["initial_train_steps"] or (
-            batch_idx >= self.hparams["initial_train_steps"]
-            and batch_idx % self.hparams["train_freq"] == 0
+        should_train = len(self.buffer) < self.hparams["initial_train_steps"] or (
+            len(self.buffer) >= self.hparams["initial_train_steps"]
+            and len(self.buffer) % self.hparams["train_freq"] == 0
         )
 
         if should_train:
@@ -222,69 +228,44 @@ class NeuralTSBandit(AbstractBandit):
             prog_bar=True,
         )
 
-        self.total_samples += batch_size
-
         return -realized_rewards.mean()
 
     def _train_network(self) -> float:
-        """Train the neural network on collected history.
-
-        Performs gradient descent steps on randomly shuffled historical data
-        until reaching the maximum steps or early stopping criterion.
-
-        Returns:
-            Average loss over the training steps.
-        """
         optimizer = self.optimizers()
         if isinstance(optimizer, list):
             optimizer = optimizer[0]
 
-        indices = np.arange(len(self.reward_history))
-        np.random.shuffle(indices)
-
         L_theta_sum: float = 0.0  # Track cumulative loss L(θ)
-        j = 0  # Count gradient descent steps
 
-        while True:
-            L_theta_batch: float = 0.0  # Track batch loss
+        for j in range(self.hparams["num_grad_steps"]):
+            context, _, reward = self.buffer.get_batch(
+                batch_size=self.hparams["batch_size"]
+            )
 
-            # Compute L(θ) and perform gradient descent
-            for i in indices:
-                context = self.context_history[i]
-                reward = self.reward_history[i]
+            optimizer.zero_grad()
 
-                batch_size = context.shape[0]
+            # Compute f(x_i,a_i; θ)
+            f_theta = self.theta_t(context)
+            L_theta = torch.nn.functional.mse_loss(f_theta, reward.unsqueeze(1))
+            L_theta = L_theta.sum() / self.hparams["batch_size"]
+            self.manual_backward(L_theta)
 
-                optimizer.zero_grad()
+            torch.nn.utils.clip_grad_norm_(
+                self.theta_t.parameters(),
+                max_norm=self.hparams["max_grad_norm"],
+            )
 
-                # Compute f(x_i,a_i; θ)
-                f_theta = self.theta_t(context)
-                L_theta = torch.nn.functional.mse_loss(f_theta, reward.unsqueeze(1))
-                L_theta = L_theta.sum() / batch_size
-                self.manual_backward(L_theta)
+            optimizer.step()
 
-                torch.nn.utils.clip_grad_norm_(
-                    self.theta_t.parameters(),
-                    max_norm=self.hparams["max_grad_norm"],
-                )
+            L_theta_sum += L_theta.item()
 
-                optimizer.step()
-
-                L_theta_batch += L_theta.item()
-                L_theta_sum += L_theta.item()
-                j += 1
-
-                # Return θ⁽ᴶ⁾ after J gradient descent steps
-                if j >= self.hparams["num_grad_steps"]:
-                    return float(L_theta_sum / self.hparams["num_grad_steps"])
-
-            # Early stopping if threshold is set and loss is small enough
             if (
                 self.hparams["early_stop_threshold"] is not None
-                and L_theta_batch / len(self.reward_history)
-                <= self.hparams["early_stop_threshold"]
+                and (L_theta_sum / (j + 1)) <= self.hparams["early_stop_threshold"]
             ):
-                return float(L_theta_batch / len(self.reward_history))
+                break
+
+        return float(L_theta_sum / (j + 1))
 
     def configure_optimizers(self) -> optim.Optimizer:
         return optim.SGD(

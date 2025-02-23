@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Optional, Protocol, Tuple, TypedDict
 
 import torch
@@ -14,18 +13,18 @@ class BanditStateDict(TypedDict):
     Each key corresponds to a specific piece of state data with its expected type.
 
     Attributes:
-        contextualized_actions: Tensor storing all contextualized actions in buffer
-        embedded_actions: Tensor storing all embedded action representations
-        rewards: Tensor storing all received rewards
+        contextualized_actions: Tensor storing all contextualized actions in buffer. Shape: (buffer_size, n_features).
+        embedded_actions: Tensor storing all embedded action representations. Shape: (buffer_size, n_embedding_size).
+        rewards: Tensor storing all received rewards. Shape: (buffer_size,).
         buffer_strategy: Strategy object controlling how data is managed
-        max_size: Optional maximum size limit of the buffer
+        max_size: Optional maximum size limit of the buffer. None means no size limit.
     """
 
-    contextualized_actions: torch.Tensor  # shape: (buffer_size, n_features)
-    embedded_actions: torch.Tensor  # shape: (buffer_size, n_embedding_size)
-    rewards: torch.Tensor  # shape: (buffer_size,)
-    buffer_strategy: "DataBufferStrategy"  # Forward reference since class defined later
-    max_size: Optional[int]  # None means no size limit
+    contextualized_actions: torch.Tensor
+    embedded_actions: torch.Tensor
+    rewards: torch.Tensor
+    buffer_strategy: "DataBufferStrategy"
+    max_size: Optional[int]
 
 
 class DataBufferStrategy(Protocol):
@@ -43,7 +42,6 @@ class DataBufferStrategy(Protocol):
         ...
 
 
-@dataclass
 class AllDataBufferStrategy:
     """Strategy that uses all available data points in the buffer for training."""
 
@@ -59,11 +57,11 @@ class AllDataBufferStrategy:
         return torch.arange(total_samples)
 
 
-@dataclass
 class SlidingWindowBufferStrategy:
     """Strategy that uses only the last n data points from the buffer for training."""
 
-    window_size: int
+    def __init__(self, window_size: int):
+        self.window_size = window_size
 
     def get_training_indices(self, total_samples: int) -> torch.Tensor:
         """Returns indices for the last window_size samples.
@@ -78,25 +76,29 @@ class SlidingWindowBufferStrategy:
         return torch.arange(start_idx, total_samples)
 
 
-# TODO: Add __init__ method to AbstractBanditDataBuffer
 class AbstractBanditDataBuffer(ABC):
     """Abstract base class for bandit data buffer management."""
+
+    def __init__(self) -> None:
+        """Initialize the data buffer."""
+
+        self.contextualized_actions = torch.empty(0, 0)
+        self.embedded_actions = torch.empty(0, 0)
+        self.rewards = torch.empty(0)
 
     @abstractmethod
     def add_batch(
         self,
-        contextualized_actions: torch.Tensor,  # shape: (batch_size, n_features)
-        embedded_actions: Optional[
-            torch.Tensor
-        ],  # shape: (batch_size, n_embedding_size)
-        rewards: torch.Tensor,  # shape: (batch_size,)
+        contextualized_actions: torch.Tensor,
+        embedded_actions: Optional[torch.Tensor],
+        rewards: torch.Tensor,
     ) -> None:
         """Add a batch of data points to the buffer.
 
         Args:
-            contextualized_actions: Tensor of contextualized actions
-            embedded_actions: Optional tensor of embedded actions
-            rewards: Tensor of rewards received for each action
+            contextualized_actions: Tensor of contextualized actions. Shape: (buffer_size, n_features).
+            embedded_actions: Optional tensor of embedded actions. Shape: (buffer_size, n_embedding_size).
+            rewards: Tensor of rewards received for each action. Shape: (buffer_size,).
         """
         pass
 
@@ -161,7 +163,9 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
     """In-memory implementation of bandit data buffer."""
 
     def __init__(
-        self, buffer_strategy: DataBufferStrategy, max_size: Optional[int] = None
+        self,
+        buffer_strategy: DataBufferStrategy,
+        max_size: Optional[int] = None,
     ):
         """Initialize the in-memory buffer.
 
@@ -169,16 +173,9 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
             buffer_strategy: Strategy for managing training data selection
             max_size: Optional maximum number of samples to store
         """
+        super().__init__()
         self.buffer_strategy = buffer_strategy
         self.max_size = max_size
-
-        self.contextualized_actions: torch.Tensor = torch.empty(
-            0, 0
-        )  # shape: (buffer_size, n_features)
-        self.embedded_actions: torch.Tensor = torch.empty(
-            0, 0
-        )  # shape: (buffer_size, n_embedding_size)
-        self.rewards: torch.Tensor = torch.empty(0)  # shape: (buffer_size,)
 
     def add_batch(
         self,
@@ -193,7 +190,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
             embedded_actions: Optional tensor of embedded actions, shape: (batch_size, n_embedding_size)
             rewards: Tensor of rewards, shape: (batch_size,)
         """
-        # TODO: n_feature as an input?
+        # Initialize buffer with proper shapes if empty
         if self.contextualized_actions.shape[1] == 0:
             self.contextualized_actions = torch.empty(
                 0, contextualized_actions.shape[1]
