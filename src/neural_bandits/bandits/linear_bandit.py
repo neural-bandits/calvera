@@ -31,6 +31,7 @@ class LinearBandit(AbstractBandit):
         # Save Hyperparameters
         hyperparameters = {
             "n_features": n_features,
+            "eps": eps,
             **kw_args,
         }
         self.save_hyperparameters(hyperparameters)
