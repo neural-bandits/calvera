@@ -6,7 +6,6 @@ from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 
 class LinearBandit(AbstractBandit):
-
     precision_matrix: torch.Tensor
     b: torch.Tensor
     theta: torch.Tensor
@@ -14,14 +13,17 @@ class LinearBandit(AbstractBandit):
     def __init__(
         self,
         n_features: int,
+        eps: float = 1e-2,
         **kw_args: Any,
     ) -> None:
         """Initializes the LinearBanditModule.
         Args:
             n_features: The number of features in the bandit model.
+            eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
         """
         super().__init__()
         self.n_features = n_features
+        self.eps = eps
 
         # Disable Lightning's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
@@ -65,7 +67,7 @@ class LinearBandit(AbstractBandit):
 
         self.log(
             "reward",
-            realized_rewards.mean(),
+            realized_rewards.sum(),
             on_step=True,
             on_epoch=False,
             prog_bar=True,
@@ -125,6 +127,10 @@ class LinearBandit(AbstractBandit):
             @ self.precision_matrix.clone()
         )
         self.precision_matrix.mul_(0.5).add_(self.precision_matrix.T.clone())
+
+        self.precision_matrix.add_(
+            torch.eye(self.n_features, device=self.device) * self.eps
+        )  # add small value to diagonal to ensure invertibility
 
         # should be symmetric
         assert torch.allclose(

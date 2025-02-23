@@ -44,7 +44,7 @@ class LinearTSBandit(LinearBandit):
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
         batch_size = contextualized_actions.shape[0]
 
-        theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample((batch_size,))  # type: ignore
+        theta_tilde = torch.distributions.MultivariateNormal(self.theta, precision_matrix=self.precision_matrix).sample((batch_size,))  # type: ignore
 
         expected_rewards = torch.einsum(
             "ijk,ik->ij", contextualized_actions, theta_tilde
