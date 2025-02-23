@@ -243,7 +243,7 @@ class NeuralLinearBandit(LinearTSBandit):
             loss = self._compute_loss(y_pred, y)
 
             cost = loss.sum() / self.hparams["encoder_update_batch_size"]
-            cost.backward()  # type: ignore
+            cost.backward()
 
             torch.nn.utils.clip_grad_norm_(
                 self.net.parameters(), self.hparams["max_grad_norm"]
