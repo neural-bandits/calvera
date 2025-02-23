@@ -3,11 +3,12 @@ from typing import Any, Optional
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
-from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
+# from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
+from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class NeuralLinearBandit(LinearTSBandit):
+class NeuralLinearBandit(LinearUCBBandit):
     """
     Lightning Module implementing a Neural Linear bandit.
     The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
@@ -15,6 +16,10 @@ class NeuralLinearBandit(LinearTSBandit):
     Since updating the neural network (encoder) is computationally expensive, the neural network is only updated every `embedding_update_interval` steps.
     On the other hand, the linear head is updated every `head_update_freq` steps which should be much lower.
     """
+
+    contextualized_actions: torch.Tensor
+    embedded_actions: torch.Tensor
+    rewards: torch.Tensor
 
     def __init__(
         self,
@@ -71,27 +76,24 @@ class NeuralLinearBandit(LinearTSBandit):
             }
         )
 
-        self.encoder = encoder
-
-        # Initialize the linear head which receives the embeddings
-        self.precision_matrix = torch.eye(n_embedding_size)
-        self.b = torch.zeros(n_embedding_size)
-        self.theta = torch.zeros(n_embedding_size)
+        self.encoder = encoder.to(self.device)
 
         # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder, hence the single output dimension.
         # TODO: it would be cleaner if this was a lightning module?
         self.net = torch.nn.Sequential(
             self.encoder,
-            torch.nn.Linear(self.hparams["n_embedding_size"], 1),
+            torch.nn.Linear(self.hparams["n_embedding_size"], 1, device=self.device),
         )
 
-        self.contextualized_actions: torch.Tensor = torch.empty(
-            0
+        self.register_buffer(
+            "contextualized_actions", torch.empty(0, device=self.device)
         )  # shape: (buffer_size, n_encoder_input_size)
-        self.embedded_actions: torch.Tensor = torch.empty(
-            0
+        self.register_buffer(
+            "embedded_actions", torch.empty(0, device=self.device)
         )  # shape: (buffer_size, n_encoder_input_size)
-        self.rewards: torch.Tensor = torch.empty(0)  # shape: (buffer_size,)
+        self.register_buffer(
+            "rewards", torch.empty(0, device=self.device)
+        )  # shape: (buffer_size,)
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
@@ -179,7 +181,7 @@ class NeuralLinearBandit(LinearTSBandit):
         # Log the reward
         self.log(
             "reward",
-            realized_rewards.mean(),
+            realized_rewards.sum(),
             on_step=True,
             on_epoch=False,
             prog_bar=True,
@@ -220,6 +222,7 @@ class NeuralLinearBandit(LinearTSBandit):
         if should_update_encoder:
             self._train_nn()
             self._update_embeddings()
+            print("trained nn")
 
         should_update_head = (
             self.hparams["head_update_freq"] is not None
@@ -227,8 +230,9 @@ class NeuralLinearBandit(LinearTSBandit):
         )
         if should_update_head or should_update_encoder:
             self._update_head()
+            print("updated head")
 
-        return -realized_rewards.mean()
+        return -realized_rewards.sum()
 
     def _train_nn(
         self,
@@ -292,6 +296,7 @@ class NeuralLinearBandit(LinearTSBandit):
 
         # create num_batch mini batches of size batch_size
         # TODO: make sure that mini batches are not overlapping?
+        # TODO: make this reproducible? (seeded generator)
         random_indices = torch.randint(
             0, self.contextualized_actions.shape[0], (num_batches, batch_size)
         )
@@ -338,46 +343,19 @@ class NeuralLinearBandit(LinearTSBandit):
         # TODO: We could actually make this recompute configurable and not force a recompute but just continue using the old head.
 
         # Reset the parameters
-        self.precision_matrix = torch.eye(self.hparams["n_embedding_size"])
-        self.b = torch.zeros(self.hparams["n_embedding_size"])
-        self.theta = torch.zeros(self.hparams["n_embedding_size"])
+        self.precision_matrix.copy_(
+            torch.eye(self.hparams["n_embedding_size"], device=self.device)
+        )
+        self.b.copy_(torch.zeros(self.hparams["n_embedding_size"], device=self.device))
+        self.theta.copy_(
+            torch.zeros(self.hparams["n_embedding_size"], device=self.device)
+        )
 
         # Update the linear head
         z = self.embedded_actions  # shape: (buffer_size, n_embedding_size)
         y = self.rewards  # shape: (buffer_size,)
 
-        data_size, n_embedding_size = z.shape
-
-        assert (
-            z.dim() == 2 and n_embedding_size == self.hparams["n_embedding_size"]
-        ), "Expected embedded_actions (z) to be 2D (batch_size, n_embedding_size)"
-        assert (
-            y.dim() == 1 and y.shape[0] == data_size
-        ), "Expected rewards (y) to be 1D (batch_size,) and of same length as embedded_actions (z)"
-
-        denominator = 1 + ((z @ self.precision_matrix) * z).sum(dim=1).sum(dim=0)
-        assert torch.abs(denominator - 0) > 0, "Denominator must not be zero"
-
-        # Update the precision matrix M using the Sherman-Morrison formula
-        self.precision_matrix = (
-            self.precision_matrix
-            - (
-                self.precision_matrix
-                @ torch.einsum("bi,bj->bij", z, z).sum(dim=0)
-                @ self.precision_matrix
-            )
-            / denominator
-        )
-        self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)
-
-        # should be symmetric
-        assert torch.allclose(
-            self.precision_matrix, self.precision_matrix.T
-        ), "M must be symmetric"
-
-        # Finally, update the rest of the parameters of the linear head
-        self.b += z.T @ y  # shape: (features,)
-        self.theta = self.precision_matrix @ self.b
+        super().update(z.unsqueeze(1), y.unsqueeze(1))
 
     def configure_optimizers(
         self,
