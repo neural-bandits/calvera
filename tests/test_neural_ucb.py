@@ -1,10 +1,10 @@
+import lightning as pl
 import pytest
 import torch
 import torch.nn as nn
-import lightning as pl
 
-from src.neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from src.neural_bandits.utils.data_storage import (
+from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
+from neural_bandits.utils.data_storage import (
     AllDataBufferStrategy,
     InMemoryDataBuffer,
 )
@@ -115,7 +115,7 @@ def test_neural_ucb_bandit_training_step(
         torch.Tensor,
         torch.Tensor,
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
-    ]
+    ],
 ) -> None:
     """
     Test that a training step runs without error and updates parameters correctly.
