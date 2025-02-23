@@ -3,12 +3,11 @@ from typing import Any, Optional
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
-# from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
-from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
+from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class NeuralLinearBandit(LinearUCBBandit):
+class NeuralLinearBandit(LinearTSBandit):
     """
     Lightning Module implementing a Neural Linear bandit.
     The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
