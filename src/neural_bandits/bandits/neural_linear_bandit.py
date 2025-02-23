@@ -232,7 +232,7 @@ class NeuralLinearBandit(LinearTSBandit):
         self.encoder.train()
         for _ in range(num_steps):
             x, z, y = self.buffer.get_batch(self.hparams["encoder_update_batch_size"])
-            self.optimizers().zero_grad()
+            self.optimizers().zero_grad()  # type: ignore
 
             # x  # shape: (batch_size, n_encoder_input_size)
             # z  # shape: (batch_size, n_embedding_size)
@@ -243,17 +243,17 @@ class NeuralLinearBandit(LinearTSBandit):
             loss = self._compute_loss(y_pred, y)
 
             cost = loss.sum() / self.hparams["encoder_update_batch_size"]
-            cost.backward()
+            cost.backward()  # type: ignore
 
             torch.nn.utils.clip_grad_norm_(
                 self.net.parameters(), self.hparams["max_grad_norm"]
             )
 
-            self.optimizers().step()
+            self.optimizers().step()  # type: ignore
 
             self.log("nn_loss", loss, on_step=True, on_epoch=False, prog_bar=True)
 
-        self.lr_schedulers().step()
+        self.lr_schedulers().step()  # type: ignore
 
     def _compute_loss(
         self,
