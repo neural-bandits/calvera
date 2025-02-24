@@ -10,11 +10,11 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 class NeuralLinearBandit(LinearTSBandit):
     """Lightning Module implementing a Neural Linear bandit.
 
-    The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An 
+    The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An
     Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
-    A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear 
+    A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear
     head that is trained on the embeddings. Since updating the neural network (encoder) is computationally expensive,
-    the neural network is only updated every `embedding_update_interval` steps. On the other hand, the linear head is 
+    the neural network is only updated every `embedding_update_interval` steps. On the other hand, the linear head is
     updated every `head_update_freq` steps which should be much lower.
     """
 
@@ -37,10 +37,10 @@ class NeuralLinearBandit(LinearTSBandit):
             n_encoder_input_size: The number of features in the input data.
             n_embedding_size: The size of the embedding produced by the encoder model. Defaults to n_encoder_input_size.
             selector: The selector used to choose the best action. Default is ArgMaxSelector.
-            encoder_update_freq: The interval (in steps) at which the encoder model is updated. Default is 32. 
+            encoder_update_freq: The interval (in steps) at which the encoder model is updated. Default is 32.
                 None means the encoder model is never updated.
             encoder_update_batch_size: The batch size for the encoder model update. Default is 32.
-            head_update_freq: The interval (in steps) at which the encoder model is updated. Default is 1. 
+            head_update_freq: The interval (in steps) at which the encoder model is updated. Default is 1.
                 None means the linear head is never updated independently.
             lr: The learning rate for the optimizer of the encoder model. Default is 1e-3.
             max_grad_norm: The maximum norm of the gradients for the encoder model. Default is 5.0.
@@ -122,10 +122,11 @@ class NeuralLinearBandit(LinearTSBandit):
             and embedded_actions.shape[1] == contextualized_actions.shape[1]
             and embedded_actions.shape[2] == self.hparams["n_embedding_size"]
         ), f"Embedded actions must have shape (batch_size, n_arms, n_encoder_input_size). \
-            Expected shape {(contextualized_actions.shape[0], contextualized_actions.shape[1],
-            self.hparams['n_embedding_size'])} but got shape {embedded_actions.shape}"
+            Expected shape \
+                {(contextualized_actions.shape[0], contextualized_actions.shape[1], self.hparams['n_embedding_size'])} \
+            but got shape {embedded_actions.shape}"
 
-        # Call the linear bandit to get the best action via Thompson Sampling. 
+        # Call the linear bandit to get the best action via Thompson Sampling.
         # Unfortunately, we can't use its forward method here. Because of inheriting it would call
         # our `forward`` and `_predict_action`` method again.
         result, p = super()._predict_action(embedded_actions)  # shape: (batch_size, n_arms)
@@ -323,7 +324,7 @@ class NeuralLinearBandit(LinearTSBandit):
         """Perform an update step on the head of the neural linear bandit. Recomputes the linear head from scratch."""
         # TODO: make this sequential! Then we don't need to reset the parameters on every update
         #   (+ update the method comment).
-        # TODO: But when we recompute after training the encoder, we need to actually reset these parameters. 
+        # TODO: But when we recompute after training the encoder, we need to actually reset these parameters.
         #   And we need to only load the latest data from the replay buffer.
         # TODO: We could actually make this recompute configurable and not force a recompute but just continue using the
         #   old head.
