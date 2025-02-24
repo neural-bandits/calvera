@@ -3,7 +3,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit
+from neural_bandits.bandits.abstract_bandit import AbstractBandit, ActionInputType
 from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
 from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
@@ -29,7 +29,7 @@ n_features = 3
         ),
     ],
 )
-def test_trainer_fit_runs(bandit: AbstractBandit) -> None:
+def test_trainer_fit_runs(bandit: AbstractBandit[ActionInputType]) -> None:
     """
     Test if parameters are updated after training step.
     """

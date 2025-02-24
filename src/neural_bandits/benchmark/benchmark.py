@@ -9,13 +9,16 @@ import pandas as pd
 import torch
 from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
+from transformers import BertForSequenceClassification
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit
+from neural_bandits.bandits.abstract_bandit import AbstractBandit, ActionInputType
 from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
 from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset, ItemType
+from neural_bandits.benchmark.datasets.abstract_dataset import (
+    AbstractDataset,
+)
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
 from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from neural_bandits.benchmark.datasets.mnist import MNISTDataset
@@ -27,12 +30,15 @@ from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorato
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class BanditBenchmark(Generic[ItemType]):
+class BanditBenchmark(Generic[ActionInputType]):
+    """
+    Benchmark class which trains a bandit on a dataset.
+    """
 
     def __init__(
         self,
-        BanditClass: type[AbstractBandit],
-        dataset: AbstractDataset[ItemType],
+        BanditClass: type[AbstractBandit[ActionInputType]],
+        dataset: AbstractDataset[ActionInputType],
         training_params: Dict[str, Any],
         bandit_hparams: Dict[str, Any],
         logger: Optional[Logger] = None,
@@ -54,16 +60,16 @@ class BanditBenchmark(Generic[ItemType]):
             OnlineBanditLoggerDecorator(logger) if logger is not None else None
         )
 
-        self.dataloader: DataLoader[tuple[ItemType, torch.Tensor]] = (
+        self.dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = (
             self._initialize_dataloader(dataset)
         )
         # Wrap the dataloader in an environment to simulate delayed feedback.
         self.environment = BanditBenchmarkEnvironment(self.dataloader)
 
     def _initialize_dataloader(
-        self, dataset: AbstractDataset[ItemType]
-    ) -> DataLoader[tuple[ItemType, torch.Tensor]]:
-        subset: Dataset[tuple[ItemType, torch.Tensor]] = dataset
+        self, dataset: AbstractDataset[ActionInputType]
+    ) -> DataLoader[tuple[ActionInputType, torch.Tensor]]:
+        subset: Dataset[tuple[ActionInputType, torch.Tensor]] = dataset
         if "max_samples" in self.training_params:
             max_samples = self.training_params["max_samples"]
             indices = list(range(len(dataset)))
@@ -105,7 +111,7 @@ class BanditBenchmark(Generic[ItemType]):
 
             # Get feedback dataset for the chosen actions.
             feedback_dataset = self.environment.get_feedback(chosen_actions)
-            assert training_batch_size <= contextualized_actions.size(
+            assert training_batch_size <= chosen_actions.size(
                 0
             ), "training_batch_size must be lower than or equal to the data loaders batch_size (feedback_delay)."
             feedback_loader = DataLoader(
@@ -124,7 +130,7 @@ class BanditBenchmark(Generic[ItemType]):
             # Train the bandit on the current feedback.
             trainer.fit(self.bandit, feedback_loader)
 
-    def _predict_actions(self, contextualized_actions: torch.Tensor) -> torch.Tensor:
+    def _predict_actions(self, contextualized_actions: ActionInputType) -> torch.Tensor:
         """
         Predicts actions for the given contextualized_actions.
         Predictions are made in batches of size 'forward_batch_size'. Therefore, the input batch size must be divisible by 'forward_batch_size'.
@@ -133,9 +139,14 @@ class BanditBenchmark(Generic[ItemType]):
             contextualized_actions: A tensor of contextualized actions.
         """
         forward_batch_size = self.training_params.get("forward_batch_size", 1)
-        batch_size = contextualized_actions.size(0)
+        contextualized_actions_tensor = (
+            contextualized_actions
+            if isinstance(contextualized_actions, torch.Tensor)
+            else contextualized_actions[0]
+        )
+        batch_size = contextualized_actions_tensor.size(0)
 
-        if forward_batch_size == contextualized_actions.size(0):
+        if batch_size == forward_batch_size:
             # Forward pass: bandit chooses actions.
             chosen_actions, _ = self.bandit.forward(contextualized_actions)
             return chosen_actions
@@ -144,11 +155,21 @@ class BanditBenchmark(Generic[ItemType]):
             assert (
                 batch_size % forward_batch_size == 0
             ), "data loaders batch_size (feedback_delay) must be divisible by forward_batch_size."
-            chosen_actions = torch.tensor([], device=contextualized_actions.device)
+            chosen_actions = torch.tensor(
+                [], device=contextualized_actions_tensor.device
+            )
             for i in range(0, batch_size, forward_batch_size):
-                actions, _ = self.bandit.forward(
-                    contextualized_actions[i : i + forward_batch_size]
-                )
+                if isinstance(contextualized_actions, torch.Tensor):
+                    actions, _ = self.bandit.forward(
+                        contextualized_actions[i : i + forward_batch_size]
+                    )
+                else:
+                    actions, _ = self.bandit.forward(
+                        tuple(
+                            action[i : i + forward_batch_size]
+                            for action in contextualized_actions
+                        )
+                    )
                 chosen_actions = torch.cat((chosen_actions, actions), dim=0)
 
             return chosen_actions
@@ -221,7 +242,7 @@ class BenchmarkAnalyzer:
         plt.title("Loss over training steps")
 
 
-bandits: dict[str, type[AbstractBandit]] = {
+bandits: dict[str, type[AbstractBandit[Any]]] = {
     "lin_ucb": LinearUCBBandit,
     "lin_ts": LinearTSBandit,
     "neural_linear": NeuralLinearBandit,
@@ -281,6 +302,9 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
         torch.nn.Linear(in_size, 64),
         torch.nn.ReLU(),
         torch.nn.Linear(64, out_size),
+    ),
+    "bert": lambda a, b: BertForSequenceClassification.from_pretrained(
+        "google/bert_uncased_L-2_H-128_A-2", num_labels=2
     ),
 }
 

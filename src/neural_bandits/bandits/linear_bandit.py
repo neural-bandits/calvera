@@ -5,7 +5,7 @@ import torch
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 
-class LinearBandit(AbstractBandit):
+class LinearBandit(AbstractBandit[torch.Tensor]):
     def __init__(
         self,
         n_features: int,
@@ -35,7 +35,7 @@ class LinearBandit(AbstractBandit):
 
     def _update(
         self,
-        batch: torch.Tensor,
+        batch: tuple[torch.Tensor, torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
         """Perform an update step on the linear bandit model.

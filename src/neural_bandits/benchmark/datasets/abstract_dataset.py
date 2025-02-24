@@ -1,20 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Generic, Tuple, TypeVar
+from typing import Any, Callable, Generic, Tuple
 
 import torch
 from torch.utils.data import Dataset
 
+from neural_bandits.bandits.abstract_bandit import ActionInputType
 from neural_bandits.benchmark.multiclass import MultiClassContextualizer
 
-# TextItemType is a tuple of three torch tensors. We use this type to represent the
-# input to a model from the `transformers` library. Corresponds to the `input_ids`,
-# `attention_mask`, and `token_type_ids`.
-TextItemType = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
-ItemType = TypeVar("ItemType", torch.Tensor, TextItemType)
-
-
-class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tensor]]):
+class AbstractDataset(
+    ABC, Generic[ActionInputType], Dataset[Tuple[ActionInputType, torch.Tensor]]
+):
     """
     Abstract class for a dataset that is derived from PyTorch's Dataset class.
     Additionally, it provides a reward method for the specific bandit setting.
@@ -25,6 +21,9 @@ class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tens
         If needs_disjoint_contextualization is True, the context size will be multiplied by the number of actions.
     - input_size   - The size of the input vector for the neural network.
         If needs_disjoint_contextualization is True, the input size will be context_size * num_actions. Otherwise context_size.
+
+    ActionInputType Generic:
+        The type of the contextualized actions that are input to the bandit.
     """
 
     num_actions: int
@@ -45,7 +44,7 @@ class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tens
         pass
 
     @abstractmethod
-    def __getitem__(self, idx: int) -> Tuple[ItemType, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[ActionInputType, torch.Tensor]:
         """
         Returns:
             A tuple with the context vectors of all available actions and the associated rewards.

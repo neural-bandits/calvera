@@ -13,7 +13,6 @@ from transformers import BertTokenizer, PreTrainedTokenizer
 
 from neural_bandits.benchmark.datasets.abstract_dataset import (
     AbstractDataset,
-    TextItemType,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,7 +112,11 @@ def _preprocess_text(text: str) -> str:
     return text
 
 
-class ImdbMovieReviews(AbstractDataset[TextItemType]):
+# Type for the input to the transformer model. The input is a tuple containing the `input_ids`, `attention_mask`, and `token_type_ids`.
+TextActionInputType = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+
+
+class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
     """A dataset for the IMDB movie reviews sentiment classification task. See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
 
     Args:
@@ -155,7 +158,7 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx: int) -> Tuple[TextItemType, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[TextActionInputType, torch.Tensor]:
         """Return the input and reward for the given index.
 
         Args:

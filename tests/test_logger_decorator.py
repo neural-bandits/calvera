@@ -47,7 +47,7 @@ def test_online_bandit_logger_decorator_basic() -> None:
     # 5. Check log_graph
     model = MagicMock()
     decorator.log_graph(model)
-    mock_logger.log_graph.assert_called_with(model)
+    mock_logger.log_graph.assert_called_with(model, None)
 
     # 6. Check save
     decorator.save()
