@@ -93,6 +93,8 @@ class NeuralUCBBandit(AbstractBandit):
             (self.total_params,), device=self.device
         )
 
+        self._samples_after_initial = 0
+
     def _predict_action(
         self,
         contextualized_actions: torch.Tensor,
@@ -214,12 +216,7 @@ class NeuralUCBBandit(AbstractBandit):
         )
 
         # Train network based on schedule
-        should_train = len(self.buffer) <= self.hparams["initial_train_steps"] or (
-            len(self.buffer) > self.hparams["initial_train_steps"]
-            and (len(self.buffer) - self.hparams["initial_train_steps"])
-            % self.hparams["train_freq"]
-            == 0
-        )
+        should_train = self._should_train_network()
 
         if should_train:
             loss = self._train_network()
@@ -272,6 +269,30 @@ class NeuralUCBBandit(AbstractBandit):
                 break
 
         return float(L_theta_sum / (j + 1))
+
+    def _should_train_network(self) -> bool:
+        """
+        Determine if the network should be trained based on buffer size,
+        initial training steps, and training frequency.
+        """
+        if len(self.buffer) <= self.hparams["initial_train_steps"]:
+            return True
+
+        if (
+            len(self.buffer) - self.hparams["batch_size"]
+            <= self.hparams["initial_train_steps"]
+        ):
+            self._samples_after_initial = (
+                len(self.buffer) - self.hparams["initial_train_steps"]
+            )
+        else:
+            self._samples_after_initial += self.hparams["batch_size"]
+
+        if self._samples_after_initial >= self.hparams["train_freq"]:
+            self._samples_after_initial -= self.hparams["train_freq"]
+            return True
+
+        return False
 
     def configure_optimizers(self) -> optim.Optimizer:
         return optim.SGD(

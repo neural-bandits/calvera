@@ -128,7 +128,7 @@ def test_neural_ucb_bandit_training_step(
         network=network,
         buffer=buffer,
         batch_size=3,
-        train_freq=3,
+        train_freq=8,
         initial_train_steps=4,
         num_grad_steps=10,
     )
@@ -151,6 +151,8 @@ def test_neural_ucb_bandit_training_step(
     assert bandit.buffer.contextualized_actions.shape[0] == actions.shape[0]
     assert bandit.buffer.rewards.shape[0] == rewards.shape[0]
 
+    # Training should happen because we're within initial_train_steps (buffer size = 3 <= 4)
+    # Network parameters should have been updated
     for name, param in bandit.theta_t.named_parameters():
         assert not torch.allclose(
             param, params_1[name]
@@ -171,8 +173,55 @@ def test_neural_ucb_bandit_training_step(
     assert bandit.buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
     assert bandit.buffer.rewards.shape[0] == 2 * rewards.shape[0]
 
+    # Training should NOT happen here because we've exceeded initial_train_steps (buffer size = 6)
+    # but haven't accumulated enough new samples (only 2 samples beyond initial_train_steps)
+    # Network parameters should remain unchanged
     for name, param in bandit.theta_t.named_parameters():
         assert torch.allclose(param, params_2[name])
+
+    params_3 = {
+        name: param.clone() for name, param in bandit.theta_t.named_parameters()
+    }
+
+    trainer = pl.Trainer(fast_dev_run=True)
+    trainer.fit(
+        bandit,
+        torch.utils.data.DataLoader(
+            dataset, batch_size=3, shuffle=False, num_workers=0
+        ),
+    )
+
+    assert bandit.buffer.contextualized_actions.shape[0] == 3 * actions.shape[0]
+    assert bandit.buffer.rewards.shape[0] == 3 * rewards.shape[0]
+
+    # Training should NOT happen here because we've only accumulated 5 samples
+    # after the initial_train_steps (buffer size = 9), which is less than train_freq (8)
+    # Network parameters should remain unchanged
+    for name, param in bandit.theta_t.named_parameters():
+        assert torch.allclose(param, params_3[name])
+
+    params_4 = {
+        name: param.clone() for name, param in bandit.theta_t.named_parameters()
+    }
+
+    trainer = pl.Trainer(fast_dev_run=True)
+    trainer.fit(
+        bandit,
+        torch.utils.data.DataLoader(
+            dataset, batch_size=3, shuffle=False, num_workers=0
+        ),
+    )
+
+    assert bandit.buffer.contextualized_actions.shape[0] == 4 * actions.shape[0]
+    assert bandit.buffer.rewards.shape[0] == 4 * rewards.shape[0]
+
+    # Training SHOULD happen here because we've accumulated 8 samples
+    # after the initial_train_steps (buffer size = 12), which equals train_freq (8)
+    # Network parameters should be updated
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(
+            param, params_4[name]
+        ), f"Parameter {name} was not updated"
 
 
 def test_neural_ucb_bandit_hparams_effect() -> None:
