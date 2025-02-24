@@ -102,7 +102,7 @@ class NeuralTSBandit(AbstractBandit[torch.Tensor]):
 
         Returns:
             tuple:
-            - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, num_actions).
+            - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, n_arms).
             - p: The probability of the chosen actions. Currently always 1, may be updated in future. Shape: (batch_size, ).
         """
         contextualized_actions = contextualized_actions.to(self.device)
@@ -177,7 +177,7 @@ class NeuralTSBandit(AbstractBandit[torch.Tensor]):
 
     def _update(
         self,
-        batch: torch.Tensor,
+        batch: tuple[torch.Tensor, torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
         """Execute a single training step.
@@ -197,7 +197,7 @@ class NeuralTSBandit(AbstractBandit[torch.Tensor]):
             0
         ]  # shape: (batch_size, n_arms, n_features)
         realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
-        batch_size = realized_rewards.shape[0]
+        batch_size = realized_rewards.shape[0]  # shape: (batch_size, )
 
         # Update bandit's history
         self.context_history.append(contextualized_actions)
