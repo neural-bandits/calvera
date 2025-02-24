@@ -71,9 +71,7 @@ def _setup_dataset(
 ) -> pd.DataFrame:
     """Download and setup the dataset."""
     dest_path_or_current_path = (
-        dest_path
-        if dest_path is not None
-        else os.path.join(pathlib.Path(__file__).parent.absolute())
+        dest_path if dest_path is not None else os.path.join(pathlib.Path(__file__).parent.absolute())
     )
     if os.path.exists(dest_path_or_current_path) and not os.path.exists(
         os.path.join(dest_path_or_current_path, "aclImdb")
@@ -84,9 +82,7 @@ def _setup_dataset(
             dest_path_or_current_path,
         )
 
-    texts, sentiments = _load_imdb_data(
-        os.path.join(dest_path_or_current_path, "aclImdb"), partition
-    )
+    texts, sentiments = _load_imdb_data(os.path.join(dest_path_or_current_path, "aclImdb"), partition)
 
     data = pd.DataFrame({"text": texts, "sentiment": sentiments})  # 1 for positive, 0 for negative
 
@@ -146,9 +142,7 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
         self.max_len = max_len
 
         if tokenizer is None:
-            self.tokenizer = BertTokenizer.from_pretrained(
-                "bert-base-uncased", padding="max_length", truncation=True
-            )
+            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", padding="max_length", truncation=True)
 
     def __len__(self) -> int:
         """Return the number of samples in this dataset."""

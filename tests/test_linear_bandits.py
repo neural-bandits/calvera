@@ -61,9 +61,7 @@ def test_linear_bandits_forward_shapes(BanditClass: BanditClassType) -> None:
         f"Expected one-hot shape (batch_size={batch_size}, n_arms={n_arms}), " f"got {output.shape}"
     )
 
-    assert p.shape == (batch_size,), (
-        f"Expected probability shape (batch_size={batch_size}), " f"got {p.shape}"
-    )
+    assert p.shape == (batch_size,), f"Expected probability shape (batch_size={batch_size}), " f"got {p.shape}"
 
 
 @pytest.mark.parametrize("BanditClass", [LinearTSBandit, LinearUCBBandit])
@@ -99,9 +97,7 @@ def test_linear_bandit_defaults(BanditClass: BanditClassType) -> None:
 
     assert bandit.b.shape == (n_features,), f"b should be (n_features,), got {bandit.b.shape}"
 
-    assert bandit.theta.shape == (
-        n_features,
-    ), f"theta should be (n_features,), got {bandit.theta.shape}"
+    assert bandit.theta.shape == (n_features,), f"theta should be (n_features,), got {bandit.theta.shape}"
 
 
 def test_linear_ucb_correct_mean() -> None:
@@ -234,9 +230,7 @@ def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -
     bandit.update(chosen_actions, realized_rewards)
 
     # Check that parameters have been updated
-    assert not torch.equal(
-        bandit.precision_matrix, initial_precision_matrix
-    ), "Precision matrix should be updated"
+    assert not torch.equal(bandit.precision_matrix, initial_precision_matrix), "Precision matrix should be updated"
     assert not torch.equal(bandit.b, initial_b), "b should be updated"
     assert not torch.equal(bandit.theta, initial_theta), "theta should be updated"
 
@@ -268,9 +262,7 @@ def test_update_correct() -> None:
     assert torch.allclose(
         bandit.precision_matrix, expected_M, atol=1e-6
     ), f"Expected M={expected_M}, got {bandit.precision_matrix}"
-    assert torch.allclose(
-        bandit.b, expected_b, atol=1e-6
-    ), f"Expected b={expected_b}, got {bandit.b}"
+    assert torch.allclose(bandit.b, expected_b, atol=1e-6), f"Expected b={expected_b}, got {bandit.b}"
     assert torch.allclose(
         bandit.theta, expected_theta, atol=1e-6
     ), f"Expected theta={expected_theta}, got {bandit.theta}"

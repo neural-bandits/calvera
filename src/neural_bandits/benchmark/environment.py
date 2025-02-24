@@ -81,9 +81,7 @@ class BanditBenchmarkEnvironment:
         # Return only the contextualized actions for the bandit to pick from
         return contextualized_actions
 
-    def get_feedback(
-        self, chosen_actions: torch.Tensor
-    ) -> Dataset[tuple[torch.Tensor, torch.Tensor]]:
+    def get_feedback(self, chosen_actions: torch.Tensor) -> Dataset[tuple[torch.Tensor, torch.Tensor]]:
         """Returns a small dataset with only the chosen actions & realized rewards of the last batch.
 
         For combinatorial bandits, this feedback is semi-bandit feedback.

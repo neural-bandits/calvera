@@ -57,9 +57,7 @@ def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
     )
 
     # Provide a simple known input
-    contextualized_actions = torch.tensor(
-        [[[1.0, 0.0], [0.0, 1.0]]], dtype=torch.float32
-    )  # shape (1, 2, 2)
+    contextualized_actions = torch.tensor([[[1.0, 0.0], [0.0, 1.0]]], dtype=torch.float32)  # shape (1, 2, 2)
 
     output, p = bandit(contextualized_actions)
     # The bandit returns an argmax one-hot. Just confirm shape & no error
@@ -90,9 +88,7 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
     )
 
     # Provide a simple known input
-    contextualized_actions = torch.tensor(
-        [[[1.0, 0.0], [0.0, 1.0]]], dtype=torch.float32
-    )  # shape (1, 2, 2)
+    contextualized_actions = torch.tensor([[[1.0, 0.0], [0.0, 1.0]]], dtype=torch.float32)  # shape (1, 2, 2)
 
     # Set the bandit's theta to select the first feature (x1)
     bandit.theta = torch.tensor([1.0, 0.0])
@@ -204,9 +200,7 @@ def test_neural_linear_bandit_training_step(
     # Check that the precision matrix is symmetric and positive definite
     assert torch.allclose(bandit.precision_matrix, bandit.precision_matrix.T)
     vals, _ = torch.linalg.eigh(bandit.precision_matrix)
-    assert torch.all(
-        vals > 0
-    ), "Precision matrix must be positive definite, but eigenvalues are not all positive."
+    assert torch.all(vals > 0), "Precision matrix must be positive definite, but eigenvalues are not all positive."
 
     # But the encoder should not have been updated
     assert torch.allclose(nn_before, encoder[0].weight)
@@ -236,9 +230,7 @@ def test_neural_linear_bandit_training_step(
     # Check that the precision matrix is symmetric and positive definite
     assert torch.allclose(bandit.precision_matrix, bandit.precision_matrix.T)
     vals, _ = torch.linalg.eigh(bandit.precision_matrix)
-    assert torch.all(
-        vals > 0
-    ), "Precision matrix must be positive definite, but eigenvalues are not all positive."
+    assert torch.all(vals > 0), "Precision matrix must be positive definite, but eigenvalues are not all positive."
 
     # And the encoder should have been updated
     assert not torch.allclose(nn_before, encoder[0].weight)

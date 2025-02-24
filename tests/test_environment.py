@@ -8,9 +8,7 @@ from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
 
 
 @pytest.fixture
-def sample_data() -> (
-    tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor]
-):
+def sample_data() -> tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor]:
     """Returns a tuple (dataloader, expected_contexts, expected_rewards).
     We'll produce a small dataset with shape (batch_size=2, m=3, context_dim=4).
     """
@@ -20,9 +18,7 @@ def sample_data() -> (
     rewards = torch.tensor([[0.4, 0.2, 0.9], [0.1, 0.8, 0.7]])
 
     dataset = cast(Dataset[tuple[torch.Tensor, torch.Tensor]], TensorDataset(contexts, rewards))
-    dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
-        dataset, batch_size=1, shuffle=False
-    )
+    dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(dataset, batch_size=1, shuffle=False)
     return dataloader, contexts, rewards
 
 

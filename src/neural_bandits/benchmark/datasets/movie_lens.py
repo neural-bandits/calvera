@@ -51,9 +51,7 @@ def _load_movielens_data(data_dir: str) -> pd.DataFrame:
     return pd.read_csv(ratings_path)
 
 
-def _build_movielens_features(
-    history: torch.Tensor, svd_rank: int = 64
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def _build_movielens_features(history: torch.Tensor, svd_rank: int = 64) -> Tuple[torch.Tensor, torch.Tensor]:
     """Build the user and movie features for the MovieLens dataset."""
     U_full, S_full, Vt_full = torch.linalg.svd(history, full_matrices=False)
     U_r = U_full[:, :svd_rank]  # shape: (num_users, svd_rank)
@@ -101,12 +99,8 @@ def _setup_movielens(
 
     # Check if features cached in `dest_path`. If not download and calculate.
     if os.path.exists(os.path.join(dest_path, version, f"user_features{file_postfix}.pt")):
-        user_features = torch.load(
-            os.path.join(dest_path, version, f"user_features{file_postfix}.pt")
-        )
-        movie_features = torch.load(
-            os.path.join(dest_path, version, f"movie_features{file_postfix}.pt")
-        )
+        user_features = torch.load(os.path.join(dest_path, version, f"user_features{file_postfix}.pt"))
+        movie_features = torch.load(os.path.join(dest_path, version, f"movie_features{file_postfix}.pt"))
         history = torch.load(os.path.join(dest_path, version, f"history{file_postfix}.pt"))
         future = torch.load(os.path.join(dest_path, version, f"future{file_postfix}.pt"))
         return user_features, movie_features, history, future
@@ -141,9 +135,7 @@ def _setup_movielens(
         # Additionally, we will use the `timestamp` to split the data into history and future.
 
         # Build the complete `viewed` relationship matrix.
-        has_viewed = torch.zeros(
-            (data["userId"].nunique(), data["movieId"].nunique()), dtype=torch.float32
-        )
+        has_viewed = torch.zeros((data["userId"].nunique(), data["movieId"].nunique()), dtype=torch.float32)
 
         movie_id_to_index = {movie_id: i for i, movie_id in enumerate(data["movieId"].unique())}
         user_id_to_index = {user_id: i for i, user_id in enumerate(data["userId"].unique())}
@@ -164,9 +156,7 @@ def _setup_movielens(
                 future[user_id_to_index[user_id], movie_id_to_index[row["movieId"].item()]] = 1
         history = history - future
 
-        user_features, movie_features = _build_movielens_features(
-            history=history, svd_rank=svd_rank
-        )
+        user_features, movie_features = _build_movielens_features(history=history, svd_rank=svd_rank)
 
         # Store the features, history and future.
         if store_features:

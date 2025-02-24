@@ -85,9 +85,7 @@ def test_sorted_sampler_with_dataloader(
                     loaded_sort_values.append(int(sort_values[i]))
                     break
 
-    assert loaded_sort_values == sorted(
-        sort_values.tolist()
-    ), "DataLoader did not maintain sorted order"
+    assert loaded_sort_values == sorted(sort_values.tolist()), "DataLoader did not maintain sorted order"
 
 
 def test_sorted_sampler_with_subset(

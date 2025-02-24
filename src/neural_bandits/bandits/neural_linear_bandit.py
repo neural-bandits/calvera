@@ -82,20 +82,14 @@ class NeuralLinearBandit(LinearTSBandit):
             torch.nn.Linear(self.hparams["n_embedding_size"], 1),
         )
 
-        self.contextualized_actions: torch.Tensor = torch.empty(
-            0
-        )  # shape: (buffer_size, n_encoder_input_size)
-        self.embedded_actions: torch.Tensor = torch.empty(
-            0
-        )  # shape: (buffer_size, n_encoder_input_size)
+        self.contextualized_actions: torch.Tensor = torch.empty(0)  # shape: (buffer_size, n_encoder_input_size)
+        self.embedded_actions: torch.Tensor = torch.empty(0)  # shape: (buffer_size, n_encoder_input_size)
         self.rewards: torch.Tensor = torch.empty(0)  # shape: (buffer_size,)
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
 
-    def _predict_action(
-        self, contextualized_actions: torch.Tensor, **kwargs: Any
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _predict_action(self, contextualized_actions: torch.Tensor, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
         """Predicts the action to take for the given input data according to neural linear.
 
         Args:
@@ -108,8 +102,7 @@ class NeuralLinearBandit(LinearTSBandit):
             - p: The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future. Shape: (batch_size, ).
         """
         assert (
-            contextualized_actions.ndim == 3
-            and contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
+            contextualized_actions.ndim == 3 and contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
         ), f"Contextualized actions must have shape (batch_size, n_arms, n_encoder_input_size). Expected shape {(contextualized_actions.shape)} but got shape {contextualized_actions.shape}"
 
         embedded_actions: torch.Tensor = self.encoder(
@@ -127,15 +120,11 @@ class NeuralLinearBandit(LinearTSBandit):
         result, p = super()._predict_action(embedded_actions)  # shape: (batch_size, n_arms)
 
         assert (
-            result.shape[0] == contextualized_actions.shape[0]
-            and result.shape[1] == contextualized_actions.shape[1]
+            result.shape[0] == contextualized_actions.shape[0] and result.shape[1] == contextualized_actions.shape[1]
         ), f"Linear head output must have shape (batch_size, n_arms). Expected shape {(contextualized_actions.shape[0], contextualized_actions.shape[1])} but got shape {result.shape}"
 
         assert (
-            p.ndim == 1
-            and p.shape[0] == contextualized_actions.shape[0]
-            and torch.all(p >= 0)
-            and torch.all(p <= 1)
+            p.ndim == 1 and p.shape[0] == contextualized_actions.shape[0] and torch.all(p >= 0) and torch.all(p <= 1)
         ), f"The probabilities must be between 0 and 1 and have shape ({contextualized_actions.shape[0]}, ) but got shape {p.shape}"
 
         return result, p
@@ -278,9 +267,7 @@ class NeuralLinearBandit(LinearTSBandit):
 
         # create num_batch mini batches of size batch_size
         # TODO: make sure that mini batches are not overlapping?
-        random_indices = torch.randint(
-            0, self.contextualized_actions.shape[0], (num_batches, batch_size)
-        )
+        random_indices = torch.randint(0, self.contextualized_actions.shape[0], (num_batches, batch_size))
 
         for i in range(num_batches):
             idx = random_indices[i]
@@ -347,11 +334,7 @@ class NeuralLinearBandit(LinearTSBandit):
         # Update the precision matrix M using the Sherman-Morrison formula
         self.precision_matrix = (
             self.precision_matrix
-            - (
-                self.precision_matrix
-                @ torch.einsum("bi,bj->bij", z, z).sum(dim=0)
-                @ self.precision_matrix
-            )
+            - (self.precision_matrix @ torch.einsum("bi,bj->bij", z, z).sum(dim=0) @ self.precision_matrix)
             / denominator
         )
         self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)

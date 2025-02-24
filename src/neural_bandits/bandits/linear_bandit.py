@@ -111,9 +111,7 @@ class LinearBandit(AbstractBandit):
         # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
         # Calculate new precision Matrix M using the Sherman-Morrison formula
-        denominator = 1 + ((chosen_actions @ self.precision_matrix) * chosen_actions).sum(
-            dim=1
-        ).sum(dim=0)
+        denominator = 1 + ((chosen_actions @ self.precision_matrix) * chosen_actions).sum(dim=1).sum(dim=0)
         assert torch.abs(denominator) > 0, "Denominator must not be zero or nan"
 
         self.precision_matrix = (
@@ -132,10 +130,6 @@ class LinearBandit(AbstractBandit):
         self.b += chosen_actions.T @ realized_rewards  # shape: (features,)
         self.theta = self.precision_matrix @ self.b
 
-        assert (
-            self.b.ndim == 1 and self.b.shape[0] == self.n_features
-        ), "updated b should have shape (n_features,)"
+        assert self.b.ndim == 1 and self.b.shape[0] == self.n_features, "updated b should have shape (n_features,)"
 
-        assert (
-            self.theta.ndim == 1 and self.theta.shape[0] == self.n_features
-        ), "Theta should have shape (n_features,)"
+        assert self.theta.ndim == 1 and self.theta.shape[0] == self.n_features, "Theta should have shape (n_features,)"

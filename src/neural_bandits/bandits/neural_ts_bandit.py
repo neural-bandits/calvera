@@ -125,23 +125,13 @@ class NeuralTSBandit(AbstractBandit):
                 self.theta_t.zero_grad()
                 f_t_a[b, a].backward(retain_graph=True)  # type: ignore
 
-                g_t_a = torch.cat(
-                    [
-                        p.grad.flatten().detach()
-                        for p in self.theta_t.parameters()
-                        if p.grad is not None
-                    ]
-                )
+                g_t_a = torch.cat([p.grad.flatten().detach() for p in self.theta_t.parameters() if p.grad is not None])
                 all_gradients[b, a] = g_t_a
 
         # Shape: (batch_size, n_arms)
         exploration_terms = torch.sqrt(
             torch.sum(
-                self.hparams["lambda_"]
-                * self.hparams["nu"]
-                * all_gradients
-                * all_gradients
-                / self.Z_t,
+                self.hparams["lambda_"] * self.hparams["nu"] * all_gradients * all_gradients / self.Z_t,
                 dim=2,
             )
         )
@@ -153,12 +143,8 @@ class NeuralTSBandit(AbstractBandit):
         # Select a_t = argmax_a U_t,a
         chosen_actions = self.selector(ts_samples)
 
-        assert (
-            chosen_actions.sum(dim=1) == 1
-        ).all(), "Currently only supports non-combinatorial bandits"
-        chosen_actions_idx = chosen_actions.argmax(
-            dim=1
-        )  # TODO: this only works for non-combinatorial bandits!
+        assert (chosen_actions.sum(dim=1) == 1).all(), "Currently only supports non-combinatorial bandits"
+        chosen_actions_idx = chosen_actions.argmax(dim=1)  # TODO: this only works for non-combinatorial bandits!
 
         # Update Z_t using g(x_t,a_t; θ_t-1)
         for b in range(batch_size):
@@ -196,8 +182,7 @@ class NeuralTSBandit(AbstractBandit):
 
         # Train network based on schedule
         should_train = batch_idx < self.hparams["initial_train_steps"] or (
-            batch_idx >= self.hparams["initial_train_steps"]
-            and batch_idx % self.hparams["train_freq"] == 0
+            batch_idx >= self.hparams["initial_train_steps"] and batch_idx % self.hparams["train_freq"] == 0
         )
 
         if should_train:

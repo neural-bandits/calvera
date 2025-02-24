@@ -28,9 +28,7 @@ class LinearTSBandit(LinearBandit):
         super().__init__(n_features, **kwargs)
         self.selector = selector
 
-    def _predict_action(
-        self, contextualized_actions: torch.Tensor, **kwargs: Any
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _predict_action(self, contextualized_actions: torch.Tensor, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
         """Given contextualized actions, predicts the best action using LinTS.
 
         Args:
@@ -57,9 +55,7 @@ class LinearTSBandit(LinearBandit):
 
         return self.selector(expected_rewards), probabilities
 
-    def compute_probabilities(
-        self, contextualized_actions: torch.Tensor, theta_tilde: torch.Tensor
-    ) -> torch.Tensor:
+    def compute_probabilities(self, contextualized_actions: torch.Tensor, theta_tilde: torch.Tensor) -> torch.Tensor:
         """Compute the probability of the chosen actions.
 
         Args:

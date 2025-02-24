@@ -34,9 +34,7 @@ def sample_rewards(
     Returns:
         rewards: A torch.Tensor of shape (num_samples, num_actions) with sampled rewards.
     """
-    assert (
-        len(contexts.shape) == 2
-    ), "Contexts should be a 2D tensor of shape (num_samples, context_size)."
+    assert len(contexts.shape) == 2, "Contexts should be a 2D tensor of shape (num_samples, context_size)."
 
     num_samples = contexts.size(0)
 
@@ -160,9 +158,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         data_list: List[torch.Tensor] = []
         batch_size = max(int(self.num_samples / 3), 1)
         while len(data_list) < self.num_samples:
-            raw_data = (
-                torch.rand(batch_size, self.context_size, generator=generator) * 2.0 - 1.0
-            ).float()
+            raw_data = (torch.rand(batch_size, self.context_size, generator=generator) * 2.0 - 1.0).float()
             norms = torch.norm(raw_data, dim=1)
             # filter points inside unit norm
             inside = raw_data[norms <= 1]
@@ -175,9 +171,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         contexts_repeat = contexts.repeat_interleave(
             self.num_actions, dim=0
         )  # shape (num_samples * num_actions, context_size)
-        actions = torch.arange(self.num_actions).repeat(
-            self.num_samples
-        )  # shape (num_samples * num_actions)
+        actions = torch.arange(self.num_actions).repeat(self.num_samples)  # shape (num_samples * num_actions)
         rewards = sample_rewards(
             generator,
             contexts_repeat,

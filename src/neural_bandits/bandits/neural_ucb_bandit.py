@@ -129,24 +129,14 @@ class NeuralUCBBandit(AbstractBandit):
                 self.theta_t.zero_grad()
                 f_t_a[b, a].backward(retain_graph=True)  # type: ignore
 
-                g_t_a = torch.cat(
-                    [
-                        p.grad.flatten().detach()
-                        for p in self.theta_t.parameters()
-                        if p.grad is not None
-                    ]
-                )
+                g_t_a = torch.cat([p.grad.flatten().detach() for p in self.theta_t.parameters() if p.grad is not None])
                 all_gradients[b, a] = g_t_a
 
         # Compute uncertainty using diagonal approximation
         # Shape: (batch_size, n_arms)
         exploration_terms = torch.sqrt(
             torch.sum(
-                self.hparams["lambda_"]
-                * self.hparams["nu"]
-                * all_gradients
-                * all_gradients
-                / self.Z_t,
+                self.hparams["lambda_"] * self.hparams["nu"] * all_gradients * all_gradients / self.Z_t,
                 dim=2,
             )
         )
@@ -158,12 +148,8 @@ class NeuralUCBBandit(AbstractBandit):
         # Select a_t = argmax_a U_t,a
         chosen_actions = self.selector(U_t)
 
-        assert (
-            chosen_actions.sum(dim=1) == 1
-        ).all(), "Currently only supports non-combinatorial bandits"
-        chosen_actions_idx = chosen_actions.argmax(
-            dim=1
-        )  # TODO: this only works for non-combinatorial bandits!
+        assert (chosen_actions.sum(dim=1) == 1).all(), "Currently only supports non-combinatorial bandits"
+        chosen_actions_idx = chosen_actions.argmax(dim=1)  # TODO: this only works for non-combinatorial bandits!
 
         # Update Z_t using g(x_t,a_t; θ_t-1)
         for b in range(batch_size):
@@ -202,9 +188,7 @@ class NeuralUCBBandit(AbstractBandit):
         # Train network based on schedule
         should_train = self.total_samples < self.hparams["initial_train_steps"] or (
             self.total_samples >= self.hparams["initial_train_steps"]
-            and (self.total_samples - self.hparams["initial_train_steps"])
-            % self.hparams["train_interval"]
-            == 0
+            and (self.total_samples - self.hparams["initial_train_steps"]) % self.hparams["train_interval"] == 0
         )
 
         if should_train:
@@ -229,9 +213,7 @@ class NeuralUCBBandit(AbstractBandit):
         """Log a warning if the network was not trained during the epoch."""
         super().on_train_epoch_end()
         if not self._trained_once:
-            logging.warning(
-                "Finished the epoch without training the network. Consider decreasing `train_interval`."
-            )
+            logging.warning("Finished the epoch without training the network. Consider decreasing `train_interval`.")
 
     def on_train_epoch_start(self) -> None:
         """Reset the training flag at the start of each epoch."""

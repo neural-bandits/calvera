@@ -8,9 +8,9 @@ from lightning.pytorch.utilities import rank_zero_only
 class OnlineBanditLoggerDecorator(Logger):
     """Uses the Decorator pattern to add online bandit functionality to a pytorch lightning logger.
 
-    Will use stdout flush to only print the metrics of the current training run to the console to prevent too many prints over many training runs.
-    Allows for logging over multiple training runs and for logging batch specific metrics before
-    the batch is actually started.
+    Will use stdout flush to only print the metrics of the current training run to the console to prevent too many
+    prints over many training runs. Allows for logging over multiple training runs and for logging batch specific
+    metrics before the batch is actually started.
 
     Usage:
     ```python
@@ -32,7 +32,9 @@ class OnlineBanditLoggerDecorator(Logger):
 
     # now you can load the logs from the CSV file
     df = pd.read_csv(logger.log_dir + "/metrics.csv")
-    df["regret"].dropna().plot() # regret is the batch specific metric. It is only added to the first row of a training run of the CSV logger.
+    # Regret is the batch specific metric.
+    # It is only added to the first row of a training run of the CSV logger.
+    df["regret"].dropna().plot()
     df["training_run"].plot() # idx of how often trainer.fit has been called.
     ```
     """
@@ -42,7 +44,8 @@ class OnlineBanditLoggerDecorator(Logger):
 
         Args:
             logger: The logger to decorate / wrap.
-            enable_console_logging: If True, only the metrics of the current training run will be printed to the console.
+            enable_console_logging: If True, only the metrics of the current training run will be printed to the
+                console.
         """
         super().__init__()
         self._logger_wrappee = logger

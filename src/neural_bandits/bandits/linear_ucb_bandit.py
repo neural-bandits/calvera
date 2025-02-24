@@ -27,9 +27,7 @@ class LinearUCBBandit(LinearBandit):
         super().__init__(n_features, alpha=alpha, **kwargs)
         self.selector = selector
 
-    def _predict_action(
-        self, contextualized_actions: torch.Tensor, **kwargs: Any
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _predict_action(self, contextualized_actions: torch.Tensor, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
         """Given contextualized actions, predicts the best action using LinUCB.
 
         Args:
@@ -47,9 +45,7 @@ class LinearUCBBandit(LinearBandit):
             contextualized_actions.shape[2] == self.hparams["n_features"]
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
 
-        result = torch.einsum("ijk,k->ij", contextualized_actions, self.theta) + self.hparams[
-            "alpha"
-        ] * torch.sqrt(
+        result = torch.einsum("ijk,k->ij", contextualized_actions, self.theta) + self.hparams["alpha"] * torch.sqrt(
             torch.einsum(
                 "ijk,kl,ijl->ij",
                 contextualized_actions,
@@ -58,6 +54,4 @@ class LinearUCBBandit(LinearBandit):
             )
         )
 
-        return self.selector(result), torch.ones(
-            contextualized_actions.shape[0], device=contextualized_actions.device
-        )
+        return self.selector(result), torch.ones(contextualized_actions.shape[0], device=contextualized_actions.device)

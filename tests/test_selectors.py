@@ -93,9 +93,7 @@ class TestEpsilonGreedySelector:
             selections.append(selected)
 
         stacked_selections = torch.stack(selections)
-        assert (
-            stacked_selections.sum(dim=0) > 0
-        ).all()  # All actions should be selected at least once
+        assert (stacked_selections.sum(dim=0) > 0).all()  # All actions should be selected at least once
 
     @pytest.mark.parametrize("batch_size,n_arms", [(1, 3), (5, 2), (10, 4)])
     def test_output_shape_and_values(self, batch_size: int, n_arms: int) -> None:
@@ -104,9 +102,7 @@ class TestEpsilonGreedySelector:
         selected = selector(scores)
 
         assert selected.shape == (batch_size, n_arms)
-        assert selected.sum(dim=1).allclose(
-            torch.ones(batch_size, dtype=torch.int64)
-        )  # One selection per sample
+        assert selected.sum(dim=1).allclose(torch.ones(batch_size, dtype=torch.int64))  # One selection per sample
         assert ((selected == 0) | (selected == 1)).all()  # Only binary values
 
 
