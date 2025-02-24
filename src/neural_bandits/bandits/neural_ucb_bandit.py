@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Optional
 
 import torch
@@ -30,7 +31,7 @@ class NeuralUCBBandit(AbstractBandit):
         lambda_: float = 0.00001,
         nu: float = 0.00001,
         learning_rate: float = 0.01,
-        train_freq: int = 100,
+        train_interval: int = 100,
         initial_train_steps: int = 1000,
         max_grad_norm: float = 20.0,
         **kw_args: Any,
@@ -48,8 +49,8 @@ class NeuralUCBBandit(AbstractBandit):
             lambda_: Regularization parameter.
             nu: Exploration parameter for UCB.
             learning_rate: Learning rate for SGD optimizer.
-            train_freq: Frequency of network training after initial training.
-            initial_train_steps: Number of initial training steps.
+            train_interval: Interval between different trainings (in samples).
+            initial_train_steps: Number of initial training steps in samples.
             max_grad_norm: Maximum gradient norm for gradient clipping.
             **kw_args: Additional arguments passed to parent class.
         """
@@ -67,7 +68,7 @@ class NeuralUCBBandit(AbstractBandit):
             "lambda_": lambda_,
             "nu": nu,
             "learning_rate": learning_rate,
-            "train_freq": train_freq,
+            "train_interval": train_interval,
             "initial_train_steps": initial_train_steps,
             "max_grad_norm": max_grad_norm,
             **kw_args,
@@ -75,6 +76,9 @@ class NeuralUCBBandit(AbstractBandit):
         self.save_hyperparameters(hyperparameters)
 
         self.selector = selector
+
+        self._trained_once: bool = False
+        self._samples_after_initial = 0
 
         # Model parameters
 
@@ -201,8 +205,8 @@ class NeuralUCBBandit(AbstractBandit):
         realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
 
         assert (
-            self.hparams["batch_size"] <= self.hparams["train_freq"]
-        ), f"Batch size ({self.hparams['batch_size']}) must be less than or equal to train frequency ({self.hparams['train_freq']})"
+            self.hparams["batch_size"] <= self.hparams["train_interval"]
+        ), f"Batch size ({self.hparams['batch_size']}) must be less than or equal to train frequency ({self.hparams['train_interval']})"
 
         # Update bandit's history
         self.buffer.add_batch(
@@ -214,16 +218,12 @@ class NeuralUCBBandit(AbstractBandit):
         )
 
         # Train network based on schedule
-        should_train = len(self.buffer) <= self.hparams["initial_train_steps"] or (
-            len(self.buffer) > self.hparams["initial_train_steps"]
-            and (len(self.buffer) - self.hparams["initial_train_steps"])
-            % self.hparams["train_freq"]
-            == 0
-        )
+        should_train = self._should_train_network()
 
         if should_train:
             loss = self._train_network()
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
+            self._trained_once = True
 
         # Logging
         self.log(
@@ -235,6 +235,17 @@ class NeuralUCBBandit(AbstractBandit):
         )
 
         return -realized_rewards.mean()
+
+    def on_train_epoch_end(self) -> None:
+        super().on_train_epoch_end()
+        if not self._trained_once:
+            logging.warning(
+                "Finished the epoch without training the network. Consider decreasing `train_interval`."
+            )
+
+    def on_train_epoch_start(self) -> None:
+        super().on_train_epoch_start()
+        self._trained_once = False
 
     def _train_network(self) -> float:
         optimizer = self.optimizers()
@@ -272,6 +283,30 @@ class NeuralUCBBandit(AbstractBandit):
                 break
 
         return float(L_theta_sum / (j + 1))
+
+    def _should_train_network(self) -> bool:
+        """
+        Determine if the network should be trained based on buffer size,
+        initial training steps, and training frequency.
+        """
+        if len(self.buffer) <= self.hparams["initial_train_steps"]:
+            return True
+
+        if (
+            len(self.buffer) - self.hparams["batch_size"]
+            <= self.hparams["initial_train_steps"]
+        ):
+            self._samples_after_initial = (
+                len(self.buffer) - self.hparams["initial_train_steps"]
+            )
+        else:
+            self._samples_after_initial += self.hparams["batch_size"]
+
+        if self._samples_after_initial >= self.hparams["train_interval"]:
+            self._samples_after_initial -= self.hparams["train_interval"]
+            return True
+
+        return False
 
     def configure_optimizers(self) -> optim.Optimizer:
         return optim.SGD(
