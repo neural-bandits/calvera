@@ -9,7 +9,7 @@ from neural_bandits.bandits.abstract_bandit import AbstractBandit
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class NeuralTSBandit(AbstractBandit):
+class NeuralTSBandit(AbstractBandit[torch.Tensor]):
     """Neural Thompson Sampling (TS) bandit implementation as a PyTorch Lightning module.
 
     Implements the NeuralTS algorithm using a neural network for function approximation
