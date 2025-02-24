@@ -75,3 +75,24 @@ target-version = ["py38", "py39", "py310"]
 profile = "black"
 known_third_party = ["numpy"]
 line_length = 88
+
+[tool.ruff.lint]
+select = [
+    # pydocstyle
+    "D",
+    # # pycodestyle
+    # "E",
+    # # Pyflakes
+    # "F",
+    # # pyupgrade
+    # "UP",
+    # # flake8-bugbear
+    # "B",
+    # # flake8-simplify
+    # "SIM",
+    # # isort
+    # "I",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

@@ -8,6 +8,7 @@ dependencies:
   - python=3.10 # or don't specify the version and use latest stable
   - wandb
   - lightning
+  - mkdocs
 
   # Good to have
   - numpy
