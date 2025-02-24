@@ -115,15 +115,20 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 # 2) Tests for updating the NeuralLinear bandit
 # ------------------------------------------------------------------------------
 @pytest.fixture
-def small_context_reward_batch() -> tuple[
-    torch.Tensor,
-    torch.Tensor,
-    torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
-]:
-    """Returns (chosen_contextualized_actions, rewards):
-    chosen_contextualized_actions shape: (batch_size=2, n_chosen_arms=1, n_features=4)
-    rewards shape: (2,1)
+def small_context_reward_batch() -> (
+    tuple[torch.Tensor, torch.Tensor, torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]]]
+):
     """
+    Generates synthetic test data for training steps.
+
+    Returns:
+        tuple: A tuple containing:
+            - chosen_contextualized_actions: A tensor with shape (2, 1, 4) representing the selected contextualized
+                actions.
+            - rewards: A tensor with shape (2, 1) representing the corresponding rewards.
+            - dataset: A dataset containing 2 samples for testing purposes.
+    """
+
     batch_size, n_chosen_arms, n_features = 2, 1, 4
     contextualized_actions = torch.randn(batch_size, n_chosen_arms, n_features)
     # e.g., random rewards
@@ -257,13 +262,11 @@ def test_neural_linear_bandit_hparams_effect() -> None:
 
     # Check hparams
     assert bandit.hparams["n_encoder_input_size"] == n_features
-    
-    # these are the features after embedding that are input into the linear head... 
+
+    # these are the features after embedding that are input into the linear head...
     # this is a little ugly but it comes from the inheritance of the LinearTSBandit
-    assert (
-        bandit.hparams["n_features"] == n_embedding_size
-    )  
-    
+    assert bandit.hparams["n_features"] == n_embedding_size
+
     assert bandit.hparams["n_embedding_size"] == n_embedding_size
     assert bandit.hparams["encoder_update_freq"] == 10
     assert bandit.hparams["head_update_freq"] == 5
