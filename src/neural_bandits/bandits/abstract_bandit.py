@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar, Union
 
@@ -14,6 +15,8 @@ from lightning.pytorch.utilities.types import OptimizerLRScheduler
 ActionInputType = TypeVar(
     "ActionInputType", bound=Union[torch.Tensor, tuple[torch.Tensor, ...]]
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
@@ -118,3 +121,10 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         """Configure the optimizers and learning rate schedulers. This method is required by LightningModule.
         Can be overwritten by the concrete bandit classes."""
         return None
+
+    def on_train_start(self) -> None:
+        super().on_train_start()
+        if self.trainer.max_epochs is None or self.trainer.max_epochs > 1:
+            logger.warning(
+                "The trainer will run for more than one epoch. This is not recommended for bandit algorithms."
+            )

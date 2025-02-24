@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Optional
 
 import numpy as np
@@ -10,13 +9,12 @@ from neural_bandits.bandits.abstract_bandit import AbstractBandit
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
-    """NeuralUCB bandit implementation as a PyTorch Lightning module.
-    The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for exploration.
+class NeuralTSBandit(AbstractBandit):
+    """Neural Thompson Sampling (TS) bandit implementation as a PyTorch Lightning module.
 
-    Attributes:
-        automatic_optimization: Boolean indicating if Lightning should handle optimization.
-        bandit: The underlying NeuralUCBBandit instance.
+    Implements the NeuralTS algorithm using a neural network for function approximation
+    with a diagonal approximation. The module maintains a history of contexts and rewards,
+    and periodically updates the network parameters via gradient descent.
     """
 
     def __init__(
@@ -29,12 +27,12 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
         lambda_: float = 0.00001,
         nu: float = 0.00001,
         learning_rate: float = 0.01,
-        train_interval: int = 100,
+        train_freq: int = 100,
         initial_train_steps: int = 1000,
         max_grad_norm: float = 20.0,
         **kw_args: Any,
     ) -> None:
-        """Initialize the NeuralUCB bandit module.
+        """Initialize the Neural Thompson Sampling bandit.
 
         Args:
             n_features: Number of input features.
@@ -43,10 +41,10 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
             early_stop_threshold: Loss threshold for early stopping. None to disable.
             num_grad_steps: Maximum number of gradient steps per training iteration.
             lambda_: Regularization parameter.
-            nu: Exploration parameter for UCB.
+            nu: Exploration variance.
             learning_rate: Learning rate for SGD optimizer.
-            train_interval: Interval between different trainings (in samples).
-            initial_train_steps: Number of initial training steps in samples.
+            train_freq: Frequency of network training after initial training.
+            initial_train_steps: Number of initial training steps.
             max_grad_norm: Maximum gradient norm for gradient clipping.
             **kw_args: Additional arguments passed to parent class.
         """
@@ -63,7 +61,7 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
             "lambda_": lambda_,
             "nu": nu,
             "learning_rate": learning_rate,
-            "train_interval": train_interval,
+            "train_freq": train_freq,
             "initial_train_steps": initial_train_steps,
             "max_grad_norm": max_grad_norm,
             **kw_args,
@@ -73,7 +71,6 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
         self.selector = selector
 
         self.total_samples: int = 0
-        self._trained_once: bool = False
 
         # Model parameters
 
@@ -98,15 +95,15 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
         contextualized_actions: torch.Tensor,
         **kwargs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Calculate UCB scores for each action using diagonal approximation with batch support.
+        """Select actions using Thompson Sampling with neural network approximation.
 
         Args:
             contextualized_actions: Contextualized action tensor. Shape: (batch_size, n_arms, n_features).
 
         Returns:
             tuple:
-            - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, n_arms).
-            - p: Will always return a tensor of ones because UCB does not work on probabilities. Shape: (batch_size, ).
+            - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, num_actions).
+            - p: The probability of the chosen actions. Currently always 1, may be updated in future. Shape: (batch_size, ).
         """
         contextualized_actions = contextualized_actions.to(self.device)
         batch_size, n_arms, n_features = contextualized_actions.shape
@@ -142,7 +139,6 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
                 )
                 all_gradients[b, a] = g_t_a
 
-        # Compute uncertainty using diagonal approximation
         # Shape: (batch_size, n_arms)
         exploration_terms = torch.sqrt(
             torch.sum(
@@ -155,12 +151,14 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
             )
         )
 
-        # UCB score U_t,a
-        # Shape: (batch_size, n_arms)
-        U_t = f_t_a + exploration_terms
+        # For TS, draw samples from Normal distributions:
+        # For each arm: sample ~ N(mean = f_t_a, std = sigma)
+        ts_samples = torch.normal(
+            mean=f_t_a, std=exploration_terms
+        )  # shape: (batch_size, n_arms)
 
         # Select a_t = argmax_a U_t,a
-        chosen_actions = self.selector(U_t)
+        chosen_actions = self.selector(ts_samples)
 
         assert (
             chosen_actions.sum(dim=1) == 1
@@ -174,12 +172,12 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
             a_t = chosen_actions_idx[b]
             self.Z_t += all_gradients[b, a_t] * all_gradients[b, a_t]
 
-        # Return chosen actions and
+        # TODO: Return actual probabilities
         return chosen_actions, torch.ones(batch_size, device=self.device)
 
     def _update(
         self,
-        batch: tuple[torch.Tensor, torch.Tensor],
+        batch: torch.Tensor,
         batch_idx: int,
     ) -> torch.Tensor:
         """Execute a single training step.
@@ -199,24 +197,21 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
             0
         ]  # shape: (batch_size, n_arms, n_features)
         realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
-        batch_size = realized_rewards.shape[0]  # shape: (batch_size, )
+        batch_size = realized_rewards.shape[0]
 
         # Update bandit's history
         self.context_history.append(contextualized_actions)
         self.reward_history.append(realized_rewards)
 
         # Train network based on schedule
-        should_train = self.total_samples < self.hparams["initial_train_steps"] or (
-            self.total_samples >= self.hparams["initial_train_steps"]
-            and (self.total_samples - self.hparams["initial_train_steps"])
-            % self.hparams["train_interval"]
-            == 0
+        should_train = batch_idx < self.hparams["initial_train_steps"] or (
+            batch_idx >= self.hparams["initial_train_steps"]
+            and batch_idx % self.hparams["train_freq"] == 0
         )
 
         if should_train:
             loss = self._train_network()
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
-            self._trained_once = True
 
         # Logging
         self.log(
@@ -231,18 +226,15 @@ class NeuralUCBBandit(AbstractBandit[torch.Tensor]):
 
         return -realized_rewards.mean()
 
-    def on_train_epoch_end(self) -> None:
-        super().on_train_epoch_end()
-        if not self._trained_once:
-            logging.warning(
-                "Finished the epoch without training the network. Consider decreasing `train_interval`."
-            )
-
-    def on_train_epoch_start(self) -> None:
-        super().on_train_epoch_start()
-        self._trained_once = False
-
     def _train_network(self) -> float:
+        """Train the neural network on collected history.
+
+        Performs gradient descent steps on randomly shuffled historical data
+        until reaching the maximum steps or early stopping criterion.
+
+        Returns:
+            Average loss over the training steps.
+        """
         optimizer = self.optimizers()
         if isinstance(optimizer, list):
             optimizer = optimizer[0]
