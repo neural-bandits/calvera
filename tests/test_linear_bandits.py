@@ -18,8 +18,7 @@ def seed_tests() -> None:
 
 @pytest.fixture
 def lin_ucb_bandit() -> LinearUCBBandit:
-    """
-    Setup LinearUCBBandit with n_features=5.
+    """Setup LinearUCBBandit with n_features=5.
     """
     n_features = 3
     module = LinearUCBBandit(n_features=n_features)
@@ -28,8 +27,7 @@ def lin_ucb_bandit() -> LinearUCBBandit:
 
 @pytest.fixture
 def lin_ts_bandit() -> LinearTSBandit:
-    """
-    Setup LinearTSBandit with n_features=5.
+    """Setup LinearTSBandit with n_features=5.
     """
     n_features = 3
     module = LinearTSBandit(n_features=n_features)
@@ -38,8 +36,7 @@ def lin_ts_bandit() -> LinearTSBandit:
 
 @pytest.fixture
 def simple_ucb_bandit() -> LinearUCBBandit:
-    """
-    Setup LinearUCBBandit with n_features=1.
+    """Setup LinearUCBBandit with n_features=1.
     """
     n_features = 1
     module = LinearUCBBandit(n_features=n_features)
@@ -89,8 +86,7 @@ def test_linear_bandits_forward_shape_errors(BanditClass: BanditClassType) -> No
 
 @pytest.mark.parametrize("BanditClass", [LinearTSBandit, LinearUCBBandit])
 def test_linear_bandit_defaults(BanditClass: BanditClassType) -> None:
-    """
-    Test default initialization of base LinearBandit.
+    """Test default initialization of base LinearBandit.
     Ensures shapes of precision_matrix, b, theta are correct.
     """
     n_features = 5
@@ -115,8 +111,7 @@ def test_linear_bandit_defaults(BanditClass: BanditClassType) -> None:
 
 
 def test_linear_ucb_correct_mean() -> None:
-    """
-    Test if LinearUCBBandit returns correct values for theta = (0, 0, 1).
+    """Test if LinearUCBBandit returns correct values for theta = (0, 0, 1).
     """
     n_features = 3
     bandit = LinearUCBBandit(n_features=n_features)
@@ -142,8 +137,7 @@ def test_linear_ucb_correct_mean() -> None:
 
 
 def test_linear_ucb_correct_variance() -> None:
-    """
-    Test if LinearUCBBandit returns correct values for same UCB means but different variances.
+    """Test if LinearUCBBandit returns correct values for same UCB means but different variances.
     """
     n_features = 3
     bandit = LinearUCBBandit(n_features=n_features)
@@ -178,8 +172,7 @@ def test_linear_ucb_correct_variance() -> None:
 
 
 def test_linear_ucb_alpha() -> None:
-    """
-    Test alpha parameter in LinearUCBBandit to confirm it's settable and used.
+    """Test alpha parameter in LinearUCBBandit to confirm it's settable and used.
     """
     n_features = 3
     alpha = 25.0  # extreme alpha for testing
@@ -219,8 +212,7 @@ def test_linear_ucb_alpha() -> None:
 
 
 def test_linear_ts_correct() -> None:
-    """
-    Test if LinearTSBandit returns correct values for theta = (0, 0, 1).
+    """Test if LinearTSBandit returns correct values for theta = (0, 0, 1).
     """
     n_features = 3
     bandit = LinearTSBandit(n_features=n_features)
@@ -244,8 +236,7 @@ def test_linear_ts_correct() -> None:
 
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
 def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -> None:
-    """
-    Test if parameters are updated after training step.
+    """Test if parameters are updated after training step.
     """
     bandit: LinearBandit = BanditClass(n_features=3)
     batch_size = 10
@@ -272,8 +263,7 @@ def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -
 
 
 def test_update_correct() -> None:
-    """
-    In this simple scenario:
+    """In this simple scenario:
       - n_features = 1
       - precision_matrix = [[1.0]]
       - b = [0.0]
@@ -285,7 +275,6 @@ def test_update_correct() -> None:
       b_new = [2.0]
       theta_new = [0.4]
     """
-
     bandit = LinearUCBBandit(n_features=1)
 
     chosen_contextualized_actions = torch.tensor([[[2.0]]])  # shape (1,1)
@@ -310,8 +299,7 @@ def test_update_correct() -> None:
 
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
 def test_update_shapes_parameterized(BanditClass: BanditClassType) -> None:
-    """
-    Test if parameters have correct shapes after update.
+    """Test if parameters have correct shapes after update.
     """
     bandit: LinearBandit = BanditClass(n_features=3)
     batch_size = 10
@@ -335,8 +323,7 @@ def test_update_shapes_parameterized(BanditClass: BanditClassType) -> None:
 
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
 def test_update_invalid_shapes_parameterized(BanditClass: BanditClassType) -> None:
-    """
-    Test if assertion errors are raised for invalid input shapes.
+    """Test if assertion errors are raised for invalid input shapes.
     """
     bandit: LinearBandit = BanditClass(n_features=3)
     batch_size = 10
@@ -360,8 +347,7 @@ def test_update_invalid_shapes_parameterized(BanditClass: BanditClassType) -> No
 def test_update_zero_denominator(
     simple_ucb_bandit: LinearUCBBandit,
 ) -> None:
-    """
-    Test if assertion error is raised when denominator is zero.
+    """Test if assertion error is raised when denominator is zero.
     """
     bandit = simple_ucb_bandit
     batch_size = 10

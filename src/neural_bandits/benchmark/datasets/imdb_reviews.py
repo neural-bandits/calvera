@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 def _download_imdb_data(dest_path: str) -> None:
-    """
-    Download the IMDB dataset archive if it does not already exist. See
-    https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
+    """Download the IMDB dataset archive if it does not already exist.
+    
+    See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
     """
     url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 
@@ -36,7 +36,6 @@ def _download_imdb_data(dest_path: str) -> None:
 
 def _extract_data(tar_path: str, extract_dir: str) -> None:
     """Extract the tar.gz dataset archive."""
-
     extracted_folder = os.path.join(extract_dir, "aclImdb")
     if not os.path.exists(extracted_folder):
         logger.info("Extracting dataset...")
@@ -50,8 +49,8 @@ def _extract_data(tar_path: str, extract_dir: str) -> None:
 def _load_imdb_data(
     data_dir: str, subset: str = "train"
 ) -> Tuple[list[str], list[int]]:
-    """
-    Load IMDB reviews and labels from the specified subset directory.
+    """Load IMDB reviews and labels from the specified subset directory.
+    
     Assumes a directory structure: aclImdb/{train,test}/{pos,neg}
     """
     texts = []
@@ -73,7 +72,6 @@ def _setup_dataset(
     dest_path: str | None = None,
 ) -> pd.DataFrame:
     """Download and setup the dataset."""
-
     dest_path_or_current_path = (
         dest_path
         if dest_path is not None
@@ -113,13 +111,10 @@ def _preprocess_text(text: str) -> str:
 
 
 class ImdbMovieReviews(AbstractDataset[TextItemType]):
-    """A dataset for the IMDB movie reviews sentiment classification task. See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
-
-    Args:
-        dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded to the current directory.
-        partition: The partition of the dataset to use. Either "train" or "test".
-        max_len: The maximum length of the input text. If the text is longer than this, it will be truncated.
-        tokenizer: A tokenizer from the `transformers` library. If None, the `BertTokenizer` will be used.
+    """A dataset for the IMDB movie reviews sentiment classification task.
+    
+    See https://ai.stanford.edu/~amaas/data/sentiment/ for further information. The dataset consists of 25,000 highly polar
+    movie reviews for training, and 25,000 for testing. There is additional unlabeled data for use as well.
     """
 
     num_actions: int = 2  # 1 for positive, 0 for negative
@@ -137,6 +132,14 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
         max_len: int = 255,
         tokenizer: PreTrainedTokenizer | None = None,
     ):
+        """Initialize the IMDB movie reviews dataset.
+        
+        Args:
+            dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded to the current directory.
+            partition: The partition of the dataset to use. Either "train" or "test".
+            max_len: The maximum length of the input text. If the text is longer than this, it will be truncated.
+            tokenizer: A tokenizer from the `transformers` library. If None, the `BertTokenizer` will be used.
+        """
         # Using disjoint contextualization for this dataset does not work. We have a sequence of tokens.
         super().__init__(needs_disjoint_contextualization=False)
 
@@ -152,6 +155,7 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
             )
 
     def __len__(self) -> int:
+        """Return the number of samples in this dataset."""
         return len(self.data)
 
     def __getitem__(self, idx: int) -> Tuple[TextItemType, torch.Tensor]:
@@ -165,7 +169,6 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
             Specifically, the input is a tuple containing the `input_ids`, `attention_mask`, and `token_type_ids`.
             (cmp. https://huggingface.co/docs/transformers/v4.49.0/en/main_classes/tokenizer#transformers.PreTrainedTokenizer.__call__)
         """
-
         inputs = self.tokenizer(
             self.data["text"][idx],
             None,
@@ -191,6 +194,12 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
         )
 
     def reward(self, idx: int, action: int) -> float:
-        """Return the reward for the given index and action. 1.0 if the action is the correct sentiment, 0.0
-        otherwise."""
+        """Return the reward for the given index and action.
+        
+        1.0 if the action is the correct sentiment, 0.0 otherwise.
+        
+        Args:
+            idx: The index of the sample.
+            action: The action to evaluate.
+        """
         return 1.0 if action == self.data["sentiment"][idx] else 0.0

@@ -8,8 +8,8 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
 class NeuralLinearBandit(LinearTSBandit):
-    """
-    Lightning Module implementing a Neural Linear bandit.
+    """Lightning Module implementing a Neural Linear bandit.
+    
     The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
     A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear head that is trained on the embeddings.
     Since updating the neural network (encoder) is computationally expensive, the neural network is only updated every `embedding_update_interval` steps.
@@ -28,8 +28,7 @@ class NeuralLinearBandit(LinearTSBandit):
         lr: float = 1e-3,
         max_grad_norm: float = 5.0,
     ) -> None:
-        """
-        Initializes the NeuralLinearBanditModule.
+        """Initializes the NeuralLinearBanditModule.
 
         Args:
             encoder: The encoder model (neural network) to be used.
@@ -103,13 +102,13 @@ class NeuralLinearBandit(LinearTSBandit):
 
         Args:
             contextualized_actions: The input data. Shape: (batch_size, n_arms, n_encoder_input_size)
+            kwargs: Additional keyword arguments. Not used.
 
         Returns:
             tuple:
             - chosen_actions: The one-hot encoded tensor of the chosen actions. Shape: (batch_size, n_arms).
             - p: The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future. Shape: (batch_size, ).
         """
-
         assert (
             contextualized_actions.ndim == 3
             and contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
@@ -150,9 +149,7 @@ class NeuralLinearBandit(LinearTSBandit):
         batch: torch.Tensor,
         batch_idx: int,
     ) -> torch.Tensor:
-        """
-        Perform a training step on the neural linear bandit model.
-        """
+        """Perform a training step on the neural linear bandit model."""
         chosen_contextualized_actions: torch.Tensor = batch[0]
         realized_rewards: torch.Tensor = batch[1]
 
@@ -322,7 +319,7 @@ class NeuralLinearBandit(LinearTSBandit):
         return torch.nn.functional.mse_loss(y_pred, y)
 
     def _update_embeddings(self) -> None:
-        """Update the embeddings of the neural linear bandit"""
+        """Update the embeddings of the neural linear bandit."""
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
         self.encoder.eval()
         with torch.no_grad():
@@ -382,6 +379,7 @@ class NeuralLinearBandit(LinearTSBandit):
     def configure_optimizers(
         self,
     ) -> OptimizerLRSchedulerConfig:
+        """Configure the optimizer and learning rate scheduler for the neural linear bandit."""
         # TODO: make it more configurable?
         opt = torch.optim.Adam(self.net.parameters(), lr=self.hparams["lr"])
         scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=1, gamma=0.95)

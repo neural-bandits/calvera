@@ -12,6 +12,7 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 class NeuralUCBBandit(AbstractBandit):
     """NeuralUCB bandit implementation as a PyTorch Lightning module.
+    
     The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for exploration.
 
     Attributes:
@@ -102,6 +103,7 @@ class NeuralUCBBandit(AbstractBandit):
 
         Args:
             contextualized_actions: Contextualized action tensor. Shape: (batch_size, n_arms, n_features).
+            kwargs: Additional keyword arguments. Not used.
 
         Returns:
             tuple:
@@ -232,6 +234,7 @@ class NeuralUCBBandit(AbstractBandit):
         return -realized_rewards.mean()
 
     def on_train_epoch_end(self) -> None:
+        """Log a warning if the network was not trained during the epoch."""
         super().on_train_epoch_end()
         if not self._trained_once:
             logging.warning(
@@ -239,6 +242,7 @@ class NeuralUCBBandit(AbstractBandit):
             )
 
     def on_train_epoch_start(self) -> None:
+        """Reset the training flag at the start of each epoch."""
         super().on_train_epoch_start()
         self._trained_once = False
 
@@ -295,6 +299,7 @@ class NeuralUCBBandit(AbstractBandit):
                 return float(L_theta_batch / len(self.reward_history))
 
     def configure_optimizers(self) -> optim.Optimizer:
+        """Configure the optimizer for the bandit. Consumed by PyTorch Lightning during `trainer.fit(...)."""
         return optim.SGD(
             self.theta_t.parameters(),
             lr=self.hparams["learning_rate"],

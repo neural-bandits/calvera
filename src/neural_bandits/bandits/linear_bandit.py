@@ -6,14 +6,21 @@ from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 
 class LinearBandit(AbstractBandit):
+    """Baseclass for linear bandit algorithms.
+    
+    Implements the update method for linear bandits. Also adds all necesary attributes.
+    """
+    
     def __init__(
         self,
         n_features: int,
         **kw_args: Any,
     ) -> None:
         """Initializes the LinearBanditModule.
+
         Args:
             n_features: The number of features in the bandit model.
+            kw_args: Additional keyword arguments. Saved as hyperparameters.
         """
         super().__init__()
         self.n_features = n_features
@@ -73,14 +80,12 @@ class LinearBandit(AbstractBandit):
         chosen_actions: torch.Tensor,
         realized_rewards: torch.Tensor,
     ) -> None:
-        """
-        Perform an update step on the linear bandit given the actions that were chosen and the rewards that were observed.
+        """Perform an update step on the linear bandit given the actions that were chosen and the rewards that were observed.
 
         Args:
             chosen_actions: The chosen contextualized actions in this batch. Shape: (batch_size, n_features)
             realized_rewards: The realized rewards of the chosen action in this batch. Shape: (batch_size,)
         """
-
         assert (
             chosen_actions.ndim == 3
         ), f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) but got shape {chosen_actions.shape}"

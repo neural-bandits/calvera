@@ -8,11 +8,10 @@ from neural_bandits.benchmark.datasets.feedback_dataset import BanditFeedbackDat
 
 
 class BanditBenchmarkEnvironment:
-    """
-    Environment that iterates over a DataLoader, yielding only `contextualized_actions`.
+    """Environment that iterates over a DataLoader, yielding only `contextualized_actions`.
+    
     Internally stores `rewards`, which can be retrieved by a helper method.
     This is used to simulate a bandit environment with delayed feedback where the bandit can only see the actions and not the rewards.
-
     The bandit should first sample `contextualized_actions` by iterating over the environment.
     The bandit can then choose the best actions.
     Finally, the bandit can receive rewards by calling `get_rewards_dataset(chosen_actions)`.
@@ -32,8 +31,8 @@ class BanditBenchmarkEnvironment:
     def __init__(
         self, dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]]
     ) -> None:
-        """
-        Initializes a BanditBenchmarkEnvironment.
+        """Initializes a BanditBenchmarkEnvironment.
+
         Args:
             dataloader: DataLoader that yields batches of (contextualized_actions, all_rewards) tuples.
         """
@@ -43,8 +42,7 @@ class BanditBenchmarkEnvironment:
         self._last_all_rewards: Optional[torch.Tensor] = None
 
     def __iter__(self) -> "BanditBenchmarkEnvironment":
-        """
-        Returns an iterator object for the BanditBenchmarkEnvironment.
+        """Returns an iterator object for the BanditBenchmarkEnvironment.
 
         This method initializes an iterator for the dataloader and returns the
         BanditBenchmarkEnvironment instance itself, allowing it to be used as an
@@ -57,8 +55,7 @@ class BanditBenchmarkEnvironment:
         return self
 
     def __next__(self) -> torch.Tensor:
-        """
-        Returns the next batch of contextualized actions from the DataLoader.
+        """Returns the next batch of contextualized actions from the DataLoader.
 
         Returns:
             The contextualized actions for the bandit to pick from.
@@ -89,8 +86,8 @@ class BanditBenchmarkEnvironment:
     def get_feedback(
         self, chosen_actions: torch.Tensor
     ) -> Dataset[tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Returns a small dataset with only the chosen actions & realized rewards of the last batch.
+        """Returns a small dataset with only the chosen actions & realized rewards of the last batch.
+        
         For combinatorial bandits, this feedback is semi-bandit feedback.
 
         Args:
@@ -99,7 +96,6 @@ class BanditBenchmarkEnvironment:
         Returns:
             BanditFeedbackDataset with the chosen actions (shape: (n, m, k)) and realized rewards (shape: (n, m)).
         """
-
         self._validate_chosen_actions(chosen_actions)
 
         chosen_contextualized_actions = self._get_chosen_contextualized_actions(
@@ -113,8 +109,9 @@ class BanditBenchmarkEnvironment:
         )
 
     def compute_regret(self, chosen_actions: torch.Tensor) -> torch.Tensor:
-        """
-        Computes the regret for the most recent batch:
+        """Computes the regret for the most recent batch.
+        
+        Definition:
           best_reward = max over top i actions (where i is the number of chosen actions)
           chosen_reward = sum over chosen actions (handles multiple 1s per row)
           regret = best_reward - chosen_reward
@@ -206,5 +203,6 @@ class BanditBenchmarkEnvironment:
         )  # shape (n, m)
 
     def __len__(self) -> int:
+        """Returns the number of batches in the DataLoader."""
         assert self._iterator is not None, "No iterator was created."
         return len(self._iterator)

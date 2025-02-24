@@ -7,6 +7,7 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
 class LinearUCBBandit(LinearBandit):
+    """Linear Upper Confidence Bound Bandit."""
     def __init__(
         self,
         n_features: int,
@@ -14,6 +15,14 @@ class LinearUCBBandit(LinearBandit):
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
+        """Initializes the LinearUCBBandit.
+        
+        Args:
+            n_features: The number of features in the bandit model.
+            selector: The selector used to choose the best action. Default is ArgMaxSelector.
+            alpha: The exploration parameter for LinUCB.
+            kwargs: Additional keyword arguments. Passed to the parent class. See `LinearBandit`.
+        """
         super().__init__(n_features, alpha=alpha, **kwargs)
         self.selector = selector
 
@@ -24,6 +33,7 @@ class LinearUCBBandit(LinearBandit):
 
         Args:
             contextualized_actions: The input tensor of shape (batch_size, n_arms, n_features).
+            kwargs: Additional keyword arguments. Not used.
 
         Returns:
             tuple:
@@ -32,7 +42,6 @@ class LinearUCBBandit(LinearBandit):
             - p: The probability of the chosen actions. For LinUCB this will always return 1.
             Shape: (batch_size, ).
         """
-
         assert (
             contextualized_actions.shape[2] == self.hparams["n_features"]
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"

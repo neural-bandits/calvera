@@ -9,8 +9,7 @@ from neural_bandits.utils.data_sampler import RandomDataSampler, SortedDataSampl
 
 @pytest.fixture
 def sample_data() -> Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor]:
-    """
-    Returns a tuple (dataset, sort_values).
+    """Returns a tuple (dataset, sort_values).
     Dataset contains contexts and rewards, sort_values are used for sorting.
     """
     # contexts shape: (5, 3, 4)

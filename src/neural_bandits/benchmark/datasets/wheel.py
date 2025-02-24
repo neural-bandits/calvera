@@ -20,7 +20,9 @@ def sample_rewards(
     """Sample rewards for each context according to the Wheel Bandit rules. See https://arxiv.org/abs/1802.09127.
 
     Args:
+        generator: The random number generator to use. Should already be seeded for reproducibility.
         contexts: A torch.Tensor of shape (num_samples, context_size) representing the sampled contexts.
+        actions: A torch.Tensor of shape (num_samples) representing the actions chosen for the corresponding context.
         delta: Exploration parameter: high reward in one region if norm above delta
         mu_small: Mean of the small reward distribution.
         std_small: Standard deviation of the small reward distribution.
@@ -88,19 +90,7 @@ def sample_rewards(
 
 
 class WheelBanditDataset(AbstractDataset[torch.Tensor]):
-    """Generates a dataset for the Wheel Bandit problem (https://arxiv.org/abs/1802.09127).
-
-    Args:
-        num_samples: Number of samples to generate.
-        delta: Exploration parameter: high reward in one region if norm above delta
-        mu_small: Mean of the small reward distribution.
-        std_small: Standard deviation of the small reward distribution.
-        mu_medium: Mean of the medium reward distribution.
-        std_medium: Standard deviation of the medium reward distribution.
-        mu_large: Mean of the large reward distribution.
-        std_large: Standard deviation of the large reward distribution.
-        seed: Seed for the random number generator.
-    """
+    """Generates a dataset for the Wheel Bandit problem (https://arxiv.org/abs/1802.09127)."""
 
     num_actions: int = 5
     context_size: int = 2
@@ -117,6 +107,19 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         std_large: float = 0.01,
         seed: Optional[int] = None,
     ) -> None:
+        """Initialize the Wheel Bandit dataset.
+        
+        Args:
+            num_samples: Number of samples to generate.
+            delta: Exploration parameter: high reward in one region if norm above delta
+            mu_small: Mean of the small reward distribution.
+            std_small: Standard deviation of the small reward distribution.
+            mu_medium: Mean of the medium reward distribution.
+            std_medium: Standard deviation of the medium reward distribution.
+            mu_large: Mean of the large reward distribution.
+            std_large: Standard deviation of the large reward distribution.
+            seed: Seed for the random number generator.
+        """
         super().__init__(needs_disjoint_contextualization=True)
 
         self.num_samples = num_samples
@@ -137,9 +140,9 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
     def _generate_data(
         self, seed: Optional[int] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Pregenerate the dataset for the Wheel Bandit problem. We do this because we need to make the dataset compatible
-        with PyTorch's Dataset.
+        """Pregenerate the dataset for the Wheel Bandit problem.
+        
+        We do this because we need to make the dataset compatible with PyTorch's Dataset.
 
         Args:
             seed: Seed for the random number generator.
@@ -148,7 +151,6 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
             contexts: A torch.Tensor of shape (num_samples, context_size) representing the sampled contexts.
             rewards: A torch.Tensor of shape (num_samples, num_actions) with sampled rewards
         """
-
         generator = torch.Generator()
         if seed is not None:
             generator.manual_seed(seed)
@@ -195,9 +197,15 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         return contexts, rewards
 
     def __len__(self) -> int:
+        """Return the number of contexts / samples in this dataset."""
         return self.num_samples
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Return the contextualized actions and rewards for the context at index idx in this dataset.
+        
+        Args:
+            idx: The index of the context in this dataset.
+        """
         contextualized_actions = self.contextualizer(
             self.data[idx].unsqueeze(0)
         ).squeeze(0)

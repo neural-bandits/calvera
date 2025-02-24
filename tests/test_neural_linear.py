@@ -15,8 +15,7 @@ def seed_tests() -> None:
 # 1) Tests for NeuralLinearBandit
 # ------------------------------------------------------------------------------
 def test_neural_linear_bandit_forward_shape() -> None:
-    """
-    Verify forward() returns a one-hot action (batch_size, n_arms) with correct shape.
+    """Verify forward() returns a one-hot action (batch_size, n_arms) with correct shape.
     """
     batch_size, n_arms, n_features, n_embeddings = 2, 3, 4, 5
 
@@ -47,8 +46,7 @@ def test_neural_linear_bandit_forward_shape() -> None:
 
 
 def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
-    """
-    Test forward with a small sample data we can reason about:
+    """Test forward with a small sample data we can reason about:
     If the bandit is random or identity, we just confirm shape & no errors.
     """
     n_features = 2
@@ -74,8 +72,7 @@ def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
 
 
 def test_neural_linear_bandit_forward_small_sample_correct() -> None:
-    """
-    Test forward with a small sample data we can reason about:
+    """Test forward with a small sample data we can reason about:
     Actually confirm the correct output.
     """
     n_features = 2
@@ -128,10 +125,9 @@ def small_context_reward_batch() -> tuple[
     torch.Tensor,
     torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
 ]:
-    """
-    Returns (chosen_contextualized_actions, rewards):
-      chosen_contextualized_actions shape: (batch_size=2, n_chosen_arms=1, n_features=4)
-      rewards shape: (2,1)
+    """Returns (chosen_contextualized_actions, rewards):
+    chosen_contextualized_actions shape: (batch_size=2, n_chosen_arms=1, n_features=4)
+    rewards shape: (2,1)
     """
     batch_size, n_chosen_arms, n_features = 2, 1, 4
     contextualized_actions = torch.randn(batch_size, n_chosen_arms, n_features)
@@ -160,8 +156,7 @@ def test_neural_linear_bandit_training_step(
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
     ],
 ) -> None:
-    """
-    Test that a training step runs without error on a small dataset and updates the replay buffer.
+    """Test that a training step runs without error on a small dataset and updates the replay buffer.
     """
     actions, rewards, dataset = small_context_reward_batch
     n_features = actions.shape[2]
@@ -256,8 +251,7 @@ def test_neural_linear_bandit_training_step(
 
 
 def test_neural_linear_bandit_hparams_effect() -> None:
-    """
-    Verify hyperparameters are saved and affect the bandit:
+    """Verify hyperparameters are saved and affect the bandit:
     E.g., different embedding size changes bandit.precision_matrix shape, etc.
     """
     n_features = 4

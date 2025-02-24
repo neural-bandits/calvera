@@ -6,6 +6,7 @@ import torch
 
 class AbstractSelector(ABC):
     """Defines the interface for all bandit action selectors.
+    
     Given a tensor of scores per action, the selector chooses an action (i.e. an arm)
     or a set of actions (i.e. a super arm in combinatorial bandits). The selector
     returns a one hot encoded tensor of the chosen actions.

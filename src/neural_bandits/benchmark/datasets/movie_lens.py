@@ -16,8 +16,13 @@ def _download_movielens(
     dest_path: str = "./data",
     version: Literal["ml-32m", "ml-latest-small"] = "ml-latest-small",
 ) -> None:
-    """Downloads the 'small' MovieLens dataset if it does not already exist. See
-    (from https://files.grouplens.org/datasets/movielens)  for further information.
+    """Downloads the 'small' MovieLens dataset if it does not already exist.
+    
+    See (from https://files.grouplens.org/datasets/movielens) for further information.
+    
+    Args:
+        dest_path: The directory where the dataset will be stored.
+        version: The version of the MovieLens dataset to use. Either "ml-latest-small" or "ml-32m".
     """
     file_name = f"{version}.zip"
     url = "https://files.grouplens.org/datasets/movielens/" + file_name
@@ -74,7 +79,7 @@ def _setup_movielens(
     store_features: bool = True,
     version: Literal["ml-latest-small", "ml-32m"] = "ml-latest-small",
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Download, extract, and load the MovieLens dataset
+    """Download, extract, and load the MovieLens dataset.
 
     Args:
         dest_path: The directory where the dataset will be stored.
@@ -196,28 +201,15 @@ def _setup_movielens(
 
 
 class MovieLensDataset(AbstractDataset[torch.Tensor]):
-    """MovieLens dataset for combinatorial contextual bandits. The dataset is provided by the GroupLens Research
-    specifically by Harper and Konstan (2015, The MovieLens Datasets: History and Context).  It contains ratings of
-    movies by different users. We do not use the ratings directly here but only the information that a user has rated
-    and therefore watched this movie.
-    More information can be found [here](https://www.grouplens.org/datasets/movielens/).
+    """MovieLens dataset for combinatorial contextual bandits.
+    
+    The dataset is provided by the GroupLens Research specifically by Harper and Konstan (2015, The MovieLens Datasets: History and Context).  
+    It contains ratings ofmovies by different users. We do not use the ratings directly here but only the information that a user has rated
+    and therefore watched this movie. More information can be found [here](https://www.grouplens.org/datasets/movielens/).
     We build the context by using the SVD decomposition of the user-movie matrix. The context is the outer product of
     the user and movie features. This approach is described in "A contextual-bandit approach to personalized news
     article recommendation" by Li et. al. (2010).
-
-    Args:
-        dest_path: The directory where the dataset is / will be stored.
-        svd_rank: Rank (number of latent dimensions) for the SVD decomposition.
-        outer_product: Whether to use the outer product of the user and movie features as the context. If False, the
-            context will be the concatenation of the user and movie features. (Might perform better for Neural Bandits).
-        k: The number of movies to exclude per user.
-        L: The number of movies to include in the dataset. (Top L most common movies).
-        min_movies: The minimum number of movies a user must have rated to be included in the dataset (after only
-            taking the top `L` movies).
-        version: The version of the MovieLens dataset to use. Either "ml-latest-small" or "ml-32m".
-        store_features: Whether to store the user and movie features. If True, the features will be stored in `dest_path`.
     """
-
     num_actions: int = (
         -1
     )  # There is no constant number of actions in the MovieLens dataset.
@@ -235,6 +227,20 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         version: Literal["ml-latest-small", "ml-32m"] = "ml-latest-small",
         store_features: bool = True,
     ):
+        """Initialize the MovieLens dataset.
+        
+        Args:
+            dest_path: The directory where the dataset is / will be stored.
+            svd_rank: Rank (number of latent dimensions) for the SVD decomposition.
+            outer_product: Whether to use the outer product of the user and movie features as the context. If False, the
+                context will be the concatenation of the user and movie features. (Might perform better for Neural Bandits).
+            k: The number of movies to exclude per user.
+            L: The number of movies to include in the dataset. (Top L most common movies).
+            min_movies: The minimum number of movies a user must have rated to be included in the dataset (after only
+                taking the top `L` movies).
+            version: The version of the MovieLens dataset to use. Either "ml-latest-small" or "ml-32m".
+            store_features: Whether to store the user and movie features. If True, the features will be stored in `dest_path`.
+        """
         super().__init__(needs_disjoint_contextualization=False)
         self.user_features, self.movie_features, self.history, self.F = (
             _setup_movielens(
@@ -253,9 +259,19 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         self.num_actions = self.history.shape[-1]
 
     def __len__(self) -> int:
+        """Return the number of contexts / samples in this dataset."""
         return self.user_features.shape[0]
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Return the contextualized actions and rewards for a given index.
+        
+        Args:
+            idx: The index of the context in this dataset.
+            
+        Returns:
+            contextualized_actions: The contextualized actions for the given index.
+            rewards: The rewards for each action. Retrieved via `self.reward`.
+        """
         # Get avaiable actions (1 - history[userId - 1 = idx])
         available_actions = (1.0 - self.history[idx]).bool()
 
@@ -288,5 +304,13 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         )
 
     def reward(self, idx: int, action: int) -> float:
+        """Return the reward for a given index and action.
+        
+        Returns 1 if the action is in the future, 0 otherwise.
+        
+        Args:
+            idx: The index of the context in this dataset.
+            action: The action for which the reward is requested.
+        """
         # An idx represents a user and the action is a movie.
         return self.F[idx, action].item()

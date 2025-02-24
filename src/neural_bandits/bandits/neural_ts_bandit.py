@@ -99,6 +99,7 @@ class NeuralTSBandit(AbstractBandit):
 
         Args:
             contextualized_actions: Contextualized action tensor. Shape: (batch_size, n_arms, n_features).
+            kwargs: Additional keyword arguments. Not used.
 
         Returns:
             tuple:
@@ -287,6 +288,7 @@ class NeuralTSBandit(AbstractBandit):
                 return float(L_theta_batch / len(self.reward_history))
 
     def configure_optimizers(self) -> optim.Optimizer:
+        """Configure the optimizer for the neural network."""
         return optim.SGD(
             self.theta_t.parameters(),
             lr=self.hparams["learning_rate"],

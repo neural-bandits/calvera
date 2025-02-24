@@ -11,8 +11,7 @@ from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
 def sample_data() -> (
     tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor]
 ):
-    """
-    Returns a tuple (dataloader, expected_contexts, expected_rewards).
+    """Returns a tuple (dataloader, expected_contexts, expected_rewards).
     We'll produce a small dataset with shape (batch_size=2, m=3, context_dim=4).
     """
     # contexts shape: (2, 3, 4)
