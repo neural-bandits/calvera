@@ -15,8 +15,7 @@ def seed_tests() -> None:
 # 1) Tests for NeuralLinearBandit
 # ------------------------------------------------------------------------------
 def test_neural_linear_bandit_forward_shape() -> None:
-    """Verify forward() returns a one-hot action (batch_size, n_arms) with correct shape.
-    """
+    """Verify forward() returns a one-hot action (batch_size, n_arms) with correct shape."""
     batch_size, n_arms, n_features, n_embeddings = 2, 3, 4, 5
 
     # Simple encoder: embed from 4 to 5 dimensions
@@ -156,8 +155,7 @@ def test_neural_linear_bandit_training_step(
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
     ],
 ) -> None:
-    """Test that a training step runs without error on a small dataset and updates the replay buffer.
-    """
+    """Test that a training step runs without error on a small dataset and updates the replay buffer."""
     actions, rewards, dataset = small_context_reward_batch
     n_features = actions.shape[2]
     n_embedding_size = 4
@@ -190,9 +188,7 @@ def test_neural_linear_bandit_training_step(
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
         bandit,
-        torch.utils.data.DataLoader(
-            dataset, batch_size=2, shuffle=False, num_workers=0
-        ),
+        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
     )
 
     # After training step, buffer should have newly appended rows
@@ -224,9 +220,7 @@ def test_neural_linear_bandit_training_step(
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
         bandit,
-        torch.utils.data.DataLoader(
-            dataset, batch_size=2, shuffle=False, num_workers=0
-        ),
+        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
     )
 
     # The buffer should have grown

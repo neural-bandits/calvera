@@ -12,7 +12,7 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 class NeuralUCBBandit(AbstractBandit):
     """NeuralUCB bandit implementation as a PyTorch Lightning module.
-    
+
     The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for exploration.
 
     Attributes:
@@ -85,14 +85,10 @@ class NeuralUCBBandit(AbstractBandit):
         self.context_history: list[torch.Tensor] = []
         self.reward_history: list[torch.Tensor] = []
 
-        self.total_params = sum(
-            p.numel() for p in self.theta_t.parameters() if p.requires_grad
-        )
+        self.total_params = sum(p.numel() for p in self.theta_t.parameters() if p.requires_grad)
 
         # Initialize Z_0 = λI
-        self.Z_t = self.hparams["lambda_"] * torch.ones(
-            (self.total_params,), device=self.device
-        )
+        self.Z_t = self.hparams["lambda_"] * torch.ones((self.total_params,), device=self.device)
 
     def _predict_action(
         self,
@@ -125,9 +121,7 @@ class NeuralUCBBandit(AbstractBandit):
         f_t_a = f_t_a.reshape(batch_size, n_arms)
 
         # Store g(x_t,a; θ_t-1) values
-        all_gradients = torch.zeros(
-            batch_size, n_arms, self.total_params, device=self.device
-        )
+        all_gradients = torch.zeros(batch_size, n_arms, self.total_params, device=self.device)
 
         for b in range(batch_size):
             for a in range(n_arms):
@@ -197,9 +191,7 @@ class NeuralUCBBandit(AbstractBandit):
             >>> batch = (context_tensor, reward_tensor)
             >>> loss = model.training_step(batch, 0)
         """
-        contextualized_actions: torch.Tensor = batch[
-            0
-        ]  # shape: (batch_size, n_arms, n_features)
+        contextualized_actions: torch.Tensor = batch[0]  # shape: (batch_size, n_arms, n_features)
         realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
         batch_size = realized_rewards.shape[0]
 
@@ -293,8 +285,7 @@ class NeuralUCBBandit(AbstractBandit):
             # Early stopping if threshold is set and loss is small enough
             if (
                 self.hparams["early_stop_threshold"] is not None
-                and L_theta_batch / len(self.reward_history)
-                <= self.hparams["early_stop_threshold"]
+                and L_theta_batch / len(self.reward_history) <= self.hparams["early_stop_threshold"]
             ):
                 return float(L_theta_batch / len(self.reward_history))
 

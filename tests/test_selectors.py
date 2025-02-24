@@ -134,9 +134,7 @@ class TestTopKSelector:
 
     def test_batch_samples(self) -> None:
         selector = TopKSelector(k=2)
-        scores = torch.tensor(
-            [[1.0, 4.0, 3.0, 2.0], [4.0, 3.0, 2.0, 1.0], [1.0, 2.0, 4.0, 3.0]]
-        )
+        scores = torch.tensor([[1.0, 4.0, 3.0, 2.0], [4.0, 3.0, 2.0, 1.0], [1.0, 2.0, 4.0, 3.0]])
         selected = selector(scores)
 
         expected = torch.tensor(
@@ -177,12 +175,8 @@ class TestTopKSelector:
         assert selected[0, 2] == 0
         assert selected[0, 3] == 0
 
-    @pytest.mark.parametrize(
-        "batch_size,n_arms,k", [(1, 5, 2), (3, 4, 1), (5, 6, 3), (10, 3, 2)]
-    )
-    def test_output_shape_and_values(
-        self, batch_size: int, n_arms: int, k: int
-    ) -> None:
+    @pytest.mark.parametrize("batch_size,n_arms,k", [(1, 5, 2), (3, 4, 1), (5, 6, 3), (10, 3, 2)])
+    def test_output_shape_and_values(self, batch_size: int, n_arms: int, k: int) -> None:
         selector = TopKSelector(k=k)
         scores = torch.rand(batch_size, n_arms)
         selected = selector(scores)

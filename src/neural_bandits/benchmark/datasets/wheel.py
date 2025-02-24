@@ -108,7 +108,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         seed: Optional[int] = None,
     ) -> None:
         """Initialize the Wheel Bandit dataset.
-        
+
         Args:
             num_samples: Number of samples to generate.
             delta: Exploration parameter: high reward in one region if norm above delta
@@ -137,11 +137,9 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         self.data = data
         self.rewards = rewards
 
-    def _generate_data(
-        self, seed: Optional[int] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _generate_data(self, seed: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """Pregenerate the dataset for the Wheel Bandit problem.
-        
+
         We do this because we need to make the dataset compatible with PyTorch's Dataset.
 
         Args:
@@ -163,8 +161,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         batch_size = max(int(self.num_samples / 3), 1)
         while len(data_list) < self.num_samples:
             raw_data = (
-                torch.rand(batch_size, self.context_size, generator=generator) * 2.0
-                - 1.0
+                torch.rand(batch_size, self.context_size, generator=generator) * 2.0 - 1.0
             ).float()
             norms = torch.norm(raw_data, dim=1)
             # filter points inside unit norm
@@ -202,13 +199,11 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for the context at index idx in this dataset.
-        
+
         Args:
             idx: The index of the context in this dataset.
         """
-        contextualized_actions = self.contextualizer(
-            self.data[idx].unsqueeze(0)
-        ).squeeze(0)
+        contextualized_actions = self.contextualizer(self.data[idx].unsqueeze(0)).squeeze(0)
         rewards = self.rewards[idx]
 
         return contextualized_actions, rewards

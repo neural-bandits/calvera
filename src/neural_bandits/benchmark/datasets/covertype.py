@@ -9,16 +9,17 @@ from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 class CovertypeDataset(AbstractDataset[torch.Tensor]):
     """Loads the Covertype dataset as a PyTorch Dataset from the UCI repository.
-    
+
     See https://archive.ics.uci.edu/ml/datasets/covertype) for more information.
     """
+
     num_actions: int = 7
     context_size: int = 54
     num_samples: int = 581012
 
     def __init__(self, dest_path: str = "./data") -> None:
         """Initialize the Covertype dataset. Downloads the dataset from UCI repository if not found at `dest_path`.
-        
+
         Args:
             dest_path: Where to store and look for the dataset.
         """
@@ -32,7 +33,7 @@ class CovertypeDataset(AbstractDataset[torch.Tensor]):
 
     def __len__(self) -> int:
         """Return the number of contexts / samples in this dataset.
-        
+
         Returns:
             The number of contexts / samples in this dataset.
         """
@@ -40,10 +41,10 @@ class CovertypeDataset(AbstractDataset[torch.Tensor]):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for a given index.
-        
+
         Args:
             idx: The index of the context in this dataset.
-        
+
         Returns:
             contextualized_actions: The contextualized actions for the given index.
             rewards: The rewards for each action. Retrieved via `self.reward`.
@@ -59,13 +60,13 @@ class CovertypeDataset(AbstractDataset[torch.Tensor]):
 
     def reward(self, idx: int, action: int) -> float:
         """Return the reward for a given index and action.
-        
+
         1.0 if the action is the correct cover type, 0.0 otherwise.
-        
+
         Args:
             idx: The index of the context in this dataset.
             action: The action to evaluate.
-        
+
         Returns:
             1.0 if the action is the correct cover type, 0.0 otherwise.
         """

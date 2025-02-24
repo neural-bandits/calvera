@@ -6,7 +6,7 @@ import torch
 
 class AbstractSelector(ABC):
     """Defines the interface for all bandit action selectors.
-    
+
     Given a tensor of scores per action, the selector chooses an action (i.e. an arm)
     or a set of actions (i.e. a super arm in combinatorial bandits). The selector
     returns a one hot encoded tensor of the chosen actions.
@@ -41,9 +41,7 @@ class ArgMaxSelector(AbstractSelector):
             One-hot encoded selected actions. Shape: (batch_size, n_arms).
         """
         _, n_arms = scores.shape
-        return torch.nn.functional.one_hot(
-            torch.argmax(scores, dim=1), num_classes=n_arms
-        )
+        return torch.nn.functional.one_hot(torch.argmax(scores, dim=1), num_classes=n_arms)
 
 
 class EpsilonGreedySelector(AbstractSelector):
@@ -77,9 +75,7 @@ class EpsilonGreedySelector(AbstractSelector):
         explore_mask = random_vals < self.epsilon
 
         greedy_actions = torch.argmax(scores, dim=1)
-        random_actions = torch.randint(
-            0, n_arms, (batch_size,), generator=self.generator
-        )
+        random_actions = torch.randint(0, n_arms, (batch_size,), generator=self.generator)
 
         selected_actions = torch.where(explore_mask, random_actions, greedy_actions)
 
@@ -109,9 +105,7 @@ class TopKSelector(AbstractSelector):
             Shape: (batch_size, n_arms).
         """
         batch_size, n_arms = scores.shape
-        assert (
-            self.k <= n_arms
-        ), f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
+        assert self.k <= n_arms, f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
 
         selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64)
         remaining_scores = scores.clone()

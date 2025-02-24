@@ -8,7 +8,7 @@ from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 class StatlogDataset(AbstractDataset[torch.Tensor]):
     """Loads the Statlog (Shuttle) dataset as a PyTorch Dataset from the UCI repository.
-    
+
     See https://archive.ics.uci.edu/dataset/148/statlog+shuttle for data related information.
     """
 
@@ -18,13 +18,11 @@ class StatlogDataset(AbstractDataset[torch.Tensor]):
 
     def __init__(self) -> None:
         """Initialize the Statlog (Shuttle) dataset.
-        
+
         Loads the dataset from the UCI repository and stores it as PyTorch tensors.
         """
         super().__init__(needs_disjoint_contextualization=True)
-        dataset = fetch_ucirepo(
-            id=148
-        )  # id=148 specifies the Statlog (Shuttle) dataset
+        dataset = fetch_ucirepo(id=148)  # id=148 specifies the Statlog (Shuttle) dataset
         X = dataset.data.features
         y = dataset.data.targets
 
@@ -37,17 +35,15 @@ class StatlogDataset(AbstractDataset[torch.Tensor]):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for a given index.
-        
+
         Args:
             idx: The index of the context in this dataset.
-            
+
         Returns:
             contextualized_actions: The contextualized actions for the given index.
             rewards: The rewards for each action. Retrieved via `self.reward`.
         """
-        contextualized_actions = self.contextualizer(self.X[idx].unsqueeze(0)).squeeze(
-            0
-        )
+        contextualized_actions = self.contextualizer(self.X[idx].unsqueeze(0)).squeeze(0)
         rewards = torch.tensor(
             [self.reward(idx, action) for action in range(self.num_actions)],
             dtype=torch.float32,
@@ -57,9 +53,9 @@ class StatlogDataset(AbstractDataset[torch.Tensor]):
 
     def reward(self, idx: int, action: int) -> float:
         """Return the reward for a given index and action.
-        
+
         Returns 1 if the action is the same as the label, 0 otherwise.
-        
+
         Args:
             idx: The index of the context in this dataset.
             action: The action for which the reward is requested.

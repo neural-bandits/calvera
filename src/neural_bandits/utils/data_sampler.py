@@ -18,7 +18,7 @@ class AbstractDataSampler(Sampler[int], ABC):
         data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
     ) -> None:
         """Initializes the AbstractDataSampler.
-        
+
         Args:
             data_source: Dataset to sample from
         """
@@ -47,7 +47,7 @@ class RandomDataSampler(AbstractDataSampler):
         generator: Optional[torch.Generator] = None,
     ) -> None:
         """Initializes the RandomDataSampler.
-        
+
         Args:
             data_source: Dataset to sample from
             generator: Optional PyTorch Generator for reproducible randomness
@@ -74,7 +74,7 @@ class SortedDataSampler(AbstractDataSampler):
         reverse: bool = False,
     ) -> None:
         """Initializes the SortedDataSampler.
-        
+
         Args:
             data_source: Dataset to sample from
             key_fn: Function that returns the sorting key for each dataset index

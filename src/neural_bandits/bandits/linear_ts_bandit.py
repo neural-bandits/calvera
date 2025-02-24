@@ -8,10 +8,10 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 class LinearTSBandit(LinearBandit):
     """Linear Thompson Sampling Bandit.
-    
+
     See https://arxiv.org/abs/1802.09127 for more details.
     """
-    
+
     def __init__(
         self,
         n_features: int,
@@ -51,9 +51,7 @@ class LinearTSBandit(LinearBandit):
 
         theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample((batch_size,))  # type: ignore
 
-        expected_rewards = torch.einsum(
-            "ijk,ik->ij", contextualized_actions, theta_tilde
-        )
+        expected_rewards = torch.einsum("ijk,ik->ij", contextualized_actions, theta_tilde)
 
         probabilities = self.compute_probabilities(contextualized_actions, theta_tilde)
 
@@ -74,6 +72,4 @@ class LinearTSBandit(LinearBandit):
                 Shape: (batch_size, ).
         """
         # TODO: Implement the actual probability computation for Thompson Sampling.
-        return torch.ones(
-            contextualized_actions.shape[0], device=contextualized_actions.device
-        )
+        return torch.ones(contextualized_actions.shape[0], device=contextualized_actions.device)

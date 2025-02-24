@@ -22,9 +22,7 @@ def test_online_bandit_logger_decorator_basic() -> None:
     mock_logger.log_metrics.assert_called_with(
         {"training_run": 0, "loss": 0.5, "pre_metric": 123.0}, 1
     )
-    assert (
-        decorator.pre_training_metrics is None
-    )  # pre_metrics cleared after first usage
+    assert decorator.pre_training_metrics is None  # pre_metrics cleared after first usage
 
     # 3. Check finalize increments training_run
     decorator.finalize(status="finished")

@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 
 class BanditFeedbackDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """Dataset that contains only those actions & rewards chosen by the bandit.
-    
+
     It is used to do a single update on the bandit. Supports multiple chosen actions (combinatorial bandits) but must be
     the same for all rows. This is form of feedback is called semi-bandit feedback because we receive one reward per chosen
     action.
@@ -16,7 +16,7 @@ class BanditFeedbackDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         realized_rewards: torch.Tensor,
     ) -> None:
         """Initialize the BanditFeedbackDataset.
-        
+
         n = # of rows in the dataset
         i = # of actions chosen per row
         k = # size of the contextualized action vector
@@ -47,10 +47,10 @@ class BanditFeedbackDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the chosen contextualized actions and realized rewards for the given index.
-        
+
         Args:
             idx: The index of the sample to retrieve.
-        
+
         Returns:
             A tuple containing the chosen contextualized actions and realized rewards.
         """

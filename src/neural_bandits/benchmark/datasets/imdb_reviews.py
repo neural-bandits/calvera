@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def _download_imdb_data(dest_path: str) -> None:
     """Download the IMDB dataset archive if it does not already exist.
-    
+
     See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
     """
     url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
@@ -46,11 +46,9 @@ def _extract_data(tar_path: str, extract_dir: str) -> None:
         logger.info("Dataset already extracted.")
 
 
-def _load_imdb_data(
-    data_dir: str, subset: str = "train"
-) -> Tuple[list[str], list[int]]:
+def _load_imdb_data(data_dir: str, subset: str = "train") -> Tuple[list[str], list[int]]:
     """Load IMDB reviews and labels from the specified subset directory.
-    
+
     Assumes a directory structure: aclImdb/{train,test}/{pos,neg}
     """
     texts = []
@@ -90,9 +88,7 @@ def _setup_dataset(
         os.path.join(dest_path_or_current_path, "aclImdb"), partition
     )
 
-    data = pd.DataFrame(
-        {"text": texts, "sentiment": sentiments}  # 1 for positive, 0 for negative
-    )
+    data = pd.DataFrame({"text": texts, "sentiment": sentiments})  # 1 for positive, 0 for negative
 
     data.drop_duplicates(inplace=True)
     data["text"] = data["text"].apply(_preprocess_text)
@@ -112,7 +108,7 @@ def _preprocess_text(text: str) -> str:
 
 class ImdbMovieReviews(AbstractDataset[TextItemType]):
     """A dataset for the IMDB movie reviews sentiment classification task.
-    
+
     See https://ai.stanford.edu/~amaas/data/sentiment/ for further information. The dataset consists of 25,000 highly polar
     movie reviews for training, and 25,000 for testing. There is additional unlabeled data for use as well.
     """
@@ -133,7 +129,7 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
         tokenizer: PreTrainedTokenizer | None = None,
     ):
         """Initialize the IMDB movie reviews dataset.
-        
+
         Args:
             dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded to the current directory.
             partition: The partition of the dataset to use. Either "train" or "test".
@@ -195,9 +191,9 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
 
     def reward(self, idx: int, action: int) -> float:
         """Return the reward for the given index and action.
-        
+
         1.0 if the action is the correct sentiment, 0.0 otherwise.
-        
+
         Args:
             idx: The index of the sample.
             action: The action to evaluate.

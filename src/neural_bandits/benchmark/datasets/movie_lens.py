@@ -17,9 +17,9 @@ def _download_movielens(
     version: Literal["ml-32m", "ml-latest-small"] = "ml-latest-small",
 ) -> None:
     """Downloads the 'small' MovieLens dataset if it does not already exist.
-    
+
     See (from https://files.grouplens.org/datasets/movielens) for further information.
-    
+
     Args:
         dest_path: The directory where the dataset will be stored.
         version: The version of the MovieLens dataset to use. Either "ml-latest-small" or "ml-32m".
@@ -100,21 +100,15 @@ def _setup_movielens(
     file_postfix = f"_rank{svd_rank}_k{k}_L{L}_min{min_movies}"
 
     # Check if features cached in `dest_path`. If not download and calculate.
-    if os.path.exists(
-        os.path.join(dest_path, version, f"user_features{file_postfix}.pt")
-    ):
+    if os.path.exists(os.path.join(dest_path, version, f"user_features{file_postfix}.pt")):
         user_features = torch.load(
             os.path.join(dest_path, version, f"user_features{file_postfix}.pt")
         )
         movie_features = torch.load(
             os.path.join(dest_path, version, f"movie_features{file_postfix}.pt")
         )
-        history = torch.load(
-            os.path.join(dest_path, version, f"history{file_postfix}.pt")
-        )
-        future = torch.load(
-            os.path.join(dest_path, version, f"future{file_postfix}.pt")
-        )
+        history = torch.load(os.path.join(dest_path, version, f"history{file_postfix}.pt"))
+        future = torch.load(os.path.join(dest_path, version, f"future{file_postfix}.pt"))
         return user_features, movie_features, history, future
     else:
         _download_movielens(dest_path, version)
@@ -151,12 +145,8 @@ def _setup_movielens(
             (data["userId"].nunique(), data["movieId"].nunique()), dtype=torch.float32
         )
 
-        movie_id_to_index = {
-            movie_id: i for i, movie_id in enumerate(data["movieId"].unique())
-        }
-        user_id_to_index = {
-            user_id: i for i, user_id in enumerate(data["userId"].unique())
-        }
+        movie_id_to_index = {movie_id: i for i, movie_id in enumerate(data["movieId"].unique())}
+        user_id_to_index = {user_id: i for i, user_id in enumerate(data["userId"].unique())}
 
         kthlast_timestamp_per_user = (
             data.groupby("userId", group_keys=False)[["userId", "movieId", "timestamp"]]
@@ -171,9 +161,7 @@ def _setup_movielens(
             user_id = row["userId"].item()
             kth_timestamp = kthlast_timestamp_per_user.loc[user_id, "timestamp"]
             if row["timestamp"].item() > kth_timestamp.item():
-                future[
-                    user_id_to_index[user_id], movie_id_to_index[row["movieId"].item()]
-                ] = 1
+                future[user_id_to_index[user_id], movie_id_to_index[row["movieId"].item()]] = 1
         history = history - future
 
         user_features, movie_features = _build_movielens_features(
@@ -190,29 +178,24 @@ def _setup_movielens(
                 movie_features,
                 os.path.join(dest_path, version, f"movie_features{file_postfix}.pt"),
             )
-            torch.save(
-                history, os.path.join(dest_path, version, f"history{file_postfix}.pt")
-            )
-            torch.save(
-                future, os.path.join(dest_path, version, f"future{file_postfix}.pt")
-            )
+            torch.save(history, os.path.join(dest_path, version, f"history{file_postfix}.pt"))
+            torch.save(future, os.path.join(dest_path, version, f"future{file_postfix}.pt"))
 
         return user_features, movie_features, history, future
 
 
 class MovieLensDataset(AbstractDataset[torch.Tensor]):
     """MovieLens dataset for combinatorial contextual bandits.
-    
-    The dataset is provided by the GroupLens Research specifically by Harper and Konstan (2015, The MovieLens Datasets: History and Context).  
+
+    The dataset is provided by the GroupLens Research specifically by Harper and Konstan (2015, The MovieLens Datasets: History and Context).
     It contains ratings ofmovies by different users. We do not use the ratings directly here but only the information that a user has rated
     and therefore watched this movie. More information can be found [here](https://www.grouplens.org/datasets/movielens/).
     We build the context by using the SVD decomposition of the user-movie matrix. The context is the outer product of
     the user and movie features. This approach is described in "A contextual-bandit approach to personalized news
     article recommendation" by Li et. al. (2010).
     """
-    num_actions: int = (
-        -1
-    )  # There is no constant number of actions in the MovieLens dataset.
+
+    num_actions: int = -1  # There is no constant number of actions in the MovieLens dataset.
     num_samples: int = -1
     context_size: int = -1
 
@@ -228,7 +211,7 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         store_features: bool = True,
     ):
         """Initialize the MovieLens dataset.
-        
+
         Args:
             dest_path: The directory where the dataset is / will be stored.
             svd_rank: Rank (number of latent dimensions) for the SVD decomposition.
@@ -242,16 +225,14 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
             store_features: Whether to store the user and movie features. If True, the features will be stored in `dest_path`.
         """
         super().__init__(needs_disjoint_contextualization=False)
-        self.user_features, self.movie_features, self.history, self.F = (
-            _setup_movielens(
-                dest_path=dest_path,
-                svd_rank=svd_rank,
-                k=k,
-                L=L,
-                min_movies=min_movies,
-                version=version,
-                store_features=store_features,
-            )
+        self.user_features, self.movie_features, self.history, self.F = _setup_movielens(
+            dest_path=dest_path,
+            svd_rank=svd_rank,
+            k=k,
+            L=L,
+            min_movies=min_movies,
+            version=version,
+            store_features=store_features,
         )
         self.outer_product = outer_product
 
@@ -264,10 +245,10 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for a given index.
-        
+
         Args:
             idx: The index of the context in this dataset.
-            
+
         Returns:
             contextualized_actions: The contextualized actions for the given index.
             rewards: The rewards for each action. Retrieved via `self.reward`.
@@ -279,16 +260,12 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         contexts: torch.Tensor
 
         if self.outer_product:
-            contexts = self.user_features[idx].unsqueeze(
-                -1
-            ) * self.movie_features.unsqueeze(1)
+            contexts = self.user_features[idx].unsqueeze(-1) * self.movie_features.unsqueeze(1)
             contexts = contexts.flatten(1)
         else:
             contexts = torch.cat(
                 (
-                    self.user_features[idx]
-                    .unsqueeze(0)
-                    .expand(self.movie_features.size(0), -1),
+                    self.user_features[idx].unsqueeze(0).expand(self.movie_features.size(0), -1),
                     self.movie_features,
                 ),
                 dim=-1,
@@ -305,9 +282,9 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
 
     def reward(self, idx: int, action: int) -> float:
         """Return the reward for a given index and action.
-        
+
         Returns 1 if the action is in the future, 0 otherwise.
-        
+
         Args:
             idx: The index of the context in this dataset.
             action: The action for which the reward is requested.

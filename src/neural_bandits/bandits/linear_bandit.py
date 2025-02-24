@@ -7,10 +7,10 @@ from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 class LinearBandit(AbstractBandit):
     """Baseclass for linear bandit algorithms.
-    
+
     Implements the update method for linear bandits. Also adds all necesary attributes.
     """
-    
+
     def __init__(
         self,
         n_features: int,
@@ -111,9 +111,9 @@ class LinearBandit(AbstractBandit):
         # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
         # Calculate new precision Matrix M using the Sherman-Morrison formula
-        denominator = 1 + (
-            (chosen_actions @ self.precision_matrix) * chosen_actions
-        ).sum(dim=1).sum(dim=0)
+        denominator = 1 + ((chosen_actions @ self.precision_matrix) * chosen_actions).sum(
+            dim=1
+        ).sum(dim=0)
         assert torch.abs(denominator) > 0, "Denominator must not be zero or nan"
 
         self.precision_matrix = (
@@ -127,9 +127,7 @@ class LinearBandit(AbstractBandit):
         )
         self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)
         # should be symmetric
-        assert torch.allclose(
-            self.precision_matrix, self.precision_matrix.T
-        ), "M must be symmetric"
+        assert torch.allclose(self.precision_matrix, self.precision_matrix.T), "M must be symmetric"
 
         self.b += chosen_actions.T @ realized_rewards  # shape: (features,)
         self.theta = self.precision_matrix @ self.b

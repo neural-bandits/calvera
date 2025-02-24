@@ -3,7 +3,7 @@ import torch
 
 class MultiClassContextualizer:
     """Applies disjoint model contextualization to the input feature vector.
-    
+
     Example:
     >>> contextualizer = MultiClassContextualizer(n_arms=2)
     >>> feature_vector = torch.tensor([[1, 0]])
@@ -11,12 +11,13 @@ class MultiClassContextualizer:
     tensor([[[1, 0, 0, 0],
              [0, 0, 1, 0]]])
     """
+
     def __init__(
         self,
         n_arms: int,
     ) -> None:
         """Initializes the MultiClassContextualizer.
-        
+
         Args:
             n_arms: The number of arms in the bandit model.
         """
@@ -40,9 +41,7 @@ class MultiClassContextualizer:
         ), "Feature vector must have shape (batch_size, n_features)"
 
         n_features = feature_vector.shape[1]
-        contextualized_actions = torch.einsum(
-            "ij,bk->bijk", torch.eye(self.n_arms), feature_vector
-        )
+        contextualized_actions = torch.einsum("ij,bk->bijk", torch.eye(self.n_arms), feature_vector)
         contextualized_actions = contextualized_actions.reshape(
             -1, self.n_arms, n_features * self.n_arms
         )

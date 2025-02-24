@@ -9,7 +9,7 @@ from neural_bandits.benchmark.datasets.feedback_dataset import BanditFeedbackDat
 
 class BanditBenchmarkEnvironment:
     """Environment that iterates over a DataLoader, yielding only `contextualized_actions`.
-    
+
     Internally stores `rewards`, which can be retrieved by a helper method.
     This is used to simulate a bandit environment with delayed feedback where the bandit can only see the actions and not the rewards.
     The bandit should first sample `contextualized_actions` by iterating over the environment.
@@ -28,9 +28,7 @@ class BanditBenchmarkEnvironment:
     ```
     """
 
-    def __init__(
-        self, dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]]
-    ) -> None:
+    def __init__(self, dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]]) -> None:
         """Initializes a BanditBenchmarkEnvironment.
 
         Args:
@@ -87,7 +85,7 @@ class BanditBenchmarkEnvironment:
         self, chosen_actions: torch.Tensor
     ) -> Dataset[tuple[torch.Tensor, torch.Tensor]]:
         """Returns a small dataset with only the chosen actions & realized rewards of the last batch.
-        
+
         For combinatorial bandits, this feedback is semi-bandit feedback.
 
         Args:
@@ -98,9 +96,7 @@ class BanditBenchmarkEnvironment:
         """
         self._validate_chosen_actions(chosen_actions)
 
-        chosen_contextualized_actions = self._get_chosen_contextualized_actions(
-            chosen_actions
-        )
+        chosen_contextualized_actions = self._get_chosen_contextualized_actions(chosen_actions)
         realized_rewards = self._get_realized_rewards(chosen_actions)
 
         return BanditFeedbackDataset(
@@ -110,7 +106,7 @@ class BanditBenchmarkEnvironment:
 
     def compute_regret(self, chosen_actions: torch.Tensor) -> torch.Tensor:
         """Computes the regret for the most recent batch.
-        
+
         Definition:
           best_reward = max over top i actions (where i is the number of chosen actions)
           chosen_reward = sum over chosen actions (handles multiple 1s per row)
@@ -141,9 +137,7 @@ class BanditBenchmarkEnvironment:
             1
         ), f"Mismatched number of actions in chosen_actions and contextualized_actions tensors. Received {chosen_actions.size(1)} and {self._last_contextualized_actions.size(1)}."
 
-        assert (
-            chosen_actions.sum(dim=1) > 0
-        ).all(), "No actions were chosen in some rows."
+        assert (chosen_actions.sum(dim=1) > 0).all(), "No actions were chosen in some rows."
         assert (
             chosen_actions.sum(dim=1) == chosen_actions.sum(dim=1)[0]
         ).all(), "Number of chosen actions is not the same for all rows."
@@ -156,9 +150,7 @@ class BanditBenchmarkEnvironment:
         best_rewards = []  # will have shape (n, i)
         for batch_idx in range(batch_size):
             row = self._last_all_rewards[batch_idx]  # shape (m, )
-            i = int(
-                chosen_actions[batch_idx].sum().item()
-            )  # number of chosen actions in this row
+            i = int(chosen_actions[batch_idx].sum().item())  # number of chosen actions in this row
 
             assert i > 0, "No actions were chosen in this row!"
 
@@ -175,18 +167,14 @@ class BanditBenchmarkEnvironment:
         best_action_rewards = torch.stack(best_rewards, dim=0)
         return best_action_rewards  # shape (n, i)
 
-    def _get_chosen_contextualized_actions(
-        self, chosen_actions: torch.Tensor
-    ) -> torch.Tensor:
+    def _get_chosen_contextualized_actions(self, chosen_actions: torch.Tensor) -> torch.Tensor:
         assert self._last_contextualized_actions is not None, "No actions were stored."
 
         mask = chosen_actions.bool()
         # Make shape match contextualized_actions for masked_select
         expanded_mask = mask.unsqueeze(-1).expand_as(self._last_contextualized_actions)
 
-        return torch.masked_select(
-            self._last_contextualized_actions, expanded_mask
-        ).view(
+        return torch.masked_select(self._last_contextualized_actions, expanded_mask).view(
             self._last_contextualized_actions.size(0),
             -1,
             self._last_contextualized_actions.size(-1),

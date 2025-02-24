@@ -19,9 +19,7 @@ def sample_data() -> Tuple[Dataset[Tuple[torch.Tensor, torch.Tensor]], torch.Ten
     # values to sort by (simulating class labels like in MNIST example)
     sort_values = torch.tensor([4, 1, 3, 0, 2])
 
-    dataset = cast(
-        Dataset[Tuple[torch.Tensor, torch.Tensor]], TensorDataset(contexts, rewards)
-    )
+    dataset = cast(Dataset[Tuple[torch.Tensor, torch.Tensor]], TensorDataset(contexts, rewards))
     return dataset, sort_values
 
 
@@ -83,9 +81,7 @@ def test_sorted_sampler_with_dataloader(
         for context, reward in zip(contexts, rewards):
             for i in range(len(cast(Sized, dataset))):
                 orig_context, orig_reward = dataset[i]
-                if torch.equal(context, orig_context) and torch.equal(
-                    reward, orig_reward
-                ):
+                if torch.equal(context, orig_context) and torch.equal(reward, orig_reward):
                     loaded_sort_values.append(int(sort_values[i]))
                     break
 
@@ -172,15 +168,11 @@ def test_random_sampler_with_dataloader(
         for context, reward in zip(contexts, rewards):
             for i in range(len(cast(Sized, dataset))):
                 orig_context, orig_reward = dataset[i]
-                if torch.equal(context, orig_context) and torch.equal(
-                    reward, orig_reward
-                ):
+                if torch.equal(context, orig_context) and torch.equal(reward, orig_reward):
                     seen_indices.add(i)
                     break
 
-    assert seen_indices == set(
-        range(len(cast(Sized, dataset)))
-    ), "Not all indices were sampled"
+    assert seen_indices == set(range(len(cast(Sized, dataset)))), "Not all indices were sampled"
 
 
 def test_random_sampler_with_subset(

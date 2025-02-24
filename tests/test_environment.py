@@ -19,9 +19,7 @@ def sample_data() -> (
     # rewards shape: (2, 3)
     rewards = torch.tensor([[0.4, 0.2, 0.9], [0.1, 0.8, 0.7]])
 
-    dataset = cast(
-        Dataset[tuple[torch.Tensor, torch.Tensor]], TensorDataset(contexts, rewards)
-    )
+    dataset = cast(Dataset[tuple[torch.Tensor, torch.Tensor]], TensorDataset(contexts, rewards))
     dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
         dataset, batch_size=1, shuffle=False
     )
@@ -29,9 +27,7 @@ def sample_data() -> (
 
 
 def test_environment_iterator_length(
-    sample_data: tuple[
-        DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ],
+    sample_data: tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -40,9 +36,7 @@ def test_environment_iterator_length(
 
 
 def test_environment_iteration(
-    sample_data: tuple[
-        DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ],
+    sample_data: tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -62,9 +56,7 @@ def test_environment_iteration(
 
 
 def test_get_feedback(
-    sample_data: tuple[
-        DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ],
+    sample_data: tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -96,9 +88,7 @@ def test_get_feedback(
 
 
 def test_compute_regret(
-    sample_data: tuple[
-        DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ],
+    sample_data: tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)

@@ -10,7 +10,7 @@ from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 class MNISTDataset(AbstractDataset[torch.Tensor]):
     """Loads the MNIST 784 (version=1) dataset as a PyTorch Dataset.
-    
+
     See https://www.openml.org/search?type=data&status=active&id=554 for more information of the dataset.
     """
 
@@ -20,9 +20,9 @@ class MNISTDataset(AbstractDataset[torch.Tensor]):
 
     def __init__(self, dest_path: str = "./data") -> None:
         """Initialize the MNIST 784 dataset.
-        
+
         Loads the dataset from OpenML and stores it as PyTorch tensors.
-        
+
         Args:
             dest_path: Where to store the dataset
         """
@@ -42,10 +42,10 @@ class MNISTDataset(AbstractDataset[torch.Tensor]):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for a given index.
-        
+
         Args:
             idx: The index of the context in this dataset.
-            
+
         Returns:
             contextualized_actions: The contextualized actions for the given index.
             rewards: The rewards for each action. Retrieved via `self.reward`.
@@ -61,9 +61,9 @@ class MNISTDataset(AbstractDataset[torch.Tensor]):
 
     def reward(self, idx: int, action: int) -> float:
         """Return the reward for a given index and action.
-        
+
         1.0 if the action is the same as the label, 0.0 otherwise.
-        
+
         Args:
             idx: The index of the context in this dataset.
             action: The action for which the reward is requested.

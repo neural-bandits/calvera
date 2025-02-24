@@ -17,7 +17,7 @@ class AbstractBandit(ABC, pl.LightningModule):
         **kwargs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass.
-        
+
         Given the contextualized actions, selects a single best action, or a set of actions in the case of combinatorial
         bandits. This can be computed for many samples in one batch.
 
@@ -43,7 +43,7 @@ class AbstractBandit(ABC, pl.LightningModule):
         **kwargs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass, computed batch-wise.
-        
+
         Given the contextualized actions, selects a single best action, or a set of actions in the case of combinatorial
         bandits. Next to the action(s), the selector also returns the probability of chosing this action. This will allow
         for logging and Batch Learning from Logged Bandit Feedback (BLBF). Deterministic algorithms like UCB will always
@@ -65,8 +65,8 @@ class AbstractBandit(ABC, pl.LightningModule):
 
     def training_step(self, *args: Any, **kwargs: Any) -> torch.Tensor:
         """Perform a single update step.
-        
-        See the documentation for the LightningModule's `training_step` method. 
+
+        See the documentation for the LightningModule's `training_step` method.
         Acts as a wrapper for the `_update` method in case we want to change something for every bandit or use the update
         independently from lightning, e.g. in tests.
 
@@ -116,7 +116,7 @@ class AbstractBandit(ABC, pl.LightningModule):
 
     def on_train_start(self) -> None:
         """Hook called by PyTorch Lightning.
-        
+
         Prints a warning if the trainer is set to run for more than one epoch.
         """
         super().on_train_start()

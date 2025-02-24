@@ -16,7 +16,7 @@ ItemType = TypeVar("ItemType", torch.Tensor, TextItemType)
 
 class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tensor]]):
     """Abstract class for a dataset that is derived from PyTorch's Dataset class.
-    
+
     Additionally, it provides a reward method for the specific bandit setting.
 
     Subclasses should have the following to attributes:
@@ -31,7 +31,7 @@ class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tens
 
     def __init__(self, needs_disjoint_contextualization: bool = False) -> None:
         """Initialize the dataset.
-        
+
         Args:
             needs_disjoint_contextualization: Whether the dataset needs disjoint contextualization.
         """
@@ -49,7 +49,7 @@ class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tens
     @abstractmethod
     def __getitem__(self, idx: int) -> Tuple[ItemType, torch.Tensor]:
         """Retrieve the item and the associated rewards for a given index.
-        
+
         Returns:
             A tuple containing the item and the rewards of the different actions.
         """

@@ -7,7 +7,7 @@ from lightning.pytorch.utilities import rank_zero_only
 
 class OnlineBanditLoggerDecorator(Logger):
     """Uses the Decorator pattern to add online bandit functionality to a pytorch lightning logger.
-    
+
     Will use stdout flush to only print the metrics of the current training run to the console to prevent too many prints over many training runs.
     Allows for logging over multiple training runs and for logging batch specific metrics before
     the batch is actually started.
@@ -39,7 +39,7 @@ class OnlineBanditLoggerDecorator(Logger):
 
     def __init__(self, logger: Logger, enable_console_logging: bool = True) -> None:
         """Initialize the OnlineBanditLoggerDecorator.
-        
+
         Args:
             logger: The logger to decorate / wrap.
             enable_console_logging: If True, only the metrics of the current training run will be printed to the console.
@@ -55,7 +55,7 @@ class OnlineBanditLoggerDecorator(Logger):
 
     def __getattr__(self, name: str) -> Any:
         """Pass all unknown attributes to the wrapped logger.
-        
+
         Args:
             name: The attribute name.
         """
@@ -74,7 +74,7 @@ class OnlineBanditLoggerDecorator(Logger):
     @rank_zero_only
     def pre_training_log(self, metrics: dict[str, float]) -> None:
         """Log metrics for an entire training run before the run is actually started.
-        
+
         The metrics will be added to the first row of this training run.
 
         Args:
@@ -85,7 +85,7 @@ class OnlineBanditLoggerDecorator(Logger):
     @rank_zero_only
     def log_hyperparams(self, params: Any, *args: Any, **kwargs: Any) -> None:
         """Log hyperparameters via the wrapped logger.
-        
+
         Args:
             params: The hyperparameters to log.
             args: Additional positional arguments to pass to the wrapped logger.
@@ -94,11 +94,9 @@ class OnlineBanditLoggerDecorator(Logger):
         self._logger_wrappee.log_hyperparams(params, *args, **kwargs)
 
     @rank_zero_only
-    def log_metrics(
-        self, metrics: dict[str, float], step: Optional[int] = None
-    ) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         """Log `metrics` via the wrapped logger at the current step.
-        
+
         Args:
             metrics: The metrics to log.
             step: The current step.
@@ -106,9 +104,7 @@ class OnlineBanditLoggerDecorator(Logger):
         if step is not None:
             self.global_step = self.final_step_of_last_run + step
         else:
-            assert (
-                self.global_step is not None
-            ), "Step must be set before logging metrics."
+            assert self.global_step is not None, "Step must be set before logging metrics."
 
         # add custom metric
         updated_metrics = {
@@ -129,7 +125,7 @@ class OnlineBanditLoggerDecorator(Logger):
     @rank_zero_only
     def finalize(self, status: str) -> None:
         """Finalize the experiment. This method is called at the end of training.
-        
+
         Args:
             status: The status of the training.
         """

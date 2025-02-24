@@ -8,6 +8,7 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 class LinearUCBBandit(LinearBandit):
     """Linear Upper Confidence Bound Bandit."""
+
     def __init__(
         self,
         n_features: int,
@@ -16,7 +17,7 @@ class LinearUCBBandit(LinearBandit):
         **kwargs: Any,
     ) -> None:
         """Initializes the LinearUCBBandit.
-        
+
         Args:
             n_features: The number of features in the bandit model.
             selector: The selector used to choose the best action. Default is ArgMaxSelector.
@@ -46,9 +47,9 @@ class LinearUCBBandit(LinearBandit):
             contextualized_actions.shape[2] == self.hparams["n_features"]
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
 
-        result = torch.einsum(
-            "ijk,k->ij", contextualized_actions, self.theta
-        ) + self.hparams["alpha"] * torch.sqrt(
+        result = torch.einsum("ijk,k->ij", contextualized_actions, self.theta) + self.hparams[
+            "alpha"
+        ] * torch.sqrt(
             torch.einsum(
                 "ijk,kl,ijl->ij",
                 contextualized_actions,

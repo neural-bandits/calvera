@@ -9,7 +9,7 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 class NeuralLinearBandit(LinearTSBandit):
     """Lightning Module implementing a Neural Linear bandit.
-    
+
     The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
     A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear head that is trained on the embeddings.
     Since updating the neural network (encoder) is computationally expensive, the neural network is only updated every `embedding_update_interval` steps.
@@ -47,9 +47,7 @@ class NeuralLinearBandit(LinearTSBandit):
 
         super().__init__(n_features=n_embedding_size, selector=selector)
 
-        assert (
-            n_encoder_input_size > 0
-        ), "The number of features must be greater than 0."
+        assert n_encoder_input_size > 0, "The number of features must be greater than 0."
         assert n_embedding_size > 0, "The embedding size must be greater than 0."
         assert (
             encoder_update_freq is None or encoder_update_freq > 0
@@ -126,9 +124,7 @@ class NeuralLinearBandit(LinearTSBandit):
         ), f"Embedded actions must have shape (batch_size, n_arms, n_encoder_input_size). Expected shape {(contextualized_actions.shape[0], contextualized_actions.shape[1], self.hparams['n_embedding_size'])} but got shape {embedded_actions.shape}"
 
         # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward method here: because of inheriting it would call our forward and _predict_action method again.
-        result, p = super()._predict_action(
-            embedded_actions
-        )  # shape: (batch_size, n_arms)
+        result, p = super()._predict_action(embedded_actions)  # shape: (batch_size, n_arms)
 
         assert (
             result.shape[0] == contextualized_actions.shape[0]
@@ -155,8 +151,7 @@ class NeuralLinearBandit(LinearTSBandit):
 
         assert (
             chosen_contextualized_actions.ndim == 3
-            and chosen_contextualized_actions.shape[2]
-            == self.hparams["n_encoder_input_size"]
+            and chosen_contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
         ), "Contextualized actions must have shape (batch_size, n_chosen_arms, n_encoder_input_size)"
 
         assert (
@@ -186,9 +181,7 @@ class NeuralLinearBandit(LinearTSBandit):
         self.contextualized_actions = torch.cat(
             [
                 self.contextualized_actions,
-                chosen_contextualized_actions.view(
-                    -1, chosen_contextualized_actions.size(-1)
-                ),
+                chosen_contextualized_actions.view(-1, chosen_contextualized_actions.size(-1)),
             ],
             dim=0,
         )
@@ -203,16 +196,14 @@ class NeuralLinearBandit(LinearTSBandit):
 
         assert (
             chosen_embedded_actions.shape[0] == chosen_contextualized_actions.shape[0]
-            and chosen_embedded_actions.shape[1]
-            == chosen_contextualized_actions.shape[1]
+            and chosen_embedded_actions.shape[1] == chosen_contextualized_actions.shape[1]
             and chosen_embedded_actions.shape[2] == self.hparams["n_embedding_size"]
         ), "The embeddings produced by the encoder must have the specified size (batch_size, n_chosen_arms, n_embedding_size)."
 
         # Update the neural network and the linear head
         should_update_encoder = (
             self.hparams["encoder_update_freq"] is not None
-            and self.embedded_actions.shape[0] % self.hparams["encoder_update_freq"]
-            == 0
+            and self.embedded_actions.shape[0] % self.hparams["encoder_update_freq"] == 0
         )
         if should_update_encoder:
             self._train_nn()
@@ -256,9 +247,7 @@ class NeuralLinearBandit(LinearTSBandit):
             cost = loss.sum() / batch_size
             cost.backward()  # type: ignore
 
-            torch.nn.utils.clip_grad_norm_(
-                self.net.parameters(), self.hparams["max_grad_norm"]
-            )
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), self.hparams["max_grad_norm"])
 
             self.optimizers().step()  # type: ignore
 
@@ -368,9 +357,7 @@ class NeuralLinearBandit(LinearTSBandit):
         self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)
 
         # should be symmetric
-        assert torch.allclose(
-            self.precision_matrix, self.precision_matrix.T
-        ), "M must be symmetric"
+        assert torch.allclose(self.precision_matrix, self.precision_matrix.T), "M must be symmetric"
 
         # Finally, update the rest of the parameters of the linear head
         self.b += z.T @ y  # shape: (features,)
