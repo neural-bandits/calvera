@@ -1,0 +1,9 @@
+site_name: My Docs
+
+
+plugins:
+  - mkdocstrings
+
+nav:
+  - Docs: index.md
+  - How-To Guides: how-to-guides.md

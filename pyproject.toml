@@ -68,18 +68,21 @@ addopts = "--strict-markers"
 testpaths = ["tests"]
 
 [tool.black]
-line-length = 88
+line-length = 100
 target-version = ["py38", "py39", "py310"]
 
 [tool.isort]
 profile = "black"
 known_third_party = ["numpy"]
-line_length = 88
+line_length = 120
+
+[tool.ruff]
+line-length = 120
 
 [tool.ruff.lint]
 select = [
     # pydocstyle
-    "D",
+    # "D",
     # # pycodestyle
     # "E",
     # # Pyflakes
