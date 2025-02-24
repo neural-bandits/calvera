@@ -78,6 +78,7 @@ line_length = 120
 
 [tool.ruff]
 line-length = 120
+exclude = ["examples/interface.ipynb"]
 
 [tool.ruff.lint]
 select = [
@@ -102,4 +103,5 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
+"examples/**" = ["D"]
 "src/neural_bandits/bandits/**" = ["B008"]

@@ -41,7 +41,7 @@ def test_neural_linear_bandit_forward_shape() -> None:
     ), f"Expected shape {(batch_size, n_arms)}, got {output.shape}"
 
     assert p.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {p.shape}"
-    assert torch.all(0 <= p) and torch.all(p <= 1), "Probabilities should be in [0, 1]"
+    assert torch.all(p >= 0) and torch.all(p <= 1), "Probabilities should be in [0, 1]"
 
 
 def test_neural_linear_bandit_forward_no_network_small_sample() -> None:

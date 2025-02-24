@@ -151,7 +151,7 @@ def test_linear_ucb_correct_variance() -> None:
 
     assert torch.allclose(
         p,
-        torch.ones((1)),
+        torch.ones(1),
     ), "Expected probability of 1 for all arms."
 
 
