@@ -7,6 +7,11 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
 class LinearUCBBandit(LinearBandit):
+    """Linear Upper Confidence Bound (UCB) Bandit implementation.
+
+    Based on: Lattimore et al. "Bandit Algorithms" https://tor-lattimore.com/downloads/book/book.pdf
+    """
+
     def __init__(
         self,
         n_features: int,

@@ -7,6 +7,11 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
 class LinearTSBandit(LinearBandit):
+    """Linear Thompson Sampling (TS) Bandit implementation.
+
+    Based on: Agrawal et al. "Thompson Sampling for Contextual Bandits with Linear Payoffs" https://arxiv.org/abs/1209.3352
+    """
+
     def __init__(
         self,
         n_features: int,

@@ -10,7 +10,9 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 class NeuralLinearBandit(LinearTSBandit):
     """
     Lightning Module implementing a Neural Linear bandit.
-    The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
+
+    Based on: Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling" https://arxiv.org/abs/1802.09127
+
     A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear head that is trained on the embeddings.
     Since updating the neural network (encoder) is computationally expensive, the neural network is only updated every `embedding_update_interval` steps.
     On the other hand, the linear head is updated every `head_update_freq` steps which should be much lower.
