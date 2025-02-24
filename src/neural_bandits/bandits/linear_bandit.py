@@ -6,6 +6,7 @@ from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 
 class LinearBandit(AbstractBandit):
+    # The precision matrix is the inverse of the covariance matrix of the chosen contextualized actions.
     precision_matrix: torch.Tensor
     b: torch.Tensor
     theta: torch.Tensor
