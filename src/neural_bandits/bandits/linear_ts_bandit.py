@@ -100,8 +100,6 @@ class DiagonalPrecApproxLinearTSBandit(LinearTSBandit):
         prec_diagonal = chosen_actions.pow(2).sum(dim=0)
 
         # Update the precision matrix using the diagonal approximation.
-        self.precision_matrix = torch.diag_embed(
-            torch.diag(self.precision_matrix) + prec_diagonal + self.eps
-        )
+        self.precision_matrix.add_(prec_diagonal + self.eps)
 
         return self.precision_matrix
