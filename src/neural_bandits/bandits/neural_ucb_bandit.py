@@ -77,7 +77,6 @@ class NeuralUCBBandit(AbstractBandit):
 
         self.selector = selector
 
-
         self.total_samples: int = 0
         self._trained_once: bool = False
 
