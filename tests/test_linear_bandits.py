@@ -94,7 +94,9 @@ def test_linear_bandit_defaults(BanditClass: BanditClassType) -> None:
     Ensures shapes of precision_matrix, b, theta are correct.
     """
     n_features = 5
-    bandit: LinearBandit = BanditClass(n_features=n_features)
+    bandit: LinearBandit = BanditClass(
+        n_features=n_features, lazy_uncertainty_update=True
+    )
 
     assert bandit.precision_matrix.shape == (
         n_features,
@@ -247,7 +249,7 @@ def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -
     """
     Test if parameters are updated after training step.
     """
-    bandit: LinearBandit = BanditClass(n_features=3)
+    bandit: LinearBandit = BanditClass(n_features=3, lazy_uncertainty_update=True)
     batch_size = 10
     n_features = bandit.n_features
 
@@ -286,7 +288,7 @@ def test_update_correct() -> None:
       theta_new = [0.4]
     """
 
-    bandit = LinearUCBBandit(n_features=1, eps=0.0)
+    bandit = LinearUCBBandit(n_features=1, eps=0.0, lazy_uncertainty_update=True)
 
     chosen_contextualized_actions = torch.tensor([[[2.0]]])  # shape (1,1)
     realized_rewards = torch.tensor([[1.0]])  # shape (1,1)

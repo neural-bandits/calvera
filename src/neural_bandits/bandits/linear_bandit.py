@@ -14,16 +14,20 @@ class LinearBandit(AbstractBandit):
         self,
         n_features: int,
         eps: float = 1e-2,
+        lazy_uncertainty_update: bool = False,
         **kw_args: Any,
     ) -> None:
         """Initializes the LinearBanditModule.
         Args:
             n_features: The number of features in the bandit model.
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
+            lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
+            update step.
         """
         super().__init__()
         self.n_features = n_features
         self.eps = eps
+        self.lazy_uncertainty_update = lazy_uncertainty_update
 
         # Disable Lightning's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
@@ -32,6 +36,7 @@ class LinearBandit(AbstractBandit):
         hyperparameters = {
             "n_features": n_features,
             "eps": eps,
+            "lazy_uncertainty_update": lazy_uncertainty_update,
             **kw_args,
         }
         self.save_hyperparameters(hyperparameters)
@@ -40,6 +45,22 @@ class LinearBandit(AbstractBandit):
         self.register_buffer("precision_matrix", torch.eye(n_features))
         self.register_buffer("b", torch.zeros(n_features))
         self.register_buffer("theta", torch.zeros(n_features))
+
+    def forward(
+        self,
+        contextualized_actions: torch.Tensor,
+        **kwargs: Any,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Predict the best action(s) given the contextualized actions.
+        chosen_actions, p = self._predict_action(contextualized_actions, **kwargs)
+        if not self.lazy_uncertainty_update:
+            chosen_contextualized_actions = contextualized_actions[
+                torch.arange(contextualized_actions.shape[0], device=self.device),
+                chosen_actions.argmax(dim=1),
+            ]
+            self._update_precision_matrix(chosen_contextualized_actions)
+
+        return chosen_actions, p
 
     def _update(
         self,
@@ -113,7 +134,22 @@ class LinearBandit(AbstractBandit):
         realized_rewards = realized_rewards.squeeze(1)
         # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
-        # Calculate new precision Matrix M using the Sherman-Morrison-Woodbury formula.
+        if self.lazy_uncertainty_update:
+            self._update_precision_matrix(chosen_actions)
+
+        self.b.add_(chosen_actions.T @ realized_rewards)  # shape: (features,)
+        self.theta.copy_(self.precision_matrix @ self.b)
+
+        assert (
+            self.b.ndim == 1 and self.b.shape[0] == self.n_features
+        ), "updated b should have shape (n_features,)"
+
+        assert (
+            self.theta.ndim == 1 and self.theta.shape[0] == self.n_features
+        ), "Theta should have shape (n_features,)"
+
+    def _update_precision_matrix(self, chosen_actions: torch.Tensor) -> torch.Tensor:
+        # Calculate new precision matrix using the Sherman-Morrison-Woodbury formula.
         batch_size = chosen_actions.shape[0]
         inverse_term = torch.inverse(
             torch.eye(batch_size, device=self.device)
@@ -130,21 +166,11 @@ class LinearBandit(AbstractBandit):
         self.precision_matrix.mul_(0.5).add_(self.precision_matrix.T.clone())
 
         self.precision_matrix.add_(
-            torch.eye(self.n_features, device=self.device) * self.eps
+            torch.eye(self.precision_matrix.shape[0], device=self.device) * self.eps
         )  # add small value to diagonal to ensure invertibility
 
         # should be symmetric
         assert torch.allclose(
             self.precision_matrix, self.precision_matrix.T
         ), "M must be symmetric"
-
-        self.b.add_(chosen_actions.T @ realized_rewards)  # shape: (features,)
-        self.theta.copy_(self.precision_matrix @ self.b)
-
-        assert (
-            self.b.ndim == 1 and self.b.shape[0] == self.n_features
-        ), "updated b should have shape (n_features,)"
-
-        assert (
-            self.theta.ndim == 1 and self.theta.shape[0] == self.n_features
-        ), "Theta should have shape (n_features,)"
+        return self.precision_matrix
