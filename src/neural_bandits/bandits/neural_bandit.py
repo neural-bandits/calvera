@@ -77,6 +77,7 @@ class NeuralBandit(AbstractBandit, ABC):
 
         self.total_samples: int = 0
         self._trained_once: bool = False
+        self._last_training_divisor: int = 0  # Used to track when to train
 
         # Model parameters
 
@@ -213,17 +214,20 @@ class NeuralBandit(AbstractBandit, ABC):
         self.reward_history.append(realized_rewards)
 
         # Train network based on schedule
-        should_train = self.total_samples < self.hparams["initial_train_steps"] or (
-            self.total_samples >= self.hparams["initial_train_steps"]
-            and (self.total_samples - self.hparams["initial_train_steps"])
-            % self.hparams["train_interval"]
-            == 0
+        should_train = self.total_samples < self.hparams[
+            "initial_train_steps"
+        ] or self._last_training_divisor <= int(
+            (self.total_samples - self.hparams["initial_train_steps"])
+            / self.hparams["train_interval"]
         )
 
         if should_train:
             loss = self._train_network()
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
             self._trained_once = True
+            self._last_training_divisor += (
+                1 if self.total_samples >= self.hparams["initial_train_steps"] else 0
+            )
 
         # Logging
         self.log(
