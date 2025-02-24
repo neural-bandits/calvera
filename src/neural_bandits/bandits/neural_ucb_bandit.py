@@ -76,6 +76,7 @@ class NeuralUCBBandit(AbstractBandit):
         self.save_hyperparameters(hyperparameters)
 
         self.selector = selector
+
         self._trained_once: bool = False
         self._samples_after_initial = 0
 
