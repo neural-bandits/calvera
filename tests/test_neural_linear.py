@@ -100,22 +100,22 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 
     # Set the bandit's theta to select the first feature (x1)
     bandit.theta = torch.tensor([1.0, 0.0])
-    # Decrease the precision matrix to make the selection more deterministic
-    bandit.precision_matrix = torch.tensor([[0.01, 0.0], [0.0, 0.01]])
-
-    output, _ = bandit(contextualized_actions)
-    assert output.shape == (1, 2)
-    # assert that the correct action is selected
-    assert torch.all(output == torch.tensor([[0, 1]]))
-
-    # now change the weights of the head to only regard the second feature (x2)
-    bandit.theta = torch.tensor([0.0, 1.0])
-    bandit.precision_matrix = torch.tensor([[0.01, 0.0], [0.0, 0.01]])
+    # Increase the precision matrix to make the selection more deterministic
+    bandit.precision_matrix = torch.tensor([[1000, 0.0], [0.0, 1000]])
 
     output, _ = bandit(contextualized_actions)
     assert output.shape == (1, 2)
     # assert that the correct action is selected
     assert torch.all(output == torch.tensor([[1, 0]]))
+
+    # now change the weights of the head to only regard the second feature (x2)
+    bandit.theta = torch.tensor([0.0, 1.0])
+    bandit.precision_matrix = torch.tensor([[1000, 0.0], [0.0, 1000]])
+
+    output, _ = bandit(contextualized_actions)
+    assert output.shape == (1, 2)
+    # assert that the correct action is selected
+    assert torch.all(output == torch.tensor([[0, 1]]))
 
     # TODO: test output probabilities are correct
 
