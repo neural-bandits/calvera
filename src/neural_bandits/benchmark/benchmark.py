@@ -16,9 +16,7 @@ from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
 from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.benchmark.datasets.abstract_dataset import (
-    AbstractDataset,
-)
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
 from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from neural_bandits.benchmark.datasets.mnist import MNISTDataset
