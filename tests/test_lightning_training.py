@@ -8,6 +8,7 @@ from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
 from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
+from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
 
 n_features = 3
 
@@ -24,6 +25,10 @@ n_features = 3
             n_network_input_size=n_features,
         ),
         NeuralUCBBandit(
+            n_features,
+            nn.Sequential(nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, 1)),
+        ),
+        NeuralTSBandit(
             n_features,
             nn.Sequential(nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, 1)),
         ),
