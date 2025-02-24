@@ -39,8 +39,8 @@ class LinearTSBandit(LinearBandit):
             A tuple containing:
             - chosen_actions: The one-hot encoded tensor of the chosen actions.
                 Shape: (batch_size, n_arms).
-            - p: The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
-                Shape: (batch_size, ).
+            - p: The probability of the chosen actions. For now we always return 1 but we might return the actual
+                probability in the future. Shape: (batch_size, ).
         """
         assert (
             contextualized_actions.shape[2] == self.n_features
@@ -64,8 +64,8 @@ class LinearTSBandit(LinearBandit):
                 Shape: (batch_size, n_features).
 
         Returns:
-            The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
-                Shape: (batch_size, ).
+            The probability of the chosen actions. For now we always return 1 but we might return the actual probability
+                in the future. Shape: (batch_size, ).
         """
         # TODO: Implement the actual probability computation for Thompson Sampling.
         return torch.ones(contextualized_actions.shape[0], device=contextualized_actions.device)

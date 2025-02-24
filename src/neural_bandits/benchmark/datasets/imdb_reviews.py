@@ -105,8 +105,8 @@ def _preprocess_text(text: str) -> str:
 class ImdbMovieReviews(AbstractDataset[TextItemType]):
     """A dataset for the IMDB movie reviews sentiment classification task.
 
-    See https://ai.stanford.edu/~amaas/data/sentiment/ for further information. The dataset consists of 25,000 highly polar
-    movie reviews for training, and 25,000 for testing. There is additional unlabeled data for use as well.
+    See https://ai.stanford.edu/~amaas/data/sentiment/ for further information. The dataset consists of 25,000 highly
+    polar movie reviews for training, and 25,000 for testing. There is additional unlabeled data for use as well.
     """
 
     num_actions: int = 2  # 1 for positive, 0 for negative
@@ -127,7 +127,8 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
         """Initialize the IMDB movie reviews dataset.
 
         Args:
-            dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded to the current directory.
+            dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded
+                to the current directory.
             partition: The partition of the dataset to use. Either "train" or "test".
             max_len: The maximum length of the input text. If the text is longer than this, it will be truncated.
             tokenizer: A tokenizer from the `transformers` library. If None, the `BertTokenizer` will be used.

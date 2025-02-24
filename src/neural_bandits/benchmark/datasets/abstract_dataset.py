@@ -22,8 +22,9 @@ class AbstractDataset(ABC, Generic[ItemType], Dataset[Tuple[ItemType, torch.Tens
     Subclasses should have the following to attributes:
     - num_actions  -- The maximum number of actions available to the agent.
     - context_size --  The standard size of the context vector.
-        If `needs_disjoint_contextualization` is set to True, the context size will be multiplied by the number of actions.
-        This is useful for datasets where the context is the same for all actions like multi-class classification.
+        If `needs_disjoint_contextualization` is set to True, the context size will be multiplied by the number of
+        actions. This is useful for datasets where the context is the same for all actions like multi-class
+        classification.
     """
 
     num_actions: int

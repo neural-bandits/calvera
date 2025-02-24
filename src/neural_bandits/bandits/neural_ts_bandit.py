@@ -100,7 +100,8 @@ class NeuralTSBandit(AbstractBandit):
         Returns:
             tuple:
             - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, num_actions).
-            - p: The probability of the chosen actions. Currently always 1, may be updated in future. Shape: (batch_size, ).
+            - p: The probability of the chosen actions. Currently always 1, may be updated in future.
+                Shape: (batch_size,).
         """
         contextualized_actions = contextualized_actions.to(self.device)
         batch_size, n_arms, n_features = contextualized_actions.shape

@@ -11,8 +11,8 @@ class BanditBenchmarkEnvironment:
     """Environment that iterates over a DataLoader, yielding only `contextualized_actions`.
 
     Internally stores `rewards`, which can be retrieved by a helper method.
-    This is used to simulate a bandit environment with delayed feedback where the bandit can only see the actions and not the rewards.
-    The bandit should first sample `contextualized_actions` by iterating over the environment.
+    This is used to simulate a bandit environment with delayed feedback where the bandit can only see the actions
+    and not the rewards. The bandit should first sample `contextualized_actions` by iterating over the environment.
     The bandit can then choose the best actions.
     Finally, the bandit can receive rewards by calling `get_rewards_dataset(chosen_actions)`.
     Since this is a simulation, the bandit can also compute the regret by calling `compute_regret(chosen_actions)`.
@@ -70,10 +70,12 @@ class BanditBenchmarkEnvironment:
 
         assert contextualized_actions.size(0) == all_rewards.size(
             0
-        ), f"Mismatched batch size of contextualized_actions and all_rewards tensors. Received {contextualized_actions.size(0)} and {all_rewards.size(0)}."
+        ), f"Mismatched batch size of contextualized_actions and all_rewards tensors. \
+            Received {contextualized_actions.size(0)} and {all_rewards.size(0)}."
         assert contextualized_actions.size(1) == all_rewards.size(
             1
-        ), f"Mismatched number of actions in contextualized_actions and all_rewards tensors. Received {contextualized_actions.size(1)} and {all_rewards.size(1)}."
+        ), f"Mismatched number of actions in contextualized_actions and all_rewards tensors. \
+            Received {contextualized_actions.size(1)} and {all_rewards.size(1)}."
 
         # Store them so we can fetch them later when building the update dataset
         self._last_contextualized_actions = contextualized_actions
@@ -87,7 +89,8 @@ class BanditBenchmarkEnvironment:
         For combinatorial bandits, this feedback is semi-bandit feedback.
 
         Args:
-            chosen_actions: shape (n, m) (one-hot, possibly multiple "1"s). The actions chosen by the bandit. Must contain at least one and the same number of chosen actions ("1s") for all rows.
+            chosen_actions: shape (n, m) (one-hot, possibly multiple "1"s). The actions chosen by the bandit. Must
+                contain at least one and the same number of chosen actions ("1s") for all rows.
 
         Returns:
             BanditFeedbackDataset with the chosen actions (shape: (n, m, k)) and realized rewards (shape: (n, m)).
@@ -112,7 +115,8 @@ class BanditBenchmarkEnvironment:
         Important: For combinatorial bandits assumes that the reward of a super-action is the sum of each chosen arm.
 
         Args:
-            chosen_actions: shape (n, k), one-hot, possibly multiple "1"s. The actions chosen by the bandit. Must contain at least one and the same number of chosen actions ("1s") for all rows.
+            chosen_actions: shape (n, k), one-hot, possibly multiple "1"s. The actions chosen by the bandit. Must
+                contain at least one and the same number of chosen actions ("1s") for all rows.
 
         Returns:
             Tensor of regrets shape (n, ).
@@ -130,10 +134,12 @@ class BanditBenchmarkEnvironment:
 
         assert chosen_actions.size(0) == self._last_contextualized_actions.size(
             0
-        ), f"Mismatched batch size of chosen_actions and contextualized_actions tensors. Received {chosen_actions.size(0)} and {self._last_contextualized_actions.size(0)}."
+        ), f"Mismatched batch size of chosen_actions and contextualized_actions tensors. \
+            Received {chosen_actions.size(0)} and {self._last_contextualized_actions.size(0)}."
         assert chosen_actions.size(1) == self._last_contextualized_actions.size(
             1
-        ), f"Mismatched number of actions in chosen_actions and contextualized_actions tensors. Received {chosen_actions.size(1)} and {self._last_contextualized_actions.size(1)}."
+        ), f"Mismatched number of actions in chosen_actions and contextualized_actions tensors. \
+            Received {chosen_actions.size(1)} and {self._last_contextualized_actions.size(1)}."
 
         assert (chosen_actions.sum(dim=1) > 0).all(), "No actions were chosen in some rows."
         assert (

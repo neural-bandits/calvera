@@ -45,9 +45,9 @@ class AbstractBandit(ABC, pl.LightningModule):
         """Forward pass, computed batch-wise.
 
         Given the contextualized actions, selects a single best action, or a set of actions in the case of combinatorial
-        bandits. Next to the action(s), the selector also returns the probability of chosing this action. This will allow
-        for logging and Batch Learning from Logged Bandit Feedback (BLBF). Deterministic algorithms like UCB will always
-        return 1.
+        bandits. Next to the action(s), the selector also returns the probability of chosing this action. This will
+        allow for logging and Batch Learning from Logged Bandit Feedback (BLBF). Deterministic algorithms like UCB will
+        always return 1.
 
         Args:
             contextualized_actions: Tensor of shape (batch_size, n_actions, n_features).
@@ -58,8 +58,8 @@ class AbstractBandit(ABC, pl.LightningModule):
             - chosen_actions: One-hot encoding of which actions were chosen.
                 Shape: (batch_size, n_chosen_actions).
             - p: The probability of the chosen actions. In the combinatorial case,
-                this will be one probability for the super set of actions. Deterministic algorithms (like UCB) should always return 1.
-                Shape: (batch_size, ).
+                this will be one probability for the super set of actions. Deterministic algorithms (like UCB) should
+                always return 1. Shape: (batch_size, ).
         """
         pass
 
@@ -67,8 +67,8 @@ class AbstractBandit(ABC, pl.LightningModule):
         """Perform a single update step.
 
         See the documentation for the LightningModule's `training_step` method.
-        Acts as a wrapper for the `_update` method in case we want to change something for every bandit or use the update
-        independently from lightning, e.g. in tests.
+        Acts as a wrapper for the `_update` method in case we want to change something for every bandit or use the
+        update independently from lightning, e.g. in tests.
 
         Args:
             batch: The output of your data iterable, usually a DataLoader:

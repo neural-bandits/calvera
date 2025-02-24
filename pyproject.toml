@@ -68,7 +68,7 @@ addopts = "--strict-markers"
 testpaths = ["tests"]
 
 [tool.black]
-line-length = 100
+line-length = 120
 target-version = ["py38", "py39", "py310"]
 
 [tool.isort]
@@ -82,20 +82,24 @@ line-length = 120
 [tool.ruff.lint]
 select = [
     # pydocstyle
-    # "D",
+    "D",
     # # pycodestyle
-    # "E",
+    "E",
     # # Pyflakes
-    # "F",
+    "F",
     # # pyupgrade
-    # "UP",
+    "UP",
     # # flake8-bugbear
-    # "B",
+    "B",
     # # flake8-simplify
-    # "SIM",
+    "SIM",
     # # isort
     # "I",
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"src/neural_bandits/bandits/**" = ["B008"]

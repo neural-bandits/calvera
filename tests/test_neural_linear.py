@@ -257,9 +257,13 @@ def test_neural_linear_bandit_hparams_effect() -> None:
 
     # Check hparams
     assert bandit.hparams["n_encoder_input_size"] == n_features
+    
+    # these are the features after embedding that are input into the linear head... 
+    # this is a little ugly but it comes from the inheritance of the LinearTSBandit
     assert (
         bandit.hparams["n_features"] == n_embedding_size
-    )  # these are the features after embedding that are input into the linear head... this is a little ugly but it comes from the inheritance of the LinearTSBandit
+    )  
+    
     assert bandit.hparams["n_embedding_size"] == n_embedding_size
     assert bandit.hparams["encoder_update_freq"] == 10
     assert bandit.hparams["head_update_freq"] == 5

@@ -13,7 +13,8 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 class NeuralUCBBandit(AbstractBandit):
     """NeuralUCB bandit implementation as a PyTorch Lightning module.
 
-    The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for exploration.
+    The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for
+    exploration.
 
     Attributes:
         automatic_optimization: Boolean indicating if Lightning should handle optimization.

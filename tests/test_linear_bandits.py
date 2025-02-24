@@ -119,7 +119,7 @@ def test_linear_ucb_correct_mean() -> None:
 
     assert torch.allclose(
         p,
-        torch.ones((1)),
+        torch.ones(1),
     ), "Expected probability of 1 for all arms."
 
 
@@ -186,7 +186,7 @@ def test_linear_ucb_alpha() -> None:
 
     assert torch.allclose(
         p,
-        torch.ones((1)),
+        torch.ones(1),
     ), "Expected probability of 1 for all arms."
 
 

@@ -41,13 +41,15 @@ def test_environment_iteration(
     # The environment returns only contextualized_actions on each iteration
     # We check that we get shape (1, 3, 4) each time from batch_size=1
     previous_all_rewards = None
-    for i, batch_contexts in enumerate(env):
+    for batch_contexts in env:
         assert batch_contexts.shape == (1, 3, 4)
         # environment stored them internally
         assert env._last_contextualized_actions is not None and torch.allclose(
             env._last_contextualized_actions, batch_contexts
         )
-        assert (previous_all_rewards is None and env._last_all_rewards is not None) or not torch.allclose(env._last_all_rewards, previous_all_rewards)  # type: ignore
+        assert (previous_all_rewards is None and env._last_all_rewards is not None) or (
+            not torch.allclose(env._last_all_rewards, previous_all_rewards)  # type: ignore
+        )
         previous_all_rewards = env._last_all_rewards
 
 

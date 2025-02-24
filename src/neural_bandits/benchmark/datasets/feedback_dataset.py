@@ -6,8 +6,8 @@ class BanditFeedbackDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """Dataset that contains only those actions & rewards chosen by the bandit.
 
     It is used to do a single update on the bandit. Supports multiple chosen actions (combinatorial bandits) but must be
-    the same for all rows. This is form of feedback is called semi-bandit feedback because we receive one reward per chosen
-    action.
+    the same for all rows. This is form of feedback is called semi-bandit feedback because we receive one reward per
+    chosen action.
     """
 
     def __init__(
@@ -29,10 +29,12 @@ class BanditFeedbackDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
 
         assert chosen_contextualized_actions.size(0) == realized_rewards.size(
             0
-        ), f"Mismatched size of chosen_contextualized_actions and realized_rewards tensors. Received {chosen_contextualized_actions.size(0)} and {realized_rewards.size(0)}."
+        ), f"Mismatched size of chosen_contextualized_actions and realized_rewards tensors. \
+            Received {chosen_contextualized_actions.size(0)} and {realized_rewards.size(0)}."
         assert chosen_contextualized_actions.size(1) == realized_rewards.size(
             1
-        ), f"Mismatched size of chosen_contextualized_actions and realized_rewards tensors. Received {chosen_contextualized_actions.size(1)} and {realized_rewards.size(1)}."
+        ), f"Mismatched size of chosen_contextualized_actions and realized_rewards tensors. \
+            Received {chosen_contextualized_actions.size(1)} and {realized_rewards.size(1)}."
 
         # chosen_contextualized_actions: [n, i, k]
         self.chosen_contextualized_actions = chosen_contextualized_actions
