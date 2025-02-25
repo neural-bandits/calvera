@@ -124,6 +124,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             "rewards", torch.empty(0, device=self.device)
         )  # shape: (buffer_size,)
         self.buffer = buffer
+        self.num_samples = 0
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
@@ -218,10 +219,12 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             prog_bar=True,
         )
 
+        self.num_samples += batch_size
+
         # Decide if we should update the neural network and the linear head
         should_update_network = (
             self.hparams["network_update_freq"] is not None
-            and len(self.buffer) % self.hparams["network_update_freq"] == 0
+            and self.num_samples % self.hparams["network_update_freq"] == 0
         )
 
         self._update_replay_buffer(
@@ -234,10 +237,9 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             self._train_nn()
             self._update_embeddings()
 
-        # TODO: len(self.buffer) is unreliable
         should_update_head = (
             self.hparams["head_update_freq"] is not None
-            and len(self.buffer) % self.hparams["head_update_freq"] == 0
+            and self.num_samples % self.hparams["head_update_freq"] == 0
         )
         if should_update_head or should_update_network:
             self._update_head()
@@ -378,7 +380,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         # Retrain on the whole buffer
         batch_size: int = cast(int, self.hparams["network_update_batch_size"])
-        num_steps = math.ceil(len(self.buffer) / batch_size)
+        num_steps = math.ceil(self.num_samples / batch_size)
 
         self.network.train()
         self.helper_network.reset_linear_head()
@@ -434,20 +436,19 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
     def _update_embeddings(self) -> None:
         """Update the embeddings of the neural linear bandit"""
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
-        num_samples = len(self.buffer)
         contexts, _, _ = self.buffer.get_batch(
-            num_samples
+            self.num_samples
         )  # shape: (num_samples, n_network_input_size)
 
         new_embedded_actions = torch.empty(
-            num_samples, self.hparams["n_embedding_size"], device=self.device
+            self.num_samples, self.hparams["n_embedding_size"], device=self.device
         )
 
         self.network.eval()
 
         batch_size = cast(int, self.hparams["network_update_batch_size"])
         with torch.no_grad():
-            for i in range(0, num_samples, batch_size):
+            for i in range(0, self.num_samples, batch_size):
                 if isinstance(contexts, torch.Tensor):
                     batch_input = cast(
                         ActionInputType,
@@ -494,7 +495,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         )
 
         # Update the linear head
-        _, z, y = self.buffer.get_batch(len(self.buffer))
+        _, z, y = self.buffer.get_batch(self.num_samples)
         z = z.to(self.device) if z is not None else None
         y = y.to(self.device)
 
