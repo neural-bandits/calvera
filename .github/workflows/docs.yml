@@ -36,6 +36,10 @@ jobs:
           cache-environment-key: micromamba-env-${{ hashFiles('environment.yml') }}
           init-shell: >-
             bash
+      
+      - name: Install Neural-Bandits
+        run: pip install -e .
+        shell: micromamba-shell {0}
 
       - run: mkdocs build --config-file mkdocs.yml
       - name: Upload artifact
