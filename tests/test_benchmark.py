@@ -1,5 +1,6 @@
 from neural_bandits.benchmark.benchmark import run
 
+
 def test_benchmark():
     # we just test that the benchmark runs without errors
     run(

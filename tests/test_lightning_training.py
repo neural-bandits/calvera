@@ -5,12 +5,12 @@ import torch.nn as nn
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit, ActionInputType
 from neural_bandits.bandits.linear_ts_bandit import (
-    LinearTSBandit,
     DiagonalPrecApproxLinearTSBandit,
+    LinearTSBandit,
 )
 from neural_bandits.bandits.linear_ucb_bandit import (
-    LinearUCBBandit,
     DiagonalPrecApproxLinearUCBBandit,
+    LinearUCBBandit,
 )
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
