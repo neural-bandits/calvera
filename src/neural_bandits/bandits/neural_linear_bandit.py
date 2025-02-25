@@ -60,8 +60,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
     def __init__(
         self,
         network: torch.nn.Module,
-        n_network_input_size: int,
-        n_embedding_size: Optional[int] = None,
+        n_embedding_size: int,
         selector: AbstractSelector = ArgMaxSelector(),
         network_update_freq: int = 32,
         network_update_batch_size: int = 32,
@@ -74,8 +73,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         Args:
             network: The neural network to be used to encode the input data into an embedding.
-            n_network_input_size: The number of features in the input data.
-            n_embedding_size: The size of the embedding produced by the neural network. Defaults to n_network_input_size.
+            n_embedding_size: The size of the embedding produced by the neural network.
             selector: The selector used to choose the best action. Default is ArgMaxSelector.
             network_update_freq: The interval (in steps) at which the neural network is updated. Default is 32. None means the neural network is never updated.
             network_update_batch_size: The batch size for the neural network update. Default is 32.
@@ -84,14 +82,8 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             max_grad_norm: The maximum norm of the gradients for the neural network. Default is 5.0.
             eta: The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). Default is 6.0.
         """
-        if n_embedding_size is None:
-            n_embedding_size = n_network_input_size
-
         super().__init__(n_features=n_embedding_size, selector=selector)
 
-        assert (
-            n_network_input_size > 0
-        ), "The number of features must be greater than 0."
         assert n_embedding_size > 0, "The embedding size must be greater than 0."
         assert (
             network_update_freq is None or network_update_freq > 0
@@ -102,7 +94,6 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         self.save_hyperparameters(
             {
-                "n_network_input_size": n_network_input_size,
                 "n_embedding_size": n_embedding_size,  # same as n_features
                 "network_update_freq": network_update_freq,
                 "network_update_batch_size": network_update_batch_size,
@@ -317,8 +308,6 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         if isinstance(contextualized_actions, torch.Tensor):
             assert (
                 contextualized_actions.ndim == 3
-                and contextualized_actions.shape[2]
-                == self.hparams["n_network_input_size"]
             ), f"Contextualized actions must have shape (batch_size, n_chosen_arms, n_network_input_size) but got shape {contextualized_actions.shape}"
 
             batch_size, n_arms, n_network_input_size = contextualized_actions.shape
@@ -349,8 +338,8 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
                     input_part.ndim == 3
                     and input_part.shape[0] == batch_size
                     and input_part.shape[1] == n_arms
-                    and input_part.shape[2] == self.hparams["n_network_input_size"]
-                ), f"All parts of the contextualized actions inputs must have shape (batch_size, n_chosen_arms, n_network_input_size). Expected shape {(batch_size, n_arms, self.hparams['n_network_input_size'])} but got shape {input_part.shape} for the {i}-th part."
+                    and input_part.shape[2] == n_network_input_size
+                ), f"All parts of the contextualized actions inputs must have shape (batch_size, n_chosen_arms, n_network_input_size). Expected shape {(batch_size, n_arms, n_network_input_size)} but got shape {input_part.shape} for the {i}-th part."
                 # We flatten the input because e.g. BERT expects a tensor of shape (batch_size, sequence_length) and not (batch_size, sequence_length, hidden_size)
                 flattened_actions_list.append(input_part.view(-1, n_network_input_size))
 

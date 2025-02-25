@@ -1,4 +1,4 @@
-import lightning as tl
+import lightning as pl
 import pytest
 import torch
 import torch.nn as nn
@@ -13,6 +13,11 @@ from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
 n_features = 3
 
 
+@pytest.fixture(autouse=True)
+def seed_tests() -> None:
+    pl.seed_everything(42)
+
+
 @pytest.mark.parametrize(
     "bandit",
     [
@@ -22,7 +27,6 @@ n_features = 3
             network=nn.Sequential(
                 nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, n_features)
             ),
-            n_network_input_size=n_features,
         ),
         NeuralUCBBandit(
             n_features,
@@ -41,7 +45,7 @@ def test_trainer_fit_runs(bandit: AbstractBandit[ActionInputType]) -> None:
 
     dataset = torch.utils.data.TensorDataset(torch.randn(10, 1, 3), torch.rand(10, 1))
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=2)
-    tl.Trainer(fast_dev_run=True).fit(bandit, dataloader)
+    pl.Trainer(fast_dev_run=True).fit(bandit, dataloader)
 
     contextualized_actions = torch.randn(10, 2, 3)
     result, p = bandit.forward(contextualized_actions)

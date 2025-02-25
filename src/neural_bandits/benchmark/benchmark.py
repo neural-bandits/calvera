@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
-from transformers import BertForSequenceClassification
+from transformers import BertModel
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit, ActionInputType
 from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
@@ -301,9 +301,7 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
         torch.nn.ReLU(),
         torch.nn.Linear(64, out_size),
     ),
-    "bert": lambda a, b: BertForSequenceClassification.from_pretrained(
-        "google/bert_uncased_L-2_H-128_A-2", num_labels=2
-    ),
+    "bert": lambda a, b: BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2"),
 }
 
 

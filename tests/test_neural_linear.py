@@ -30,7 +30,6 @@ def test_neural_linear_bandit_forward_shape() -> None:
 
     # Create bandit
     bandit: NeuralLinearBandit[torch.Tensor] = NeuralLinearBandit(
-        n_network_input_size=n_features,
         n_embedding_size=n_embeddings,  # same as input if network is identity
         network=network,
     )
@@ -56,7 +55,6 @@ def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
     n_features = 2
     network = nn.Identity()
     bandit: NeuralLinearBandit[torch.Tensor] = NeuralLinearBandit(
-        n_network_input_size=n_features,
         n_embedding_size=n_features,
         network=network,
     )
@@ -90,7 +88,6 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
     network[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 0.1]])
 
     bandit: NeuralLinearBandit[torch.Tensor] = NeuralLinearBandit(
-        n_network_input_size=n_features,
         n_embedding_size=n_features,
         network=network,
     )
@@ -176,7 +173,6 @@ def test_neural_linear_bandit_training_step(
 
     bandit: NeuralLinearBandit[torch.Tensor] = NeuralLinearBandit(
         network=network,
-        n_network_input_size=n_features,
         n_embedding_size=n_embedding_size,
         network_update_freq=4,
         head_update_freq=2,
@@ -271,7 +267,6 @@ def test_neural_linear_bandit_hparams_effect() -> None:
 
     bandit: NeuralLinearBandit[torch.Tensor] = NeuralLinearBandit(
         network=network,
-        n_network_input_size=n_features,
         n_embedding_size=n_embedding_size,
         network_update_freq=10,
         head_update_freq=5,
@@ -279,7 +274,6 @@ def test_neural_linear_bandit_hparams_effect() -> None:
     )
 
     # Check hparams
-    assert bandit.hparams["n_network_input_size"] == n_features
     assert (
         bandit.hparams["n_features"] == n_embedding_size
     )  # these are the features after embedding that are input into the linear head... this is a little ugly but it comes from the inheritance of the LinearTSBandit
@@ -381,7 +375,6 @@ def test_neural_linear_bandit_tuple_input(
 
     bandit: NeuralLinearBandit[tuple[torch.Tensor, torch.Tensor]] = NeuralLinearBandit(
         network=network,
-        n_network_input_size=n_features,
         n_embedding_size=n_embedding_size,
         network_update_freq=batch_size,
         head_update_freq=1,
