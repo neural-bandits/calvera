@@ -46,10 +46,6 @@ jobs:
           init-shell: >-
             bash
 
-      - name: Activate environment
-        run: eval "$(micromamba shell hook --shell bash)" && micromamba activate neural_bandits
-        shell: bash
-
       - name: Run Mypy
         run: make mypy
         shell: micromamba-shell {0}

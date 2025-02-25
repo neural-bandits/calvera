@@ -36,12 +36,11 @@ jobs:
           cache-environment-key: micromamba-env-${{ hashFiles('environment.yml') }}
           init-shell: >-
             bash
-      
-      - name: Activate environment
-        run: eval "$(micromamba shell hook --shell bash)" && micromamba activate neural_bandits
-        shell: bash
 
-      - run: mkdocs build --config-file mkdocs.yml
+      - name: Build documentation
+        run: mkdocs build --config-file mkdocs.yml
+        shell: micromamba-shell {0}
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
