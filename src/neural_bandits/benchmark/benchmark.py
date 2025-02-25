@@ -234,7 +234,7 @@ class BenchmarkAnalyzer:
             return
 
         plt.figure(figsize=(10, 5))
-        plt.plot(self.df["loss"])
+        plt.plot(self.df["loss"].dropna())
         plt.xlabel("Step")
         plt.ylabel("Loss")
         plt.title("Loss over training steps")
