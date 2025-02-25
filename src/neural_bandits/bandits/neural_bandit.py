@@ -13,7 +13,7 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 class NeuralBandit(AbstractBandit, ABC):
     """Baseclass for both NeuralTS and NeuralUCB.
-    
+
     Implements most oft the logic except for the `_score` function. This function is
     implemented in the subclasses and is responsible for calculating the scores passed to the selector.
     """
