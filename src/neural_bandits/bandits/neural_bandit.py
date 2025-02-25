@@ -25,7 +25,7 @@ class NeuralBandit(AbstractBandit, ABC):
         n_features: int,
         network: nn.Module,
         buffer: AbstractBanditDataBuffer,
-        selector: AbstractSelector = ArgMaxSelector(),
+        selector: Optional[AbstractSelector] = None,
         lambda_: float = 0.00001,
         nu: float = 0.00001,
         train_batch_size: int = 32,
@@ -43,7 +43,7 @@ class NeuralBandit(AbstractBandit, ABC):
             n_features: Number of input features.
             network: Neural network module for function approximation.
             buffer: Buffer for storing bandit interaction data.
-            selector: Action selector for the bandit. Defaults to ArgMaxSelector.
+            selector: Action selector for the bandit. Defaults to ArgMaxSelector (if None).
             lambda_: Regularization parameter.
             nu: Exploration parameter for UCB.
             train_batch_size: Size of mini-batches for training. Defaults to 32.
@@ -78,7 +78,7 @@ class NeuralBandit(AbstractBandit, ABC):
         }
         self.save_hyperparameters(hyperparameters)
 
-        self.selector = selector
+        self.selector = selector if selector is not None else ArgMaxSelector()
 
         self._trained_once: bool = False
         self._last_training_divisor: int = 0  # Used to track when to train

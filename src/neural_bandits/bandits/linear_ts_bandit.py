@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 import torch
 
@@ -15,18 +15,18 @@ class LinearTSBandit(LinearBandit):
     def __init__(
         self,
         n_features: int,
-        selector: AbstractSelector = ArgMaxSelector(),
+        selector: Optional[AbstractSelector] = None,
         **kwargs: Any,
     ) -> None:
         """Initializes the LinearTSBandit.
 
         Args:
             n_features: The number of features in the bandit model.
-            selector: The selector used to choose the best action. Default is ArgMaxSelector.
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             kwargs: Additional keyword arguments. Passed to the parent class. See `LinearBandit`.
         """
         super().__init__(n_features, **kwargs)
-        self.selector = selector
+        self.selector = selector if selector is not None else ArgMaxSelector()
 
     def _predict_action(self, contextualized_actions: torch.Tensor, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
         """Given contextualized actions, predicts the best action using LinTS.

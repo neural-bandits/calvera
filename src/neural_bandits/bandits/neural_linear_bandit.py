@@ -5,7 +5,7 @@ from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
 from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
 from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
-from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
+from neural_bandits.utils.selectors import AbstractSelector
 
 
 class NeuralLinearBandit(LinearTSBandit):
@@ -29,7 +29,7 @@ class NeuralLinearBandit(LinearTSBandit):
         buffer: AbstractBanditDataBuffer,
         n_encoder_input_size: int,
         n_embedding_size: Optional[int],
-        selector: AbstractSelector = ArgMaxSelector(),
+        selector: Optional[AbstractSelector] = None,
         encoder_update_freq: int = 32,
         encoder_update_batch_size: int = 32,
         head_update_freq: int = 1,
@@ -43,7 +43,7 @@ class NeuralLinearBandit(LinearTSBandit):
             buffer: Buffer for storing bandit interaction data.
             n_encoder_input_size: The number of features in the input data.
             n_embedding_size: The size of the embedding produced by the encoder model. Defaults to n_encoder_input_size.
-            selector: The selector used to choose the best action. Default is ArgMaxSelector.
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             encoder_update_freq: The interval (in steps) at which the encoder model is updated. Default is 32.
                 None means the encoder model is never updated.
             encoder_update_batch_size: The batch size for the encoder model update. Default is 32.

@@ -105,4 +105,3 @@ convention = "google"
 "tests/**" = ["D"]
 "examples/**" = ["D"] 
 "src/**" = ["D100", "D104"] # Missing docstring in public module / package
-"src/neural_bandits/bandits/**" = ["B008"] # Do not perform calls in argument defaults -> fix selectors

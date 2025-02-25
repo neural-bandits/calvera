@@ -3,10 +3,6 @@ on:
   push:
     branches:
       - main
-      # - docs # Could be nice for testing before pushing to main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
