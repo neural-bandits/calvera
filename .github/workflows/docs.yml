@@ -37,9 +37,9 @@ jobs:
           init-shell: >-
             bash
       
-      - name: Install Neural-Bandits
-        run: pip install -e .
-        shell: micromamba-shell {0}
+      - name: Activate environment
+        run: eval "$(micromamba shell hook --shell bash)" && micromamba activate neural_bandits
+        shell: bash
 
       - run: mkdocs build --config-file mkdocs.yml
       - name: Upload artifact

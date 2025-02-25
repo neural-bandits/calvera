@@ -47,7 +47,7 @@ jobs:
             bash
 
       - name: Activate environment
-        run: micromamba activate neural_bandits
+        run: eval "$(micromamba shell hook --shell bash)" && micromamba activate neural_bandits
         shell: bash
 
       - name: Run Mypy
