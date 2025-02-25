@@ -248,7 +248,7 @@ class NeuralLinearBandit(LinearTSBandit):
         for _ in range(num_steps):
             x, z, y = self.buffer.get_batch(self.hparams["encoder_update_batch_size"])
             x = x.to(self.device)
-            z = z.to(self.device)
+            z = z.to(self.device) if z is not None else None
             y = y.to(self.device)
             self.optimizers().zero_grad()  # type: ignore
 
@@ -326,7 +326,7 @@ class NeuralLinearBandit(LinearTSBandit):
 
         # Update the linear head
         _, z, y = self.buffer.get_batch(len(self.buffer))
-        z = z.to(self.device)
+        z = z.to(self.device) if z is not None else None
         y = y.to(self.device)
 
         if z is None:
