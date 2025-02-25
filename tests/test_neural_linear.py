@@ -117,6 +117,7 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 
     # now change the weights of the head to only regard the second feature (x2)
     bandit.theta = torch.tensor([0.0, 1.0])
+    bandit.precision_matrix = torch.tensor([[0.01, 0.0], [0.0, 0.01]])
 
     output, _ = bandit(contextualized_actions)
     assert output.shape == (1, 2)

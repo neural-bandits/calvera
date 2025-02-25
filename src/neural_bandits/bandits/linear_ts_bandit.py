@@ -35,7 +35,8 @@ class LinearTSBandit(LinearBandit):
             tuple:
             - chosen_actions: The one-hot encoded tensor of the chosen actions.
                 Shape: (batch_size, n_arms).
-            - p: The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
+            - p: The probability of the chosen actions. For now we always return 1 but we might return the actual
+                probability in the future.
                 Shape: (batch_size, ).
         """
 
@@ -44,7 +45,11 @@ class LinearTSBandit(LinearBandit):
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
         batch_size = contextualized_actions.shape[0]
 
-        theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample((batch_size,))  # type: ignore
+        theta_tilde = torch.distributions.MultivariateNormal(
+            self.theta, self.precision_matrix
+        ).sample(  # type: ignore
+            (batch_size,)
+        )
 
         expected_rewards = torch.einsum(
             "ijk,ik->ij", contextualized_actions, theta_tilde
@@ -65,7 +70,8 @@ class LinearTSBandit(LinearBandit):
                 Shape: (batch_size, n_features).
 
         Returns:
-            The probability of the chosen actions. For now we always return 1 but we might return the actual probability in the future.
+            The probability of the chosen actions. For now we always return 1 but we might return the actual
+            probability in the future.
                 Shape: (batch_size, ).
         """
         # TODO: Implement the actual probability computation for Thompson Sampling.
