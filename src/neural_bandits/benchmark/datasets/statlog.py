@@ -13,7 +13,7 @@ class StatlogDataset(AbstractDataset[torch.Tensor]):
     """
 
     num_actions: int = 9
-    context_size: int = 7
+    context_size: int = 7 * 9  # disjoint model
     num_samples: int = 58000
 
     def __init__(self) -> None:

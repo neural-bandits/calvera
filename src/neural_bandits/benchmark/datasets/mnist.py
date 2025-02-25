@@ -15,7 +15,7 @@ class MNISTDataset(AbstractDataset[torch.Tensor]):
     """
 
     num_actions: int = 10
-    context_size: int = 784
+    context_size: int = 784 * 10  # disjoint model
     num_samples: int = 70000
 
     def __init__(self, dest_path: str = "./data") -> None:

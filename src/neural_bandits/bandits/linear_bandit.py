@@ -6,7 +6,7 @@ import torch
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 
-class LinearBandit(AbstractBandit, ABC):
+class LinearBandit(AbstractBandit[torch.Tensor], ABC):
     """Baseclass for linear bandit algorithms.
 
     Implements the update method for linear bandits. Also adds all necesary attributes.
@@ -75,7 +75,7 @@ class LinearBandit(AbstractBandit, ABC):
 
     def _update(
         self,
-        batch: torch.Tensor,
+        batch: tuple[torch.Tensor, torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
         """Perform an update step on the linear bandit model.
@@ -96,7 +96,7 @@ class LinearBandit(AbstractBandit, ABC):
         realized_rewards: torch.Tensor = batch[1]
 
         # Update the self.bandit
-        self.update(chosen_contextualized_actions, realized_rewards)
+        self._perform_update(chosen_contextualized_actions, realized_rewards)
 
         self.log(
             "reward",
@@ -108,12 +108,19 @@ class LinearBandit(AbstractBandit, ABC):
 
         return -realized_rewards.mean()
 
-    def update(
+    def _perform_update(
         self,
         chosen_actions: torch.Tensor,
         realized_rewards: torch.Tensor,
     ) -> None:
-        """Perform an update step on the linear bandit given the chosen actions and the rewards that were observed.
+        """Perform an update step on the linear bandit.
+
+        Perform an update step on the linear bandit given the actions that were chosen and the rewards that were
+        observed. The difference between `_update` and `_perform_update` is that `_update` is the method that is called
+        by the lightning training loop and therefore has the signature
+        `_update(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor` and is also logging.
+        We require `_perform_update` for the NeuralLinearBandit which calls this method to update the parameters of
+        its linear head.
 
         Args:
             chosen_actions: The chosen contextualized actions in this batch. Shape: (batch_size, n_features)

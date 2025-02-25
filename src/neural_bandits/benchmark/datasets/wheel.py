@@ -90,8 +90,9 @@ def sample_rewards(
 class WheelBanditDataset(AbstractDataset[torch.Tensor]):
     """Generates a dataset for the Wheel Bandit problem (https://arxiv.org/abs/1802.09127)."""
 
+    num_features: int = 2
     num_actions: int = 5
-    context_size: int = 2
+    context_size: int = 2 * 5
 
     def __init__(
         self,
@@ -158,7 +159,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         data_list: List[torch.Tensor] = []
         batch_size = max(int(self.num_samples / 3), 1)
         while len(data_list) < self.num_samples:
-            raw_data = (torch.rand(batch_size, self.context_size, generator=generator) * 2.0 - 1.0).float()
+            raw_data = (torch.rand(batch_size, self.num_features, generator=generator) * 2.0 - 1.0).float()
             norms = torch.norm(raw_data, dim=1)
             # filter points inside unit norm
             inside = raw_data[norms <= 1]
