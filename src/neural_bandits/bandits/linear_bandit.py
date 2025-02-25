@@ -84,7 +84,9 @@ class LinearBandit(AbstractBandit[torch.Tensor]):
     ) -> None:
         """
         Perform an update step on the linear bandit given the actions that were chosen and the rewards that were observed.
-        The difference between `_update` and `_perform_update` is
+        The difference between `_update` and `_perform_update` is that `_update` is the method that is called by the lightning training loop
+        and therefore has the signature `_update(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor` and is also logging.
+        We require `_perform_update` for the NeuralLinear bandit which calls this method to update the parameters of its linear head.
 
         Args:
             chosen_actions: The chosen contextualized actions in this batch. Shape: (batch_size, n_features)
