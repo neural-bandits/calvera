@@ -202,7 +202,7 @@ class BenchmarkAnalyzer:
         self,
         log_path: str,
         metrics_file: str = "metrics.csv",
-        supress_plots: bool = False,
+        suppress_plots: bool = False,
     ) -> None:
         """
         Args:
@@ -210,11 +210,11 @@ class BenchmarkAnalyzer:
                 Will also be output directory for plots.
                 Most likely the log_dir where metrics.csv from your CSV logger is located.
             metrics_file: Name of the metrics file. Default is "metrics.csv".
-            supress_plots: If True, plots will not be automatically shown. Default is False.
+            suppress_plots: If True, plots will not be automatically shown. Default is False.
         """
         self.log_path = log_path
         self.metrics_file = metrics_file
-        self.suppress_plots = supress_plots
+        self.suppress_plots = suppress_plots
         self.df = self.load_logs()
 
     def load_logs(self) -> Any:
@@ -230,7 +230,7 @@ class BenchmarkAnalyzer:
         plt.ylabel(metric_name)
         plt.title(f"Accumulated {metric_name} over training steps")
 
-        if not self.supress_plots:
+        if not self.suppress_plots:
             plt.show()
 
     def plot_average_metric(self, metric_name: str) -> None:
@@ -246,7 +246,7 @@ class BenchmarkAnalyzer:
         plt.ylabel(metric_name)
         plt.title(f"Average {metric_name} over training steps")
 
-        if not self.supress_plots:
+        if not self.suppress_plots:
             plt.show()
 
     def plot_loss(self) -> None:
@@ -261,7 +261,7 @@ class BenchmarkAnalyzer:
         plt.ylabel("Loss")
         plt.title("Loss over training steps")
 
-        if not self.supress_plots:
+        if not self.suppress_plots:
             plt.show()
 
 
@@ -341,7 +341,7 @@ def run(
     dataset_name: str,
     training_params: dict[str, Any] = {},
     bandit_hparams: dict[str, Any] = {},
-    supress_plots: bool = False,
+    suppress_plots: bool = False,
 ) -> None:
     pl.seed_everything(42)
 
@@ -357,9 +357,7 @@ def run(
 
     network_input_size = bandit_hparams["n_features"]
     network_output_size = (
-        bandit_hparams.get("n_embedding_size", bandit_hparams["n_features"])
-        if bandit_name == "neural_linear"
-        else 1
+        bandit_hparams["n_embedding_size"] if bandit_name == "neural_linear" else 1
     )
     bandit_hparams["network"] = networks[bandit_hparams.get("network", "none")](
         network_input_size, network_output_size
@@ -377,7 +375,7 @@ def run(
     )
     benchmark.run()
 
-    analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv", supress_plots)
+    analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv", suppress_plots)
     analyzer.plot_accumulated_metric("reward")
     analyzer.plot_accumulated_metric("regret")
     analyzer.plot_average_metric("reward")

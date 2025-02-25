@@ -15,5 +15,5 @@ def test_benchmark() -> None:
         {
             "alpha": 1.0,
         },  # bandit hyperparameters
-        supress_plots=True,
+        suppress_plots=True,
     )
