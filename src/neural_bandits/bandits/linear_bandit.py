@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import Any
 
 import torch
@@ -5,7 +6,7 @@ import torch
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 
-class LinearBandit(AbstractBandit):
+class LinearBandit(AbstractBandit, ABC):
     # The precision matrix is the inverse of the covariance matrix of the chosen contextualized actions.
     precision_matrix: torch.Tensor
     b: torch.Tensor
@@ -47,13 +48,10 @@ class LinearBandit(AbstractBandit):
         self.register_buffer("b", torch.zeros(n_features))
         self.register_buffer("theta", torch.zeros(n_features))
 
-    def forward(
-        self,
-        contextualized_actions: torch.Tensor,
-        **kwargs: Any,
+    def _predict_action(
+        self, contextualized_actions: torch.Tensor, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        # Predict the best action(s) given the contextualized actions.
-        chosen_actions, p = self._predict_action(contextualized_actions, **kwargs)
+        chosen_actions, p = self._predict_action_hook(contextualized_actions, **kwargs)
         if not self.lazy_uncertainty_update:
             chosen_contextualized_actions = contextualized_actions[
                 torch.arange(contextualized_actions.shape[0], device=self.device),
@@ -62,6 +60,13 @@ class LinearBandit(AbstractBandit):
             self._update_precision_matrix(chosen_contextualized_actions)
 
         return chosen_actions, p
+
+    @abstractmethod
+    def _predict_action_hook(
+        self, contextualized_actions: torch.Tensor, **kwargs: Any
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Hook for subclasses to implement the action selection logic."""
+        pass
 
     def _update(
         self,

@@ -100,13 +100,6 @@ class NeuralLinearBandit(LinearTSBandit):
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
 
-    def forward(
-        self,
-        contextualized_actions: torch.Tensor,
-        **kwargs: Any,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        return self._predict_action(contextualized_actions, **kwargs)
-
     def _predict_action(
         self, contextualized_actions: torch.Tensor, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:

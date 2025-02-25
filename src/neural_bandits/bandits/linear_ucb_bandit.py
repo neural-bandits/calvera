@@ -17,7 +17,7 @@ class LinearUCBBandit(LinearBandit):
         super().__init__(n_features, alpha=alpha, **kwargs)
         self.selector = selector
 
-    def _predict_action(
+    def _predict_action_hook(
         self, contextualized_actions: torch.Tensor, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Given contextualized actions, predicts the best action using LinUCB.
