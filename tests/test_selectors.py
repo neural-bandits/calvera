@@ -2,11 +2,7 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from neural_bandits.utils.selectors import (
-    ArgMaxSelector,
-    EpsilonGreedySelector,
-    TopKSelector,
-)
+from neural_bandits.utils.selectors import ArgMaxSelector, EpsilonGreedySelector, TopKSelector
 
 
 class TestArgMaxSelector:
