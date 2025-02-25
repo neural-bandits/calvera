@@ -247,6 +247,9 @@ class NeuralLinearBandit(LinearTSBandit):
         self.encoder.train()
         for _ in range(num_steps):
             x, z, y = self.buffer.get_batch(self.hparams["encoder_update_batch_size"])
+            x = x.to(self.device)
+            z = z.to(self.device)
+            y = y.to(self.device)
             self.optimizers().zero_grad()  # type: ignore
 
             # x  # shape: (batch_size, n_encoder_input_size)
@@ -292,9 +295,10 @@ class NeuralLinearBandit(LinearTSBandit):
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
         self.encoder.eval()
         contexts, _, _ = self.buffer.get_batch(len(self.buffer))
+        contexts = contexts.to(self.device)
 
         new_embedded_actions = torch.empty(
-            len(contexts), self.hparams["n_embedding_size"]
+            len(contexts), self.hparams["n_embedding_size"], device=self.device
         )
 
         with torch.no_grad():
@@ -322,6 +326,8 @@ class NeuralLinearBandit(LinearTSBandit):
 
         # Update the linear head
         _, z, y = self.buffer.get_batch(len(self.buffer))
+        z = z.to(self.device)
+        y = y.to(self.device)
 
         if z is None:
             raise ValueError("Embedded actions required for updating linear head")

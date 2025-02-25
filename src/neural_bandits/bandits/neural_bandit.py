@@ -2,7 +2,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
