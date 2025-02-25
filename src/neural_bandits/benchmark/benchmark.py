@@ -12,8 +12,14 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from transformers import BertModel
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit, ActionInputType
-from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
-from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
+from neural_bandits.bandits.linear_ts_bandit import (
+    LinearTSBandit,
+    DiagonalPrecApproxLinearTSBandit,
+)
+from neural_bandits.bandits.linear_ucb_bandit import (
+    LinearUCBBandit,
+    DiagonalPrecApproxLinearUCBBandit,
+)
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
 from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
@@ -25,7 +31,12 @@ from neural_bandits.benchmark.datasets.statlog import StatlogDataset
 from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
 from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
 from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
-from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
+from neural_bandits.utils.selectors import (
+    AbstractSelector,
+    ArgMaxSelector,
+    EpsilonGreedySelector,
+    TopKSelector,
+)
 
 
 class BanditBenchmark(Generic[ActionInputType]):
@@ -242,7 +253,9 @@ class BenchmarkAnalyzer:
 
 bandits: dict[str, type[AbstractBandit[Any]]] = {
     "lin_ucb": LinearUCBBandit,
+    "approx_lin_ucb": DiagonalPrecApproxLinearUCBBandit,
     "lin_ts": LinearTSBandit,
+    "approx_lin_ts": DiagonalPrecApproxLinearTSBandit,
     "neural_linear": NeuralLinearBandit,
     "neural_ucb": NeuralUCBBandit,
 }
@@ -258,6 +271,8 @@ datasets: dict[str, type[AbstractDataset[Any]]] = {
 
 selectors: dict[str, type[AbstractSelector]] = {
     "argmax": ArgMaxSelector,
+    "epsilon_greedy": EpsilonGreedySelector,
+    "top_k": TopKSelector,
 }
 # map of functions
 networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
@@ -316,7 +331,9 @@ def run(
     Bandit = bandits[bandit_name]
     dataset = datasets[dataset_name]()
 
-    bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")]()
+    bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")](
+        **bandit_hparams.get("selector_params", {})
+    )
 
     bandit_hparams["n_features"] = dataset.context_size
     network_input_size = bandit_hparams["n_features"]

@@ -4,8 +4,14 @@ import torch
 import torch.nn as nn
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit, ActionInputType
-from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
-from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
+from neural_bandits.bandits.linear_ts_bandit import (
+    LinearTSBandit,
+    DiagonalPrecApproxLinearTSBandit,
+)
+from neural_bandits.bandits.linear_ucb_bandit import (
+    LinearUCBBandit,
+    DiagonalPrecApproxLinearUCBBandit,
+)
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
 from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
@@ -25,7 +31,13 @@ def seed_tests() -> None:
         LinearTSBandit(
             n_features,
         ),
+        DiagonalPrecApproxLinearTSBandit(
+            n_features,
+        ),
         LinearUCBBandit(
+            n_features,
+        ),
+        DiagonalPrecApproxLinearUCBBandit(
             n_features,
         ),
         NeuralLinearBandit(
