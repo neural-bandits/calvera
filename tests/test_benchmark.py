@@ -1,7 +1,7 @@
 from neural_bandits.benchmark.benchmark import run
 
 
-def test_benchmark():
+def test_benchmark() -> None:
     # we just test that the benchmark runs without errors
     run(
         "lin_ucb",

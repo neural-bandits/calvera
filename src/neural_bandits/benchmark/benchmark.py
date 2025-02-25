@@ -214,6 +214,7 @@ class BenchmarkAnalyzer:
         """
         self.log_path = log_path
         self.metrics_file = metrics_file
+        self.suppress_plots = supress_plots
         self.df = self.load_logs()
 
     def load_logs(self) -> Any:
@@ -329,7 +330,9 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
         torch.nn.ReLU(),
         torch.nn.Linear(64, out_size),
     ),
-    "bert": lambda a, b: BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2"),
+    "bert": lambda in_size, out_size: BertModel.from_pretrained(
+        "google/bert_uncased_L-2_H-128_A-2"
+    ),
 }
 
 
@@ -349,7 +352,9 @@ def run(
         **bandit_hparams.get("selector_params", {})
     )
 
-    bandit_hparams["n_features"] = dataset.context_size
+    if bandit_name != "neural_linear":
+        bandit_hparams["n_features"] = dataset.context_size
+
     network_input_size = bandit_hparams["n_features"]
     network_output_size = (
         bandit_hparams.get("n_embedding_size", bandit_hparams["n_features"])
@@ -372,7 +377,7 @@ def run(
     )
     benchmark.run()
 
-    analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv")
+    analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv", supress_plots)
     analyzer.plot_accumulated_metric("reward")
     analyzer.plot_accumulated_metric("regret")
     analyzer.plot_average_metric("reward")
