@@ -1,9 +1,54 @@
-site_name: My Docs
+site_name: Documentation for Calvera
+repo_url: https://github.com/neural-bandits/calvera
+repo_name: neural_bandits/calvera
 
+markdown_extensions: 
+  - admonition
+
+theme:
+  name: material
+  logo: calvera.png
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default 
+      primary: white
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+  icon:
+    logo: calvera.png
+    favicon: calvera.png
+    repo: fontawesome/brands/git-alt
+  features:
+      - header.autohide
+      - navigation.footer
+      - navigation.tabs
 
 plugins:
-  - mkdocstrings
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
 
 nav:
   - Docs: index.md
   - How-To Guides: how-to-guides.md
+

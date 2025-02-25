@@ -9,6 +9,8 @@ dependencies:
   - wandb
   - lightning
   - mkdocs
+  - mkdocs-material
+  - mkdocstrings
 
   # Good to have
   - numpy
@@ -40,3 +42,4 @@ dependencies:
       - simple_parsing
       - print-on-steroids[exceptions]
       - wandb[sweeps]
+      - mkdocstrings[python]
