@@ -6,17 +6,25 @@ from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 
 class LinearBandit(AbstractBandit):
+    # The precision matrix is the inverse of the covariance matrix of the chosen contextualized actions.
+    precision_matrix: torch.Tensor
+    b: torch.Tensor
+    theta: torch.Tensor
+
     def __init__(
         self,
         n_features: int,
+        eps: float = 1e-2,
         **kw_args: Any,
     ) -> None:
         """Initializes the LinearBanditModule.
         Args:
             n_features: The number of features in the bandit model.
+            eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
         """
         super().__init__()
         self.n_features = n_features
+        self.eps = eps
 
         # Disable Lightning's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
@@ -24,14 +32,15 @@ class LinearBandit(AbstractBandit):
         # Save Hyperparameters
         hyperparameters = {
             "n_features": n_features,
+            "eps": eps,
             **kw_args,
         }
         self.save_hyperparameters(hyperparameters)
 
         # Model parameters
-        self.precision_matrix: torch.Tensor = torch.eye(n_features)
-        self.b = torch.zeros(n_features)
-        self.theta = torch.zeros(n_features)
+        self.register_buffer("precision_matrix", torch.eye(n_features))
+        self.register_buffer("b", torch.zeros(n_features))
+        self.register_buffer("theta", torch.zeros(n_features))
 
     def _update(
         self,
@@ -60,7 +69,7 @@ class LinearBandit(AbstractBandit):
 
         self.log(
             "reward",
-            realized_rewards.mean(),
+            realized_rewards.sum(),
             on_step=True,
             on_epoch=False,
             prog_bar=True,
@@ -105,29 +114,33 @@ class LinearBandit(AbstractBandit):
         realized_rewards = realized_rewards.squeeze(1)
         # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
-        # Calculate new precision Matrix M using the Sherman-Morrison formula
-        denominator = 1 + (
-            (chosen_actions @ self.precision_matrix) * chosen_actions
-        ).sum(dim=1).sum(dim=0)
-        assert torch.abs(denominator) > 0, "Denominator must not be zero or nan"
-
-        self.precision_matrix = (
-            self.precision_matrix
-            - (
-                self.precision_matrix
-                @ torch.einsum("bi,bj->bij", chosen_actions, chosen_actions).sum(dim=0)
-                @ self.precision_matrix
-            )
-            / denominator
+        # Calculate new precision Matrix M using the Sherman-Morrison-Woodbury formula.
+        batch_size = chosen_actions.shape[0]
+        inverse_term = torch.inverse(
+            torch.eye(batch_size, device=self.device)
+            + chosen_actions @ self.precision_matrix.clone() @ chosen_actions.T
         )
-        self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)
+
+        self.precision_matrix.add_(
+            -self.precision_matrix.clone()
+            @ chosen_actions.T
+            @ inverse_term
+            @ chosen_actions
+            @ self.precision_matrix.clone()
+        )
+        self.precision_matrix.mul_(0.5).add_(self.precision_matrix.T.clone())
+
+        self.precision_matrix.add_(
+            torch.eye(self.n_features, device=self.device) * self.eps
+        )  # add small value to diagonal to ensure invertibility
+
         # should be symmetric
         assert torch.allclose(
             self.precision_matrix, self.precision_matrix.T
         ), "M must be symmetric"
 
-        self.b += chosen_actions.T @ realized_rewards  # shape: (features,)
-        self.theta = self.precision_matrix @ self.b
+        self.b.add_(chosen_actions.T @ realized_rewards)  # shape: (features,)
+        self.theta.copy_(self.precision_matrix @ self.b)
 
         assert (
             self.b.ndim == 1 and self.b.shape[0] == self.n_features

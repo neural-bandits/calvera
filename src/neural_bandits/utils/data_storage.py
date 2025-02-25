@@ -166,6 +166,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
         self,
         buffer_strategy: DataBufferStrategy,
         max_size: Optional[int] = None,
+        device: torch.device = torch.device("cpu"),
     ):
         """Initialize the in-memory buffer.
 
@@ -173,9 +174,13 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
             buffer_strategy: Strategy for managing training data selection
             max_size: Optional maximum number of samples to store
         """
-        super().__init__()
         self.buffer_strategy = buffer_strategy
         self.max_size = max_size
+        self.device = device
+
+        self.contextualized_actions = torch.empty(0, 0, device=device)
+        self.embedded_actions = torch.empty(0, 0, device=device)
+        self.rewards = torch.empty(0, device=device)
 
     def add_batch(
         self,
@@ -190,13 +195,21 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
             embedded_actions: Optional tensor of embedded actions, shape: (batch_size, n_embedding_size)
             rewards: Tensor of rewards, shape: (batch_size,)
         """
+        # Move data to device
+        contextualized_actions = contextualized_actions.to(self.device)
+        if embedded_actions is not None:
+            embedded_actions = embedded_actions.to(self.device)
+        rewards = rewards.to(self.device)
+
         # Initialize buffer with proper shapes if empty
         if self.contextualized_actions.shape[1] == 0:
             self.contextualized_actions = torch.empty(
-                0, contextualized_actions.shape[1]
+                0, contextualized_actions.shape[1], device=self.device
             )
         if embedded_actions is not None and self.embedded_actions.shape[1] == 0:
-            self.embedded_actions = torch.empty(0, embedded_actions.shape[1])
+            self.embedded_actions = torch.empty(
+                0, embedded_actions.shape[1], device=self.device
+            )
 
         self.contextualized_actions = torch.cat(
             [self.contextualized_actions, contextualized_actions], dim=0
@@ -229,7 +242,9 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
         Raises:
             ValueError: If batch_size exceeds available data
         """
-        available_indices = self.buffer_strategy.get_training_indices(len(self))
+        available_indices = self.buffer_strategy.get_training_indices(len(self)).to(
+            self.device
+        )
 
         if len(available_indices) < batch_size:
             raise ValueError(
@@ -237,7 +252,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
             )
 
         batch_indices = available_indices[
-            torch.randint(0, len(available_indices), (batch_size,))
+            torch.randint(0, len(available_indices), (batch_size,), device=self.device)
         ]
 
         contextualized_actions_batch = self.contextualized_actions[batch_indices]
@@ -254,7 +269,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer):
         assert len(embedded_actions) == len(
             self
         ), "Number of embeddings must match buffer size"
-        self.embedded_actions = embedded_actions
+        self.embedded_actions = embedded_actions.to(self.device)
 
     def __len__(self) -> int:
         """Get total number of stored data points in buffer."""

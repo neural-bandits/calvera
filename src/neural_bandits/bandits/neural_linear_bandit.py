@@ -17,6 +17,10 @@ class NeuralLinearBandit(LinearTSBandit):
     On the other hand, the linear head is updated every `head_update_freq` steps which should be much lower.
     """
 
+    contextualized_actions: torch.Tensor
+    embedded_actions: torch.Tensor
+    rewards: torch.Tensor
+
     def __init__(
         self,
         encoder: torch.nn.Module,
@@ -73,20 +77,24 @@ class NeuralLinearBandit(LinearTSBandit):
             }
         )
 
-        self.encoder = encoder
-
-        # Initialize the linear head which receives the embeddings
-        self.precision_matrix = torch.eye(n_embedding_size)
-        self.b = torch.zeros(n_embedding_size)
-        self.theta = torch.zeros(n_embedding_size)
+        self.encoder = encoder.to(self.device)
 
         # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder, hence the single output dimension.
         # TODO: it would be cleaner if this was a lightning module?
         self.net = torch.nn.Sequential(
             self.encoder,
-            torch.nn.Linear(self.hparams["n_embedding_size"], 1),
+            torch.nn.Linear(self.hparams["n_embedding_size"], 1, device=self.device),
         )
 
+        self.register_buffer(
+            "contextualized_actions", torch.empty(0, device=self.device)
+        )  # shape: (buffer_size, n_encoder_input_size)
+        self.register_buffer(
+            "embedded_actions", torch.empty(0, device=self.device)
+        )  # shape: (buffer_size, n_encoder_input_size)
+        self.register_buffer(
+            "rewards", torch.empty(0, device=self.device)
+        )  # shape: (buffer_size,)
         self.buffer = buffer
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
@@ -180,7 +188,7 @@ class NeuralLinearBandit(LinearTSBandit):
         # Log the reward
         self.log(
             "reward",
-            realized_rewards.mean(),
+            realized_rewards.sum(),
             on_step=True,
             on_epoch=False,
             prog_bar=True,
@@ -212,6 +220,7 @@ class NeuralLinearBandit(LinearTSBandit):
         if should_update_encoder:
             self._train_nn()
             self._update_embeddings()
+            print("trained nn")
 
         should_update_head = (
             self.hparams["head_update_freq"] is not None
@@ -219,8 +228,9 @@ class NeuralLinearBandit(LinearTSBandit):
         )
         if should_update_head or should_update_encoder:
             self._update_head()
+            print("updated head")
 
-        return -realized_rewards.mean()
+        return -realized_rewards.sum()
 
     def _train_nn(
         self,
@@ -237,6 +247,9 @@ class NeuralLinearBandit(LinearTSBandit):
         self.encoder.train()
         for _ in range(num_steps):
             x, z, y = self.buffer.get_batch(self.hparams["encoder_update_batch_size"])
+            x = x.to(self.device)
+            z = z.to(self.device) if z is not None else None
+            y = y.to(self.device)
             self.optimizers().zero_grad()  # type: ignore
 
             # x  # shape: (batch_size, n_encoder_input_size)
@@ -282,9 +295,10 @@ class NeuralLinearBandit(LinearTSBandit):
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
         self.encoder.eval()
         contexts, _, _ = self.buffer.get_batch(len(self.buffer))
+        contexts = contexts.to(self.device)
 
         new_embedded_actions = torch.empty(
-            len(contexts), self.hparams["n_embedding_size"]
+            len(contexts), self.hparams["n_embedding_size"], device=self.device
         )
 
         with torch.no_grad():
@@ -302,48 +316,23 @@ class NeuralLinearBandit(LinearTSBandit):
         # TODO: We could actually make this recompute configurable and not force a recompute but just continue using the old head.
 
         # Reset the parameters
-        self.precision_matrix = torch.eye(self.hparams["n_embedding_size"])
-        self.b = torch.zeros(self.hparams["n_embedding_size"])
-        self.theta = torch.zeros(self.hparams["n_embedding_size"])
+        self.precision_matrix.copy_(
+            torch.eye(self.hparams["n_embedding_size"], device=self.device)
+        )
+        self.b.copy_(torch.zeros(self.hparams["n_embedding_size"], device=self.device))
+        self.theta.copy_(
+            torch.zeros(self.hparams["n_embedding_size"], device=self.device)
+        )
 
         # Update the linear head
         _, z, y = self.buffer.get_batch(len(self.buffer))
+        z = z.to(self.device) if z is not None else None
+        y = y.to(self.device)
 
         if z is None:
             raise ValueError("Embedded actions required for updating linear head")
 
-        data_size, n_embedding_size = z.shape
-
-        assert (
-            z.dim() == 2 and n_embedding_size == self.hparams["n_embedding_size"]
-        ), "Expected embedded_actions (z) to be 2D (batch_size, n_embedding_size)"
-        assert (
-            y.dim() == 1 and y.shape[0] == data_size
-        ), "Expected rewards (y) to be 1D (batch_size,) and of same length as embedded_actions (z)"
-
-        denominator = 1 + ((z @ self.precision_matrix) * z).sum(dim=1).sum(dim=0)
-        assert torch.abs(denominator - 0) > 0, "Denominator must not be zero"
-
-        # Update the precision matrix M using the Sherman-Morrison formula
-        self.precision_matrix = (
-            self.precision_matrix
-            - (
-                self.precision_matrix
-                @ torch.einsum("bi,bj->bij", z, z).sum(dim=0)
-                @ self.precision_matrix
-            )
-            / denominator
-        )
-        self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)
-
-        # should be symmetric
-        assert torch.allclose(
-            self.precision_matrix, self.precision_matrix.T
-        ), "M must be symmetric"
-
-        # Finally, update the rest of the parameters of the linear head
-        self.b += z.T @ y  # shape: (features,)
-        self.theta = self.precision_matrix @ self.b
+        super().update(z.unsqueeze(1), y.unsqueeze(1))
 
     def configure_optimizers(
         self,
