@@ -399,10 +399,8 @@ def test_neural_linear_bandit_tuple_input(
     network.forward.return_value = torch.randn(batch_size * n_chosen_arms, n_embedding_size)
 
     ###################### now for the training step ######################
-    trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit, torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0), accelerator="cpu"
-    )
+    trainer = pl.Trainer(fast_dev_run=True, accelerator="cpu")
+    trainer.fit(bandit, torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0))
     assert (
         network.forward.call_count == 2 * n_chosen_arms
     )  # batch_size * n_chosen_arms / batch_size. Once forward and once backward.
