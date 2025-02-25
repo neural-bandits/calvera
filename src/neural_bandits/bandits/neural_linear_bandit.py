@@ -393,6 +393,8 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         self.network.train()
         self.helper_network.reset_linear_head()
+        self.helper_network.to(self.device)  # Make sure the helper network is on the correct device after resetting.
+
         for _ in range(num_steps):
             x, _, y = self.buffer.get_batch(batch_size)
             self.optimizers().zero_grad()  # type: ignore

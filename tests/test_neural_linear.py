@@ -363,17 +363,17 @@ def test_neural_linear_bandit_tuple_input(
     # Dummy network
     network = nn.Linear(n_features, n_embedding_size, bias=False)
     network.forward = MagicMock()  # type: ignore
-    network.forward.return_value = torch.randn(batch_size * n_arms, n_embedding_size)
+    network.forward.return_value = torch.randn(batch_size * n_arms, n_embedding_size, device="cpu")
 
     bandit: NeuralLinearBandit[tuple[torch.Tensor, torch.Tensor]] = NeuralLinearBandit(
-        network=network,
+        network=network.to("cpu"),
         buffer=InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy()),
         n_embedding_size=n_embedding_size,
         network_update_freq=batch_size,
         head_update_freq=1,
         network_update_batch_size=batch_size,
         lr=1e-2,
-    )
+    ).to("cpu")
 
     output, p = bandit.forward(contextualized_actions)
     assert output.shape == (batch_size, n_arms)
@@ -401,8 +401,7 @@ def test_neural_linear_bandit_tuple_input(
     ###################### now for the training step ######################
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
+        bandit, torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0), accelerator="cpu"
     )
     assert (
         network.forward.call_count == 2 * n_chosen_arms
