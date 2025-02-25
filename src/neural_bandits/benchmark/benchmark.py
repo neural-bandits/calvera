@@ -9,7 +9,14 @@ import pandas as pd
 import torch
 from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
-from transformers import BertModel
+try:
+    from transformers import BertModel
+except Exception as e:
+    logging.warning(
+        "Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly."
+    )
+    logging.warning(e)
+    pass
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit, ActionInputType
 from neural_bandits.bandits.linear_ts_bandit import (
