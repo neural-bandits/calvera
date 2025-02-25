@@ -63,19 +63,26 @@ class EpsilonGreedySelector(AbstractSelector):
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
         """Select actions using the epsilon-greedy strategy for each sample in the batch.
 
+        If the device of the scores
+        tensor is different from the device of the generator, the generator is moved to the device of the scores tensor.
+
         Args:
             scores: Scores for each action. Shape: (batch_size, n_arms).
 
         Returns:
             One-hot encoded selected actions. Shape: (batch_size, n_arms).
         """
+        if scores.device != self.generator.device:
+            self.generator = torch.Generator(device=scores.device)
+            self.generator.set_state(self.generator.get_state())
+
         batch_size, n_arms = scores.shape
 
-        random_vals = torch.rand(batch_size, generator=self.generator)
+        random_vals = torch.rand(batch_size, generator=self.generator, device=scores.device)
         explore_mask = random_vals < self.epsilon
 
         greedy_actions = torch.argmax(scores, dim=1)
-        random_actions = torch.randint(0, n_arms, (batch_size,), generator=self.generator)
+        random_actions = torch.randint(0, n_arms, (batch_size,), generator=self.generator, device=scores.device)
 
         selected_actions = torch.where(explore_mask, random_actions, greedy_actions)
 
@@ -107,15 +114,15 @@ class TopKSelector(AbstractSelector):
         batch_size, n_arms = scores.shape
         assert self.k <= n_arms, f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
 
-        selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64)
+        selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64, device=scores.device)
         remaining_scores = scores.clone()
 
-        selected_mask = torch.zeros_like(scores, dtype=torch.bool)
+        selected_mask = torch.zeros_like(scores, dtype=torch.bool, device=scores.device)
 
         for _ in range(self.k):
             max_indices = torch.argmax(remaining_scores, dim=1)
 
-            batch_indices = torch.arange(batch_size)
+            batch_indices = torch.arange(batch_size, device=scores.device)
             selected_actions[batch_indices, max_indices] = 1
             selected_mask[batch_indices, max_indices] = True
 

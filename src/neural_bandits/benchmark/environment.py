@@ -28,16 +28,22 @@ class BanditBenchmarkEnvironment:
     ```
     """
 
-    def __init__(self, dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]]) -> None:
+    def __init__(
+        self,
+        dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+        device: Optional[torch.device] = None,
+    ) -> None:
         """Initializes a BanditBenchmarkEnvironment.
 
         Args:
             dataloader: DataLoader that yields batches of (contextualized_actions, all_rewards) tuples.
+            device: The device the tensors should be moved to. If None, the default device is used.
         """
         self._dataloader = dataloader
         self._iterator: Optional[_BaseDataLoaderIter] = None
         self._last_contextualized_actions: Optional[torch.Tensor] = None
         self._last_all_rewards: Optional[torch.Tensor] = None
+        self.device = device
 
     def __iter__(self) -> "BanditBenchmarkEnvironment":
         """Returns an iterator object for the BanditBenchmarkEnvironment.
@@ -65,8 +71,8 @@ class BanditBenchmarkEnvironment:
 
         # Retrieve one batch from the DataLoader
         batch = next(self._iterator)
-        contextualized_actions: torch.Tensor = batch[0]
-        all_rewards: torch.Tensor = batch[1]
+        contextualized_actions: torch.Tensor = batch[0].to(device=self.device)
+        all_rewards: torch.Tensor = batch[1].to(device=self.device)
 
         assert contextualized_actions.size(0) == all_rewards.size(
             0

@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
+from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer
 
 
 @pytest.fixture(autouse=True)
@@ -23,12 +24,14 @@ def test_neural_linear_bandit_forward_shape() -> None:
         nn.Linear(n_features, n_embeddings, bias=False),
         # don't add a ReLU here because its the final layer
     )
+    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
 
     # Create bandit
     bandit = NeuralLinearBandit(
         n_encoder_input_size=n_features,
         n_embedding_size=n_embeddings,  # same as input if encoder is identity
         encoder=encoder,
+        buffer=buffer,
     )
 
     contextualized_actions = torch.randn(batch_size, n_arms, n_features)
@@ -50,10 +53,12 @@ def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
     """
     n_features = 2
     encoder = nn.Identity()
+    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
     bandit = NeuralLinearBandit(
         n_encoder_input_size=n_features,
         n_embedding_size=n_features,
         encoder=encoder,
+        buffer=buffer,
     )
 
     # Provide a simple known input
@@ -80,11 +85,13 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 
     # fix the weights of the encoder to only regard the first feature, and the second one a litple bit
     encoder[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 0.1]])
+    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
 
     bandit = NeuralLinearBandit(
         n_encoder_input_size=n_features,
         n_embedding_size=n_features,
         encoder=encoder,
+        buffer=buffer,
     )
 
     # Provide a simple known input
@@ -102,6 +109,7 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 
     # now change the weights of the head to only regard the second feature (x2)
     bandit.theta = torch.tensor([0.0, 1.0])
+    bandit.precision_matrix = torch.tensor([[0.01, 0.0], [0.0, 0.01]])
 
     output, _ = bandit(contextualized_actions)
     assert output.shape == (1, 2)
@@ -166,13 +174,17 @@ def test_neural_linear_bandit_training_step(
         # don't add a ReLU because its the final layer
     )
 
+    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
+
     bandit = NeuralLinearBandit(
         encoder=encoder,
         n_encoder_input_size=n_features,
         n_embedding_size=n_embedding_size,
+        encoder_update_batch_size=2,
         encoder_update_freq=4,
         head_update_freq=2,
         lr=1e-3,
+        buffer=buffer,
     )
 
     theta_1 = bandit.theta.clone()
@@ -181,9 +193,9 @@ def test_neural_linear_bandit_training_step(
     nn_before = encoder[0].weight.clone()
 
     # Initially empty buffer
-    assert bandit.contextualized_actions.numel() == 0
-    assert bandit.embedded_actions.numel() == 0
-    assert bandit.rewards.numel() == 0
+    assert bandit.buffer.contextualized_actions.numel() == 0
+    assert bandit.buffer.embedded_actions.numel() == 0
+    assert bandit.buffer.rewards.numel() == 0
 
     # Run training step
     trainer = pl.Trainer(fast_dev_run=True)
@@ -193,9 +205,9 @@ def test_neural_linear_bandit_training_step(
     )
 
     # After training step, buffer should have newly appended rows
-    assert bandit.contextualized_actions.shape[0] == actions.shape[0]
-    assert bandit.embedded_actions.shape[0] == actions.shape[0]
-    assert bandit.rewards.shape[0] == actions.shape[0]
+    assert bandit.buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert bandit.buffer.embedded_actions.shape[0] == actions.shape[0]
+    assert bandit.buffer.rewards.shape[0] == actions.shape[0]
 
     # The head should have been updated
     assert not torch.allclose(bandit.theta, theta_1)
@@ -223,9 +235,9 @@ def test_neural_linear_bandit_training_step(
     )
 
     # The buffer should have grown
-    assert bandit.contextualized_actions.shape[0] == 2 * actions.shape[0]
-    assert bandit.embedded_actions.shape[0] == 2 * actions.shape[0]
-    assert bandit.rewards.shape[0] == 2 * actions.shape[0]
+    assert bandit.buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert bandit.buffer.embedded_actions.shape[0] == 2 * actions.shape[0]
+    assert bandit.buffer.rewards.shape[0] == 2 * actions.shape[0]
 
     # The head should have been updated again
     assert not torch.allclose(bandit.theta, theta_2)
@@ -251,6 +263,8 @@ def test_neural_linear_bandit_hparams_effect() -> None:
     # Dummy encoder
     encoder = nn.Linear(n_features, n_embedding_size, bias=False)
 
+    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
+
     bandit = NeuralLinearBandit(
         encoder=encoder,
         n_encoder_input_size=n_features,
@@ -258,6 +272,7 @@ def test_neural_linear_bandit_hparams_effect() -> None:
         encoder_update_freq=10,
         head_update_freq=5,
         lr=1e-2,
+        buffer=buffer,
     )
 
     # Check hparams

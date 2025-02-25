@@ -4,6 +4,7 @@ import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
 from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
+from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
@@ -18,9 +19,14 @@ class NeuralLinearBandit(LinearTSBandit):
     updated every `head_update_freq` steps which should be much lower.
     """
 
+    contextualized_actions: torch.Tensor
+    embedded_actions: torch.Tensor
+    rewards: torch.Tensor
+
     def __init__(
         self,
         encoder: torch.nn.Module,
+        buffer: AbstractBanditDataBuffer,
         n_encoder_input_size: int,
         n_embedding_size: Optional[int],
         selector: AbstractSelector = ArgMaxSelector(),
@@ -34,6 +40,7 @@ class NeuralLinearBandit(LinearTSBandit):
 
         Args:
             encoder: The encoder model (neural network) to be used.
+            buffer: Buffer for storing bandit interaction data.
             n_encoder_input_size: The number of features in the input data.
             n_embedding_size: The size of the embedding produced by the encoder model. Defaults to n_encoder_input_size.
             selector: The selector used to choose the best action. Default is ArgMaxSelector.
@@ -72,24 +79,24 @@ class NeuralLinearBandit(LinearTSBandit):
             }
         )
 
-        self.encoder = encoder
-
-        # Initialize the linear head which receives the embeddings
-        self.precision_matrix = torch.eye(n_embedding_size)
-        self.b = torch.zeros(n_embedding_size)
-        self.theta = torch.zeros(n_embedding_size)
+        self.encoder = encoder.to(self.device)
 
         # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder,
         # hence the single output dimension.
         # TODO: it would be cleaner if this was a lightning module?
         self.net = torch.nn.Sequential(
             self.encoder,
-            torch.nn.Linear(self.hparams["n_embedding_size"], 1),
+            torch.nn.Linear(self.hparams["n_embedding_size"], 1, device=self.device),
         )
 
-        self.contextualized_actions: torch.Tensor = torch.empty(0)  # shape: (buffer_size, n_encoder_input_size)
-        self.embedded_actions: torch.Tensor = torch.empty(0)  # shape: (buffer_size, n_encoder_input_size)
-        self.rewards: torch.Tensor = torch.empty(0)  # shape: (buffer_size,)
+        self.register_buffer(
+            "contextualized_actions", torch.empty(0, device=self.device)
+        )  # shape: (buffer_size, n_encoder_input_size)
+        self.register_buffer(
+            "embedded_actions", torch.empty(0, device=self.device)
+        )  # shape: (buffer_size, n_encoder_input_size)
+        self.register_buffer("rewards", torch.empty(0, device=self.device))  # shape: (buffer_size,)
+        self.buffer = buffer
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
         self.automatic_optimization = False
@@ -154,6 +161,11 @@ class NeuralLinearBandit(LinearTSBandit):
         realized_rewards: torch.Tensor = batch[1]
 
         assert (
+            self.hparams["encoder_update_batch_size"] <= self.hparams["encoder_update_freq"]
+        ), f"Encoder update batch size ({self.hparams['encoder_update_batch_size']}) must be \
+            less than or equal to encoder update frequency ({self.hparams['encoder_update_freq']})"
+
+        assert (
             chosen_contextualized_actions.ndim == 3
             and chosen_contextualized_actions.shape[2] == self.hparams["n_encoder_input_size"]
         ), "Contextualized actions must have shape (batch_size, n_chosen_arms, n_encoder_input_size)"
@@ -176,28 +188,18 @@ class NeuralLinearBandit(LinearTSBandit):
         # Log the reward
         self.log(
             "reward",
-            realized_rewards.mean(),
+            realized_rewards.sum(),
             on_step=True,
             on_epoch=False,
             prog_bar=True,
         )
 
         # Update the replay buffer
-        self.contextualized_actions = torch.cat(
-            [
-                self.contextualized_actions,
-                chosen_contextualized_actions.view(-1, chosen_contextualized_actions.size(-1)),
-            ],
-            dim=0,
+        self.buffer.add_batch(
+            contextualized_actions=chosen_contextualized_actions.view(-1, chosen_contextualized_actions.size(-1)),
+            embedded_actions=chosen_embedded_actions.view(-1, chosen_embedded_actions.size(-1)),
+            rewards=realized_rewards.squeeze(1),
         )
-        self.embedded_actions = torch.cat(
-            [
-                self.embedded_actions,
-                chosen_embedded_actions.view(-1, chosen_embedded_actions.size(-1)),
-            ],
-            dim=0,
-        )
-        self.rewards = torch.cat([self.rewards, realized_rewards.squeeze(1)], dim=0)
 
         assert (
             chosen_embedded_actions.shape[0] == chosen_contextualized_actions.shape[0]
@@ -209,20 +211,21 @@ class NeuralLinearBandit(LinearTSBandit):
         # Update the neural network and the linear head
         should_update_encoder = (
             self.hparams["encoder_update_freq"] is not None
-            and self.embedded_actions.shape[0] % self.hparams["encoder_update_freq"] == 0
+            and len(self.buffer) % self.hparams["encoder_update_freq"] == 0
         )
         if should_update_encoder:
             self._train_nn()
             self._update_embeddings()
+            print("trained nn")
 
         should_update_head = (
-            self.hparams["head_update_freq"] is not None
-            and self.embedded_actions.shape[0] % self.hparams["head_update_freq"] == 0
+            self.hparams["head_update_freq"] is not None and len(self.buffer) % self.hparams["head_update_freq"] == 0
         )
         if should_update_head or should_update_encoder:
             self._update_head()
+            print("updated head")
 
-        return -realized_rewards.mean()
+        return -realized_rewards.sum()
 
     def _train_nn(
         self,
@@ -235,11 +238,13 @@ class NeuralLinearBandit(LinearTSBandit):
         # is trained in a seperate step but we "mock" a linear head with the final layer of the encoder.
 
         # TODO: optimize by not passing Z since X and Y are enough
-        batch_size: int = self.hparams["encoder_update_batch_size"]
-        X, _, Y = self.get_batches(num_steps, batch_size)
 
         self.encoder.train()
-        for x, y in zip(X, Y):
+        for _ in range(num_steps):
+            x, z, y = self.buffer.get_batch(self.hparams["encoder_update_batch_size"])
+            x = x.to(self.device)
+            z = z.to(self.device) if z is not None else None
+            y = y.to(self.device)
             self.optimizers().zero_grad()  # type: ignore
 
             # x  # shape: (batch_size, n_encoder_input_size)
@@ -249,8 +254,8 @@ class NeuralLinearBandit(LinearTSBandit):
 
             loss = self._compute_loss(y_pred, y)
 
-            cost = loss.sum() / batch_size
-            cost.backward()  # type: ignore
+            cost = loss.sum() / self.hparams["encoder_update_batch_size"]
+            cost.backward()
 
             torch.nn.utils.clip_grad_norm_(self.net.parameters(), self.hparams["max_grad_norm"])
 
@@ -259,39 +264,6 @@ class NeuralLinearBandit(LinearTSBandit):
             self.log("nn_loss", loss, on_step=True, on_epoch=False, prog_bar=True)
 
         self.lr_schedulers().step()  # type: ignore
-
-    def get_batches(
-        self, num_batches: int, batch_size: int
-    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
-        """Get a random batch of data from the replay buffer.
-
-        Args:
-            num_batches: The number of batches to return.
-            batch_size: The size of each batch.
-
-        Returns: tuple
-            - X: The contextualized actions. Shape: (num_batches, batch_size, n_encoder_input_size)
-            - Z: The embedded actions. Shape: (num_batches, batch_size, n_embedding_size)
-            - Y: The rewards. Shape: (num_batches, batch_size)
-        """
-        # TODO: Implement buffer that returns random samples from the n most recent data
-        # TODO: possibly faster if those are stored in a tensor and then indexed
-        # TODO: possibly use a DataLoader instead of this method?
-        X = []
-        Z = []
-        Y = []
-
-        # create num_batch mini batches of size batch_size
-        # TODO: make sure that mini batches are not overlapping?
-        random_indices = torch.randint(0, self.contextualized_actions.shape[0], (num_batches, batch_size))
-
-        for i in range(num_batches):
-            idx = random_indices[i]
-            X.append(self.contextualized_actions[idx])
-            Z.append(self.embedded_actions[idx])
-            Y.append(self.rewards[idx])
-
-        return X, Z, Y
 
     def _compute_loss(
         self,
@@ -314,10 +286,17 @@ class NeuralLinearBandit(LinearTSBandit):
         """Update the embeddings of the neural linear bandit."""
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
         self.encoder.eval()
+        contexts, _, _ = self.buffer.get_batch(len(self.buffer))
+        contexts = contexts.to(self.device)
+
+        new_embedded_actions = torch.empty(len(contexts), self.hparams["n_embedding_size"], device=self.device)
+
         with torch.no_grad():
-            for i, x in enumerate(self.contextualized_actions):
+            for i, x in enumerate(contexts):
                 # TODO: Do batched inference
-                self.embedded_actions[i] = self.encoder(x)
+                new_embedded_actions[i] = self.encoder(x)
+
+        self.buffer.update_embeddings(new_embedded_actions)
         self.encoder.train()
 
     def _update_head(self) -> None:
@@ -330,40 +309,19 @@ class NeuralLinearBandit(LinearTSBandit):
         #   old head.
 
         # Reset the parameters
-        self.precision_matrix = torch.eye(self.hparams["n_embedding_size"])
-        self.b = torch.zeros(self.hparams["n_embedding_size"])
-        self.theta = torch.zeros(self.hparams["n_embedding_size"])
+        self.precision_matrix.copy_(torch.eye(self.hparams["n_embedding_size"], device=self.device))
+        self.b.copy_(torch.zeros(self.hparams["n_embedding_size"], device=self.device))
+        self.theta.copy_(torch.zeros(self.hparams["n_embedding_size"], device=self.device))
 
         # Update the linear head
-        z = self.embedded_actions  # shape: (buffer_size, n_embedding_size)
-        y = self.rewards  # shape: (buffer_size,)
+        _, z, y = self.buffer.get_batch(len(self.buffer))
+        z = z.to(self.device) if z is not None else None
+        y = y.to(self.device)
 
-        data_size, n_embedding_size = z.shape
+        if z is None:
+            raise ValueError("Embedded actions required for updating linear head")
 
-        assert (
-            z.dim() == 2 and n_embedding_size == self.hparams["n_embedding_size"]
-        ), "Expected embedded_actions (z) to be 2D (batch_size, n_embedding_size)"
-        assert (
-            y.dim() == 1 and y.shape[0] == data_size
-        ), "Expected rewards (y) to be 1D (batch_size,) and of same length as embedded_actions (z)"
-
-        denominator = 1 + ((z @ self.precision_matrix) * z).sum(dim=1).sum(dim=0)
-        assert torch.abs(denominator - 0) > 0, "Denominator must not be zero"
-
-        # Update the precision matrix M using the Sherman-Morrison formula
-        self.precision_matrix = (
-            self.precision_matrix
-            - (self.precision_matrix @ torch.einsum("bi,bj->bij", z, z).sum(dim=0) @ self.precision_matrix)
-            / denominator
-        )
-        self.precision_matrix = 0.5 * (self.precision_matrix + self.precision_matrix.T)
-
-        # should be symmetric
-        assert torch.allclose(self.precision_matrix, self.precision_matrix.T), "M must be symmetric"
-
-        # Finally, update the rest of the parameters of the linear head
-        self.b += z.T @ y  # shape: (features,)
-        self.theta = self.precision_matrix @ self.b
+        super().update(z.unsqueeze(1), y.unsqueeze(1))
 
     def configure_optimizers(
         self,
