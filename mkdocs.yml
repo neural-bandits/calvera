@@ -38,7 +38,7 @@ theme:
   features:
       - header.autohide
       - navigation.footer
-      - navigation.tabs
+      # - navigation.tabs
 
 plugins:
   - search
