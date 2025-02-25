@@ -46,7 +46,7 @@ class LinearTSBandit(LinearBandit):
         batch_size = contextualized_actions.shape[0]
 
         theta_tilde = torch.distributions.MultivariateNormal(
-            self.theta, precision_matrix=self.precision_matrix
+            self.theta, self.precision_matrix
         ).sample(  # type: ignore
             (batch_size,)
         )
