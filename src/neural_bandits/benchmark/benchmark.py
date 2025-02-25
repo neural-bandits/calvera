@@ -318,7 +318,7 @@ def run(
 
     bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")]()
 
-    bandit_hparams["n_features"] = dataset.input_size
+    bandit_hparams["n_features"] = dataset.context_size
     network_input_size = bandit_hparams["n_features"]
     network_output_size = (
         bandit_hparams.get("n_embedding_size", bandit_hparams["n_features"])

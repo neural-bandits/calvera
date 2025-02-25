@@ -30,18 +30,28 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
     ```
     """
 
+    _dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]]
+    _iterator: Optional[_BaseDataLoaderIter]
+    _last_contextualized_actions: Optional[ActionInputType]
+    _last_all_rewards: Optional[torch.Tensor]
+    device: Optional[torch.device]
+
     def __init__(
-        self, dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]]
+        self,
+        dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]],
+        device: Optional[torch.device] = None,
     ) -> None:
         """
         Initializes a BanditBenchmarkEnvironment.
         Args:
             dataloader: DataLoader that yields batches of (contextualized_actions, all_rewards) tuples.
+            device: The device the tensors should be moved to. If None, the default device is used.
         """
         self._dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = dataloader
         self._iterator: Optional[_BaseDataLoaderIter] = None
         self._last_contextualized_actions: Optional[ActionInputType] = None
         self._last_all_rewards: Optional[torch.Tensor] = None
+        self.device = device
 
     def __iter__(self) -> "BanditBenchmarkEnvironment[ActionInputType]":
         """
@@ -72,19 +82,33 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         # Retrieve one batch from the DataLoader
         batch = next(self._iterator)
         contextualized_actions: ActionInputType = batch[0]
-        all_rewards: torch.Tensor = batch[1]
+        all_rewards: torch.Tensor = batch[1].to(device=self.device)
 
-        actions_tensor = (
-            contextualized_actions
-            if isinstance(contextualized_actions, torch.Tensor)
-            else contextualized_actions[0]
-        )
-        assert actions_tensor.size(0) == all_rewards.size(
+        if isinstance(contextualized_actions, torch.Tensor):
+            batch_size, num_actions, _ = contextualized_actions.shape
+            contextualized_actions = cast(
+                ActionInputType, contextualized_actions.to(device=self.device)
+            )
+        elif isinstance(contextualized_actions, tuple):
+            contextualized_actions = cast(
+                ActionInputType,
+                tuple(
+                    action_tensor.to(device=self.device)
+                    for action_tensor in contextualized_actions
+                ),
+            )
+            batch_size, num_actions, _ = contextualized_actions[0].shape
+        else:
+            raise ValueError(
+                f"contextualized_actions must be a torch.Tensor or a tuple. Received {type(contextualized_actions)}."
+            )
+
+        assert batch_size == all_rewards.size(
             0
-        ), f"Mismatched batch size of contextualized_actions and all_rewards tensors. Received {actions_tensor.size(0)} and {all_rewards.size(0)}."
-        assert actions_tensor.size(1) == all_rewards.size(
+        ), f"Mismatched batch size of contextualized_actions and all_rewards tensors. Received {batch_size} and {all_rewards.size(0)}."
+        assert num_actions == all_rewards.size(
             1
-        ), f"Mismatched number of actions in contextualized_actions and all_rewards tensors. Received {actions_tensor.size(1)} and {all_rewards.size(1)}."
+        ), f"Mismatched number of actions in contextualized_actions and all_rewards tensors. Received {num_actions} and {all_rewards.size(1)}."
 
         # Store them so we can fetch them later when building the update dataset
         self._last_contextualized_actions = contextualized_actions
