@@ -103,7 +103,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
     """
 
     num_actions: int = 5
-    context_size: int = 2
+    context_size: int = 2 * 5
 
     def __init__(
         self,
