@@ -198,13 +198,19 @@ class BenchmarkAnalyzer:
     Keeping analysis separate from training improves modularity.
     """
 
-    def __init__(self, log_path: str, metrics_file: str = "metrics.csv") -> None:
+    def __init__(
+        self,
+        log_path: str,
+        metrics_file: str = "metrics.csv",
+        supress_plots: bool = False,
+    ) -> None:
         """
         Args:
             log_path: Path to the log data.
                 Will also be output directory for plots.
                 Most likely the log_dir where metrics.csv from your CSV logger is located.
             metrics_file: Name of the metrics file. Default is "metrics.csv".
+            supress_plots: If True, plots will not be automatically shown. Default is False.
         """
         self.log_path = log_path
         self.metrics_file = metrics_file
@@ -222,7 +228,9 @@ class BenchmarkAnalyzer:
         plt.xlabel("Step")
         plt.ylabel(metric_name)
         plt.title(f"Accumulated {metric_name} over training steps")
-        plt.show()
+
+        if not self.supress_plots:
+            plt.show()
 
     def plot_average_metric(self, metric_name: str) -> None:
         # Print average metrics
@@ -236,7 +244,9 @@ class BenchmarkAnalyzer:
         plt.xlabel("Step")
         plt.ylabel(metric_name)
         plt.title(f"Average {metric_name} over training steps")
-        plt.show()
+
+        if not self.supress_plots:
+            plt.show()
 
     def plot_loss(self) -> None:
         # Generate a plot for the loss
@@ -249,6 +259,9 @@ class BenchmarkAnalyzer:
         plt.xlabel("Step")
         plt.ylabel("Loss")
         plt.title("Loss over training steps")
+
+        if not self.supress_plots:
+            plt.show()
 
 
 bandits: dict[str, type[AbstractBandit[Any]]] = {
@@ -325,6 +338,7 @@ def run(
     dataset_name: str,
     training_params: dict[str, Any] = {},
     bandit_hparams: dict[str, Any] = {},
+    supress_plots: bool = False,
 ) -> None:
     pl.seed_everything(42)
 
