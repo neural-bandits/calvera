@@ -46,6 +46,10 @@ jobs:
           init-shell: >-
             bash
 
+      - name: Install Neural-Bandits
+        run: pip install -e .
+        shell: micromamba-shell {0}
+
       - name: Run Mypy
         run: make mypy
         shell: micromamba-shell {0}
