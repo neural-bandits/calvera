@@ -57,7 +57,7 @@ def sample_data() -> Dict[str, Any]:
 
 def test_initial_state(buffer: InMemoryDataBuffer[torch.Tensor]) -> None:
     assert len(buffer) == 0
-    assert buffer.contextualized_actions.shape == torch.Size([0, 0])
+    assert buffer.contextualized_actions.shape == torch.Size([0, 0, 0])
     assert buffer.embedded_actions.shape == torch.Size([0, 0])
     assert buffer.rewards.shape == torch.Size([0])
 
@@ -73,7 +73,7 @@ def test_add_batch(
 
     assert len(buffer) == sample_data["batch_size"]
     assert buffer.contextualized_actions.shape == torch.Size(
-        [sample_data["batch_size"], sample_data["context_dim"]]
+        [sample_data["batch_size"], 1, sample_data["context_dim"]]
     )
     assert buffer.embedded_actions.shape == torch.Size(
         [sample_data["batch_size"], sample_data["embedding_dim"]]

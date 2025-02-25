@@ -1,5 +1,5 @@
 import math
-from typing import Any, Generic, Optional, cast
+from typing import Any, Generic, cast
 
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
