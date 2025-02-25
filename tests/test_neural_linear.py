@@ -192,6 +192,7 @@ def test_neural_linear_bandit_training_step(
         lr=1e-3,
         buffer=buffer,
     )
+    bandit.lazy_uncertainty_update = True
 
     theta_1 = bandit.theta.clone()
     precision_matrix_1 = bandit.precision_matrix.clone()

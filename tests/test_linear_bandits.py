@@ -5,8 +5,14 @@ import pytorch_lightning as pl
 import torch
 
 from neural_bandits.bandits.linear_bandit import LinearBandit
-from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
-from neural_bandits.bandits.linear_ucb_bandit import LinearUCBBandit
+from neural_bandits.bandits.linear_ts_bandit import (
+    DiagonalPrecApproxLinearTSBandit,
+    LinearTSBandit,
+)
+from neural_bandits.bandits.linear_ucb_bandit import (
+    DiagonalPrecApproxLinearUCBBandit,
+    LinearUCBBandit,
+)
 
 BanditClassType = TypeVar("BanditClassType", bound="LinearBandit")
 
@@ -29,10 +35,30 @@ def lin_ucb_bandit() -> LinearUCBBandit:
 @pytest.fixture
 def lin_ts_bandit() -> LinearTSBandit:
     """
-    Setup LinearTSBandit with n_features=5.
+    Setup LinearTSBandit with n_features=3.
     """
     n_features = 3
     module = LinearTSBandit(n_features=n_features)
+    return module
+
+
+@pytest.fixture
+def approx_lin_ucb_bandit() -> DiagonalPrecApproxLinearUCBBandit:
+    """
+    Setup DiagonalPrecApproxLinearUCBBandit with n_features=3.
+    """
+    n_features = 3
+    module = DiagonalPrecApproxLinearUCBBandit(n_features=n_features)
+    return module
+
+
+@pytest.fixture
+def approx_lin_ts_bandit() -> DiagonalPrecApproxLinearTSBandit:
+    """
+    Setup DiagonalPrecApproxLinearTSBandit with n_features=3.
+    """
+    n_features = 3
+    module = DiagonalPrecApproxLinearTSBandit(n_features=n_features)
     return module
 
 
@@ -47,7 +73,16 @@ def simple_ucb_bandit() -> LinearUCBBandit:
 
 
 # TODO: Also use the fixtures from above here?
-@pytest.mark.parametrize("BanditClass", [LinearTSBandit, LinearUCBBandit])
+
+LinearBanditTypes = [
+    LinearTSBandit,
+    LinearUCBBandit,
+    DiagonalPrecApproxLinearUCBBandit,
+    DiagonalPrecApproxLinearTSBandit,
+]
+
+
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
 def test_linear_bandits_forward_shapes(BanditClass: BanditClassType) -> None:
     """Check if forward method returns correct shape and handles valid input."""
     n_features = 5
@@ -73,7 +108,7 @@ def test_linear_bandits_forward_shapes(BanditClass: BanditClassType) -> None:
     )
 
 
-@pytest.mark.parametrize("BanditClass", [LinearTSBandit, LinearUCBBandit])
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
 def test_linear_bandits_forward_shape_errors(BanditClass: BanditClassType) -> None:
     """Check if forward method raises assertion error for invalid input shape."""
     n_features = 5
@@ -87,14 +122,16 @@ def test_linear_bandits_forward_shape_errors(BanditClass: BanditClassType) -> No
         bandit.forward(invalid_actions)
 
 
-@pytest.mark.parametrize("BanditClass", [LinearTSBandit, LinearUCBBandit])
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
 def test_linear_bandit_defaults(BanditClass: BanditClassType) -> None:
     """
     Test default initialization of base LinearBandit.
     Ensures shapes of precision_matrix, b, theta are correct.
     """
     n_features = 5
-    bandit: LinearBandit = BanditClass(n_features=n_features)
+    bandit: LinearBandit = BanditClass(
+        n_features=n_features, lazy_uncertainty_update=True
+    )
 
     assert bandit.precision_matrix.shape == (
         n_features,
@@ -247,7 +284,7 @@ def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -
     """
     Test if parameters are updated after training step.
     """
-    bandit: LinearBandit = BanditClass(n_features=3)
+    bandit: LinearBandit = BanditClass(n_features=3, lazy_uncertainty_update=True)
     batch_size = 10
     n_features = bandit.n_features
 
@@ -286,7 +323,7 @@ def test_update_correct() -> None:
       theta_new = [0.4]
     """
 
-    bandit = LinearUCBBandit(n_features=1, eps=0.0)
+    bandit = LinearUCBBandit(n_features=1, eps=0.0, lazy_uncertainty_update=True)
 
     chosen_contextualized_actions = torch.tensor([[[2.0]]])  # shape (1,1)
     realized_rewards = torch.tensor([[1.0]])  # shape (1,1)
@@ -383,3 +420,37 @@ def test_update_zero_denominator(
 
     with pytest.raises(AssertionError):
         bandit.update(chosen_actions, realized_rewards)
+
+
+@pytest.mark.parametrize(
+    "BanditClass", [DiagonalPrecApproxLinearUCBBandit, DiagonalPrecApproxLinearTSBandit]
+)
+def test_approx_prec_update(BanditClass: BanditClassType) -> None:
+    """
+    Test if the precision matrix is updated correctly using the diagonal approximation.
+    """
+    n_features = 3
+    bandit = BanditClass(n_features=n_features, lazy_uncertainty_update=True, eps=0.0)
+    bandit.theta = torch.tensor([0.0, 0.5, 1.0])
+
+    contextualized_actions = torch.tensor(
+        [[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.0, 0.5, 1.0]]
+    )
+    output, _ = bandit.forward(contextualized_actions.unsqueeze(0))
+
+    expected_output = torch.tensor([[0, 0, 1]])
+
+    assert torch.allclose(
+        output, expected_output
+    ), "Expected one-hot encoding of the arm with highest expected reward."
+
+    # Update precision matrix using the diagonal approximation
+    bandit._update_precision_matrix(contextualized_actions)
+
+    expected_precision_matrix = torch.tensor(
+        [[1.0, 0.0, 0.0], [0.0, 1.5, 0.0], [0.0, 0.0, 1.25]]
+    ) + torch.eye(n_features)
+
+    assert torch.allclose(
+        bandit.precision_matrix, expected_precision_matrix
+    ), f"Expected precision matrix {expected_precision_matrix}, got {bandit.precision_matrix}"

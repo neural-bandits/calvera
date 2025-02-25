@@ -23,7 +23,7 @@ class LinearTSBandit(LinearBandit):
         super().__init__(n_features, **kwargs)
         self.selector = selector
 
-    def _predict_action(
+    def _predict_action_hook(
         self, contextualized_actions: torch.Tensor, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Given contextualized actions, predicts the best action using LinTS.
@@ -78,3 +78,28 @@ class LinearTSBandit(LinearBandit):
         return torch.ones(
             contextualized_actions.shape[0], device=contextualized_actions.device
         )
+
+
+class DiagonalPrecApproxLinearTSBandit(LinearTSBandit):
+    """LinearUCB but the precision matrix is updated using a diagonal approximation. Instead of doing a full update,
+    only diag(Σ⁻¹)⁻¹ = diag(X X^T)⁻¹ is used. For compatibility reasons the precision matrix is still stored as a full
+    matrix."""
+
+    def _update_precision_matrix(self, chosen_actions: torch.Tensor) -> torch.Tensor:
+        """Update the precision matrix using an diagonal approximation. We use diag(Σ⁻¹)⁻¹.
+
+        Args:
+            chosen_actions: The chosen actions in the current batch.
+                Shape: (batch_size, n_features).
+
+        Returns:
+            The updated precision matrix.
+        """
+
+        # Compute the covariance matrix of the chosen actions. Use the diagonal approximation.
+        prec_diagonal = chosen_actions.pow(2).sum(dim=0)
+
+        # Update the precision matrix using the diagonal approximation.
+        self.precision_matrix.add_(torch.diag_embed(prec_diagonal) + self.eps)
+
+        return self.precision_matrix
