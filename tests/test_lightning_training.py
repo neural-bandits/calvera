@@ -27,6 +27,7 @@ def seed_tests() -> None:
             network=nn.Sequential(
                 nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, n_features)
             ),
+            n_embedding_size=n_features,
         ),
         NeuralUCBBandit(
             n_features,
