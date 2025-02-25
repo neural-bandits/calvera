@@ -8,6 +8,7 @@ import torch.nn as nn
 from torch import optim
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
+from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
@@ -26,15 +27,17 @@ class NeuralBandit(AbstractBandit, ABC):
         self,
         n_features: int,
         network: nn.Module,
+        buffer: AbstractBanditDataBuffer,
         selector: AbstractSelector = ArgMaxSelector(),
-        early_stop_threshold: Optional[float] = 1e-3,
-        num_grad_steps: int = 1000,
         lambda_: float = 0.00001,
         nu: float = 0.00001,
+        train_batch_size: int = 32,
         learning_rate: float = 0.01,
+        max_grad_norm: float = 20.0,
+        num_grad_steps: int = 1000,
+        early_stop_threshold: Optional[float] = 1e-3,
         train_interval: int = 100,
         initial_train_steps: int = 1000,
-        max_grad_norm: float = 20.0,
         **kw_args: Any,
     ) -> None:
         """Initialize the NeuralUCB bandit module.
@@ -42,17 +45,23 @@ class NeuralBandit(AbstractBandit, ABC):
         Args:
             n_features: Number of input features.
             network: Neural network module for function approximation.
+            buffer: Buffer for storing bandit interaction data.
             selector: Action selector for the bandit. Defaults to ArgMaxSelector.
-            early_stop_threshold: Loss threshold for early stopping. None to disable.
-            num_grad_steps: Maximum number of gradient steps per training iteration.
             lambda_: Regularization parameter.
             nu: Exploration parameter for UCB.
+            train_batch_size: Size of mini-batches for training. Defaults to 32.
             learning_rate: Learning rate for SGD optimizer.
-            train_interval: Interval between different trainings (in samples).
-            initial_train_steps: Number of initial training steps in samples.
             max_grad_norm: Maximum gradient norm for gradient clipping.
+            num_grad_steps: Maximum number of gradient steps per training iteration.
+            early_stop_threshold: Loss threshold for early stopping. None to disable.
+            train_interval: Interval between different trainings (in samples).
+            initial_train_steps: Number of initial training steps (in samples).
             **kw_args: Additional arguments passed to parent class.
         """
+        assert (
+            train_batch_size <= train_interval
+        ), "Batch size must be less than or equals to train interval."
+
         super().__init__()
 
         # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
@@ -61,6 +70,7 @@ class NeuralBandit(AbstractBandit, ABC):
         # Save hyperparameters
         hyperparameters = {
             "n_features": n_features,
+            "train_batch_size": train_batch_size,
             "early_stop_threshold": early_stop_threshold,
             "num_grad_steps": num_grad_steps,
             "lambda_": lambda_,
@@ -75,7 +85,6 @@ class NeuralBandit(AbstractBandit, ABC):
 
         self.selector = selector
 
-        self.total_samples: int = 0
         self._trained_once: bool = False
         self._last_training_divisor: int = 0  # Used to track when to train
 
@@ -85,8 +94,7 @@ class NeuralBandit(AbstractBandit, ABC):
         self.theta_t = network.to(self.device)
 
         # Track {x_i,a_i, r_i,a_i} history
-        self.context_history: list[torch.Tensor] = []
-        self.reward_history: list[torch.Tensor] = []
+        self.buffer = buffer
 
         self.total_params = sum(
             p.numel() for p in self.theta_t.parameters() if p.requires_grad
@@ -207,17 +215,21 @@ class NeuralBandit(AbstractBandit, ABC):
             0
         ]  # shape: (batch_size, n_arms, n_features)
         realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
-        batch_size = realized_rewards.shape[0]
 
         # Update bandit's history
-        self.context_history.append(contextualized_actions)
-        self.reward_history.append(realized_rewards)
+        self.buffer.add_batch(
+            contextualized_actions=contextualized_actions.view(
+                -1, contextualized_actions.size(-1)
+            ),
+            embedded_actions=None,
+            rewards=realized_rewards.squeeze(1),
+        )
 
         # Train network based on schedule
-        should_train = self.total_samples < self.hparams[
+        should_train = len(self.buffer) < self.hparams[
             "initial_train_steps"
         ] or self._last_training_divisor <= int(
-            (self.total_samples - self.hparams["initial_train_steps"])
+            (len(self.buffer) - self.hparams["initial_train_steps"])
             / self.hparams["train_interval"]
         )
 
@@ -226,7 +238,7 @@ class NeuralBandit(AbstractBandit, ABC):
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
             self._trained_once = True
             self._last_training_divisor += (
-                1 if self.total_samples >= self.hparams["initial_train_steps"] else 0
+                1 if len(self.buffer) >= self.hparams["initial_train_steps"] else 0
             )
 
         # Logging
@@ -238,8 +250,6 @@ class NeuralBandit(AbstractBandit, ABC):
             prog_bar=True,
         )
 
-        self.total_samples += batch_size
-
         return -realized_rewards.sum()
 
     def _train_network(self) -> float:
@@ -247,52 +257,39 @@ class NeuralBandit(AbstractBandit, ABC):
         if isinstance(optimizer, list):
             optimizer = optimizer[0]
 
-        indices = np.arange(len(self.reward_history))
-        np.random.shuffle(indices)
-
         L_theta_sum: float = 0.0  # Track cumulative loss L(θ)
-        j = 0  # Count gradient descent steps
 
-        while True:
-            L_theta_batch: float = 0.0  # Track batch loss
+        for j in range(self.hparams["num_grad_steps"]):
+            context, _, reward = self.buffer.get_batch(
+                batch_size=self.hparams["train_batch_size"]
+            )
+            context = context.to(self.device)
+            reward = reward.to(self.device)
 
-            # Compute L(θ) and perform gradient descent
-            for i in indices:
-                context = self.context_history[i]
-                reward = self.reward_history[i]
+            optimizer.zero_grad()
 
-                batch_size = context.shape[0]
+            # Compute f(x_i,a_i; θ)
+            f_theta = self.theta_t(context)
+            L_theta = torch.nn.functional.mse_loss(f_theta, reward.unsqueeze(1))
+            L_theta = L_theta.sum() / self.hparams["train_batch_size"]
+            self.manual_backward(L_theta)
 
-                optimizer.zero_grad()
+            torch.nn.utils.clip_grad_norm_(
+                self.theta_t.parameters(),
+                max_norm=self.hparams["max_grad_norm"],
+            )
 
-                # Compute f(x_i,a_i; θ)
-                f_theta = self.theta_t(context)
-                L_theta = torch.nn.functional.mse_loss(f_theta, reward.unsqueeze(1))
-                L_theta = L_theta.sum() / batch_size
-                self.manual_backward(L_theta)
+            optimizer.step()
 
-                torch.nn.utils.clip_grad_norm_(
-                    self.theta_t.parameters(),
-                    max_norm=self.hparams["max_grad_norm"],
-                )
+            L_theta_sum += L_theta.item()
 
-                optimizer.step()
-
-                L_theta_batch += L_theta.item()
-                L_theta_sum += L_theta.item()
-                j += 1
-
-                # Return θ⁽ᴶ⁾ after J gradient descent steps
-                if j >= self.hparams["num_grad_steps"]:
-                    return float(L_theta_sum / self.hparams["num_grad_steps"])
-
-            # Early stopping if threshold is set and loss is small enough
             if (
                 self.hparams["early_stop_threshold"] is not None
-                and L_theta_batch / len(self.reward_history)
-                <= self.hparams["early_stop_threshold"]
+                and (L_theta_sum / (j + 1)) <= self.hparams["early_stop_threshold"]
             ):
-                return float(L_theta_batch / len(self.reward_history))
+                break
+
+        return float(L_theta_sum / (j + 1))
 
     def configure_optimizers(self) -> optim.Optimizer:
         return optim.SGD(
