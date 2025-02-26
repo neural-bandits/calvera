@@ -12,12 +12,10 @@ from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
 class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
-    """NeuralUCB bandit implementation as a PyTorch Lightning module.
-    The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for exploration.
+    """Baseclass for both NeuralTS and NeuralUCB.
 
-    Attributes:
-        automatic_optimization: Boolean indicating if Lightning should handle optimization.
-        bandit: The underlying NeuralUCBBandit instance.
+    Implements most oft the logic except for the `_score` function. This function is
+    implemented in the subclasses and is responsible for calculating the scores passed to the selector.
     """
 
     Z_t: torch.Tensor
@@ -27,7 +25,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         n_features: int,
         network: nn.Module,
         buffer: AbstractBanditDataBuffer[torch.Tensor, Any],
-        selector: AbstractSelector = ArgMaxSelector(),
+        selector: Optional[AbstractSelector] = None,
         lambda_: float = 0.00001,
         nu: float = 0.00001,
         train_batch_size: int = 32,
@@ -45,7 +43,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             n_features: Number of input features.
             network: Neural network module for function approximation.
             buffer: Buffer for storing bandit interaction data.
-            selector: Action selector for the bandit. Defaults to ArgMaxSelector.
+            selector: Action selector for the bandit. Defaults to ArgMaxSelector (if None).
             lambda_: Regularization parameter.
             nu: Exploration parameter for UCB.
             train_batch_size: Size of mini-batches for training. Defaults to 32.
@@ -57,9 +55,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             initial_train_steps: Number of initial training steps (in samples).
             **kw_args: Additional arguments passed to parent class.
         """
-        assert (
-            train_batch_size <= train_interval
-        ), "Batch size must be less than or equals to train interval."
+        assert train_batch_size <= train_interval, "Batch size must be less than or equals to train interval."
 
         super().__init__()
 
@@ -82,7 +78,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         }
         self.save_hyperparameters(hyperparameters)
 
-        self.selector = selector
+        self.selector = selector if selector is not None else ArgMaxSelector()
 
         self._trained_once: bool = False
         self._last_training_divisor: int = 0  # Used to track when to train
@@ -95,15 +91,12 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         # Track {x_i,a_i, r_i,a_i} history
         self.buffer = buffer
 
-        self.total_params = sum(
-            p.numel() for p in self.theta_t.parameters() if p.requires_grad
-        )
+        self.total_params = sum(p.numel() for p in self.theta_t.parameters() if p.requires_grad)
 
         # Initialize Z_0 = λI
         self.register_buffer(
             "Z_t",
-            self.hparams["lambda_"]
-            * torch.ones((self.total_params,), device=self.device),
+            self.hparams["lambda_"] * torch.ones((self.total_params,), device=self.device),
         )
 
     def _predict_action(
@@ -115,6 +108,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         Args:
             contextualized_actions: Contextualized action tensor. Shape: (batch_size, n_arms, n_features).
+            kwargs: Additional keyword arguments. Not used.
 
         Returns:
             tuple:
@@ -135,9 +129,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         f_t_a = f_t_a.reshape(batch_size, n_arms)
 
         # Store g(x_t,a; θ_t-1) values
-        all_gradients = torch.zeros(
-            batch_size, n_arms, self.total_params, device=self.device
-        )
+        all_gradients = torch.zeros(batch_size, n_arms, self.total_params, device=self.device)
 
         for b in range(batch_size):
             for a in range(n_arms):
@@ -145,24 +137,14 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 self.theta_t.zero_grad()
                 f_t_a[b, a].backward(retain_graph=True)  # type: ignore
 
-                g_t_a = torch.cat(
-                    [
-                        p.grad.flatten().detach()
-                        for p in self.theta_t.parameters()
-                        if p.grad is not None
-                    ]
-                )
+                g_t_a = torch.cat([p.grad.flatten().detach() for p in self.theta_t.parameters() if p.grad is not None])
                 all_gradients[b, a] = g_t_a
 
         # Compute uncertainty using diagonal approximation
         # Shape: (batch_size, n_arms)
         exploration_terms = torch.sqrt(
             torch.sum(
-                self.hparams["lambda_"]
-                * self.hparams["nu"]
-                * all_gradients
-                * all_gradients
-                / self.Z_t,
+                self.hparams["lambda_"] * self.hparams["nu"] * all_gradients * all_gradients / self.Z_t,
                 dim=2,
             )
         )
@@ -170,12 +152,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         # Select a_t = argmax_a U_t,a
         chosen_actions = self.selector(self._score(f_t_a, exploration_terms))
 
-        assert (
-            chosen_actions.sum(dim=1) == 1
-        ).all(), "Currently only supports non-combinatorial bandits"
-        chosen_actions_idx = chosen_actions.argmax(
-            dim=1
-        )  # TODO: this only works for non-combinatorial bandits!
+        assert (chosen_actions.sum(dim=1) == 1).all(), "Currently only supports non-combinatorial bandits"
+        chosen_actions_idx = chosen_actions.argmax(dim=1)  # TODO: this only works for non-combinatorial bandits!
 
         # Update Z_t using g(x_t,a_t; θ_t-1)
         for b in range(batch_size):
@@ -186,9 +164,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         return chosen_actions, torch.ones(batch_size, device=self.device)
 
     @abstractmethod
-    def _score(
-        self, f_t_a: torch.Tensor, exploration_terms: torch.Tensor
-    ) -> torch.Tensor:
+    def _score(self, f_t_a: torch.Tensor, exploration_terms: torch.Tensor) -> torch.Tensor:
         """Compute a score based on the predicted rewards and exploration terms."""
         pass
 
@@ -210,35 +186,26 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             >>> batch = (context_tensor, reward_tensor)
             >>> loss = model.training_step(batch, 0)
         """
-        contextualized_actions: torch.Tensor = batch[
-            0
-        ]  # shape: (batch_size, n_arms, n_features)
+        contextualized_actions: torch.Tensor = batch[0]  # shape: (batch_size, n_arms, n_features)
         realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, )
 
         # Update bandit's history
         self.buffer.add_batch(
-            contextualized_actions=contextualized_actions.view(
-                -1, contextualized_actions.size(-1)
-            ),
+            contextualized_actions=contextualized_actions.view(-1, contextualized_actions.size(-1)),
             embedded_actions=None,
             rewards=realized_rewards.squeeze(1),
         )
 
         # Train network based on schedule
-        should_train = len(self.buffer) < self.hparams[
-            "initial_train_steps"
-        ] or self._last_training_divisor <= int(
-            (len(self.buffer) - self.hparams["initial_train_steps"])
-            / self.hparams["train_interval"]
+        should_train = len(self.buffer) < self.hparams["initial_train_steps"] or self._last_training_divisor <= int(
+            (len(self.buffer) - self.hparams["initial_train_steps"]) / self.hparams["train_interval"]
         )
 
         if should_train:
             loss = self._train_network()
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
             self._trained_once = True
-            self._last_training_divisor += (
-                1 if len(self.buffer) >= self.hparams["initial_train_steps"] else 0
-            )
+            self._last_training_divisor += 1 if len(self.buffer) >= self.hparams["initial_train_steps"] else 0
 
         # Logging
         self.log(
@@ -252,6 +219,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         return -realized_rewards.sum()
 
     def _train_network(self) -> float:
+        """Train the neural network using the data stored in the buffer."""
         optimizer = self.optimizers()
         if isinstance(optimizer, list):
             optimizer = optimizer[0]
@@ -259,9 +227,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         L_theta_sum: float = 0.0  # Track cumulative loss L(θ)
 
         for j in range(self.hparams["num_grad_steps"]):
-            context, _, reward = self.buffer.get_batch(
-                batch_size=self.hparams["train_batch_size"]
-            )
+            context, _, reward = self.buffer.get_batch(batch_size=self.hparams["train_batch_size"])
             context = context.to(self.device)
             reward = reward.to(self.device)
 
@@ -291,6 +257,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         return float(L_theta_sum / (j + 1))
 
     def configure_optimizers(self) -> optim.Optimizer:
+        """Initialize the optimizer for the bandit model."""
         return optim.SGD(
             self.theta_t.parameters(),
             lr=self.hparams["learning_rate"],
@@ -298,12 +265,12 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         )
 
     def on_train_epoch_end(self) -> None:
+        """Check if the network was trained at least once during the epoch."""
         super().on_train_epoch_end()
         if not self._trained_once:
-            logging.warning(
-                "Finished the epoch without training the network. Consider decreasing `train_interval`."
-            )
+            logging.warning("Finished the epoch without training the network. Consider decreasing `train_interval`.")
 
     def on_train_epoch_start(self) -> None:
+        """Reset the `_trained_once` flag at the start of each epoch."""
         super().on_train_epoch_start()
         self._trained_once = False

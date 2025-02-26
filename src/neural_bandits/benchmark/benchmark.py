@@ -14,9 +14,7 @@ from torch.utils.data import DataLoader, Dataset, Subset
 try:
     from transformers import BertModel
 except Exception as e:
-    logging.warning(
-        "Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly."
-    )
+    logging.warning("Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly.")
     logging.warning(e)
     pass
 
@@ -148,9 +146,7 @@ def filter_kwargs(cls: type[Any], kwargs: dict[str, Any]) -> dict[str, Any]:
 
 
 class BanditBenchmark(Generic[ActionInputType]):
-    """
-    Benchmark class which trains a bandit on a dataset.
-    """
+    """Benchmark class which trains a bandit on a dataset."""
 
     @staticmethod
     def from_config(
@@ -228,12 +224,11 @@ class BanditBenchmark(Generic[ActionInputType]):
         training_params: Dict[str, Any],
         logger: Optional[Logger] = None,
     ) -> None:
-        """
-        Initializes the benchmark.
+        """Initializes the benchmark.
 
         Args:
-            bandit: A PyTorch Lightning module implementing your bandit.
-            dataloader: A DataLoader supplying (contextualized_actions, all_rewards) tuples.
+            BanditClass: A PyTorch Lightning module implementing your bandit.
+            dataset: A dataset supplying (contextualized_actions (type: ActionInputType), all_rewards) tuples.
             training_params: Dictionary of parameters for training (e.g. batch_size, etc).
             bandit_hparams: Dictionary of bandit hyperparameters. These will be passed to the bandit's constructor.
             logger: Optional Lightning logger to record metrics.
@@ -273,8 +268,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         )
 
     def run(self) -> None:
-        """
-        Runs the benchmark training.
+        """Runs the benchmark training.
 
         For each iteration (or for a set number of runs) the bandit:
             - Samples contextualized_actions from the environment,
@@ -285,9 +279,7 @@ class BanditBenchmark(Generic[ActionInputType]):
 
         Metrics are logged and can be analyzed later, e.g. using the BenchmarkAnalyzer.
         """
-        logging.getLogger("lightning.pytorch.utilities.rank_zero").setLevel(
-            logging.FATAL
-        )
+        logging.getLogger("lightning.pytorch.utilities.rank_zero").setLevel(logging.FATAL)
 
         train_batch_size = self.training_params.get("train_batch_size", 1)
         # Iterate over one epoch (or limited iterations) from the environment.
@@ -318,18 +310,17 @@ class BanditBenchmark(Generic[ActionInputType]):
             trainer.fit(self.bandit, feedback_loader)
 
     def _predict_actions(self, contextualized_actions: ActionInputType) -> torch.Tensor:
-        """
-        Predicts actions for the given contextualized_actions.
-        Predictions are made in batches of size 'forward_batch_size'. Therefore, the input batch size must be divisible by 'forward_batch_size'.
+        """Predicts actions for the given contextualized_actions.
+
+        Predictions are made in batches of size 'forward_batch_size'.
+        Therefore, the input batch size must be divisible by 'forward_batch_size'.
 
         Args:
             contextualized_actions: A tensor of contextualized actions.
         """
         forward_batch_size = self.training_params.get("forward_batch_size", 1)
         contextualized_actions_tensor = (
-            contextualized_actions
-            if isinstance(contextualized_actions, torch.Tensor)
-            else contextualized_actions[0]
+            contextualized_actions if isinstance(contextualized_actions, torch.Tensor) else contextualized_actions[0]
         )
         batch_size = contextualized_actions_tensor.size(0)
 
@@ -338,37 +329,28 @@ class BanditBenchmark(Generic[ActionInputType]):
             chosen_actions, _ = self.bandit.forward(contextualized_actions)
             return chosen_actions
         elif forward_batch_size < batch_size:
-            # Split the batch into smaller forward_batch_size chunks. Process each chunk separately. e.g. we always predict for a single sample but then later train on a batch of samples.
+            # Split the batch into smaller forward_batch_size chunks. Process each chunk separately.
+            # e.g. we always predict for a single sample but then later train on a batch of samples.
             assert (
                 batch_size % forward_batch_size == 0
             ), "data loaders batch_size (feedback_delay) must be divisible by forward_batch_size."
-            chosen_actions = torch.tensor(
-                [], device=contextualized_actions_tensor.device
-            )
+            chosen_actions = torch.tensor([], device=contextualized_actions_tensor.device)
             for i in range(0, batch_size, forward_batch_size):
                 if isinstance(contextualized_actions, torch.Tensor):
-                    actions, _ = self.bandit.forward(
-                        contextualized_actions[i : i + forward_batch_size]
-                    )
+                    actions, _ = self.bandit.forward(contextualized_actions[i : i + forward_batch_size])
                 else:
                     actions, _ = self.bandit.forward(
-                        tuple(
-                            action[i : i + forward_batch_size]
-                            for action in contextualized_actions
-                        )
+                        tuple(action[i : i + forward_batch_size] for action in contextualized_actions)
                     )
                 chosen_actions = torch.cat((chosen_actions, actions), dim=0)
 
             return chosen_actions
         else:
-            raise ValueError(
-                "forward_batch_size must be smaller than the data loaders batch_size (feedback_delay)."
-            )
+            raise ValueError("forward_batch_size must be smaller than the data loaders batch_size (feedback_delay).")
 
 
 class BenchmarkAnalyzer:
-    """
-    Separates out the analysis of CSV logs produced during benchmark training.
+    """Separates out the analysis of CSV logs produced during benchmark training.
 
     This class reads the CSV logs output by the logger (for example, a CSVLogger)
     and produces metrics, plots, or statistics exactly as you need.
@@ -382,7 +364,8 @@ class BenchmarkAnalyzer:
         metrics_file: str = "metrics.csv",
         suppress_plots: bool = False,
     ) -> None:
-        """
+        """Initializes the BenchmarkAnalyzer.
+
         Args:
             log_path: Path to the log data.
                 Will also be output directory for plots.
@@ -396,10 +379,20 @@ class BenchmarkAnalyzer:
         self.df = self.load_logs()
 
     def load_logs(self) -> Any:
+        """Loads the logs from the log path.
+
+        Returns:
+            A pandas DataFrame containing the logs.
+        """
         # Load CSV data (e.g., using pandas)
         return pd.read_csv(os.path.join(self.log_path, self.metrics_file))
 
     def plot_accumulated_metric(self, metric_name: str) -> None:
+        """Plots the accumulated metric over training steps.
+
+        Args:
+            metric_name: The name of the metric to plot.
+        """
         accumulated_metric = self.df[metric_name].fillna(0).cumsum()
 
         plt.figure(figsize=(10, 5))
@@ -412,6 +405,11 @@ class BenchmarkAnalyzer:
             plt.show()
 
     def plot_average_metric(self, metric_name: str) -> None:
+        """Plots the average metric over training steps.
+
+        Args:
+            metric_name: The name of the metric to plot.
+        """
         # Print average metrics
         valid_idx = self.df[metric_name].dropna().index
         accumulated_metric = self.df.loc[valid_idx, metric_name].cumsum()
@@ -428,6 +426,7 @@ class BenchmarkAnalyzer:
             plt.show()
 
     def plot_loss(self) -> None:
+        """Plots the loss over training steps."""
         # Generate a plot for the loss
         if "loss" not in self.df.columns:
             print("\nNo loss data found in logs.")
@@ -447,6 +446,12 @@ def run(
     config: dict[str, Any] = {},
     suppress_plots: bool = False,
 ) -> None:
+    """Runs the benchmark training on a single given bandit.
+
+    Args:
+        config: Contains the `bandit`, `dataset`, `bandit_hparams` and other parameters necessary for setting up the benchmark and bandit.
+        suppress_plots: If True, plots will not be automatically shown. Default is False.
+    """
     logger = CSVLogger("logs/")
     benchmark = BanditBenchmark.from_config(config, logger)
     print(f"Running benchmark for {config['bandit']} on {config['dataset']} dataset.")

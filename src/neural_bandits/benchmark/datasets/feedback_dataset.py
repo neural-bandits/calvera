@@ -6,13 +6,12 @@ from torch.utils.data import Dataset
 from neural_bandits.bandits.abstract_bandit import ActionInputType
 
 
-class BanditFeedbackDataset(
-    Generic[ActionInputType], Dataset[tuple[ActionInputType, torch.Tensor]]
-):
-    """
-    Dataset that contains only those actions & rewards chosen by the bandit. It is used to do a single update on the bandit.
-    Supports multiple chosen actions (combinatorial bandits) but must be the same for all rows.
-    This is form of feedback is called semi-bandit feedback because we receive one reward per chosen action.
+class BanditFeedbackDataset(Generic[ActionInputType], Dataset[tuple[ActionInputType, torch.Tensor]]):
+    """Dataset that contains only those actions & rewards chosen by the bandit.
+
+    It is used to do a single update on the bandit. Supports multiple chosen actions (combinatorial bandits) but must
+    be the same for all rows. This is form of feedback is called semi-bandit feedback because we receive one reward per
+    chosen action.
 
     ActionInputType is the type of the chosen contextualized actions that are input to the bandit.
     """
@@ -26,7 +25,8 @@ class BanditFeedbackDataset(
         chosen_contextualized_actions: ActionInputType,
         realized_rewards: torch.Tensor,
     ) -> None:
-        """
+        """Initialize the BanditFeedbackDataset.
+
         n = # of rows in the dataset
         i = # of actions chosen per row
         k = # size of the contextualized action vector
@@ -45,7 +45,8 @@ class BanditFeedbackDataset(
             self.input_tuple = True
         else:
             raise ValueError(
-                f"chosen_contextualized_actions must be a torch.Tensor or a tuple. Received {type(chosen_contextualized_actions)}."
+                f"chosen_contextualized_actions must be a torch.Tensor or a tuple. \
+                    Received {type(chosen_contextualized_actions)}."
             )
 
         assert (
@@ -53,12 +54,12 @@ class BanditFeedbackDataset(
         ), "chosen_contextualized_actions must be a non-empty tuple."
         assert (
             tuple_of_chosen_contextualized_actions[0].ndim == 3
-        ), f"chosen_contextualized_actions must have shape (n, num_actions, num_features). Received {tuple_of_chosen_contextualized_actions[0].shape}."
+        ), f"chosen_contextualized_actions must have shape (n, num_actions, num_features). \
+            Received {tuple_of_chosen_contextualized_actions[0].shape}."
 
         n, i, k = tuple_of_chosen_contextualized_actions[0].shape
         assert all(
-            action_item.shape == (n, i, k)
-            for action_item in tuple_of_chosen_contextualized_actions
+            action_item.shape == (n, i, k) for action_item in tuple_of_chosen_contextualized_actions
         ), "All elements of tuple of chosen_contextualized_actions must have the same shape (n, i, k)."
 
         assert (
@@ -67,23 +68,27 @@ class BanditFeedbackDataset(
 
         # chosen_contextualized_actions: [n, m, i, k]
         self.chosen_contextualized_actions = torch.cat(
-            [
-                action_item.unsqueeze(1)
-                for action_item in tuple_of_chosen_contextualized_actions
-            ]
+            [action_item.unsqueeze(1) for action_item in tuple_of_chosen_contextualized_actions]
         )
 
         # realized_rewards: [n, i]
         self.realized_rewards = realized_rewards
 
     def __len__(self) -> int:
+        """Return the number of samples in this dataset."""
         # We store realized_rewards in an [n, i] shape, so # of rows = n
         return self.realized_rewards.size(0)
 
     def __getitem__(self, idx: int) -> tuple[ActionInputType, torch.Tensor]:
-        chosen_contextualized_action_tensor = self.chosen_contextualized_actions[
-            idx
-        ]  # shape [m, i, k]
+        """Return the chosen contextualized actions and realized rewards for the given index.
+
+        Args:
+            idx: The index of the sample to retrieve.
+
+        Returns:
+            A tuple containing the chosen contextualized actions and realized rewards.
+        """
+        chosen_contextualized_action_tensor = self.chosen_contextualized_actions[idx]  # shape [m, i, k]
 
         if self.input_tuple:  # input was a tuple
             chosen_contextualized_action = cast(
@@ -91,8 +96,6 @@ class BanditFeedbackDataset(
                 tuple(torch.unbind(chosen_contextualized_action_tensor, dim=0)),
             )
         else:  # input was a single tensor, so we squeeze the m dimension
-            chosen_contextualized_action = cast(
-                ActionInputType, chosen_contextualized_action_tensor.squeeze(0)
-            )
+            chosen_contextualized_action = cast(ActionInputType, chosen_contextualized_action_tensor.squeeze(0))
 
         return chosen_contextualized_action, self.realized_rewards[idx]

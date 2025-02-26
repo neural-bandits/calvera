@@ -4,11 +4,7 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from neural_bandits.utils.data_storage import (
-    AllDataBufferStrategy,
-    InMemoryDataBuffer,
-    SlidingWindowBufferStrategy,
-)
+from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
 
 
 def test_all_data_strategy() -> None:
@@ -24,9 +20,7 @@ def test_all_data_strategy() -> None:
         (5, 3, torch.arange(2, 5)),  # More data than window
     ],
 )
-def test_sliding_window_strategy(
-    total_samples: int, window_size: int, expected: torch.Tensor
-) -> None:
+def test_sliding_window_strategy(total_samples: int, window_size: int, expected: torch.Tensor) -> None:
     strategy = SlidingWindowBufferStrategy(window_size=window_size)
     indices = strategy.get_training_indices(total_samples)
     assert torch.equal(indices, expected)
@@ -34,9 +28,7 @@ def test_sliding_window_strategy(
 
 @pytest.fixture
 def buffer() -> InMemoryDataBuffer[torch.Tensor]:
-    return InMemoryDataBuffer[torch.Tensor](
-        buffer_strategy=AllDataBufferStrategy(), max_size=None
-    )
+    return InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
 
 
 @pytest.fixture
@@ -62,9 +54,7 @@ def test_initial_state(buffer: InMemoryDataBuffer[torch.Tensor]) -> None:
     assert buffer.rewards.shape == torch.Size([0])
 
 
-def test_add_batch(
-    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
-) -> None:
+def test_add_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -72,30 +62,20 @@ def test_add_batch(
     )
 
     assert len(buffer) == sample_data["batch_size"]
-    assert buffer.contextualized_actions.shape == torch.Size(
-        [sample_data["batch_size"], 1, sample_data["context_dim"]]
-    )
-    assert buffer.embedded_actions.shape == torch.Size(
-        [sample_data["batch_size"], sample_data["embedding_dim"]]
-    )
+    assert buffer.contextualized_actions.shape == torch.Size([sample_data["batch_size"], 1, sample_data["context_dim"]])
+    assert buffer.embedded_actions.shape == torch.Size([sample_data["batch_size"], sample_data["embedding_dim"]])
     assert buffer.rewards.shape == torch.Size([sample_data["batch_size"]])
 
 
-def test_add_batch_without_embeddings(
-    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
-) -> None:
-    buffer.add_batch(
-        sample_data["contextualized_actions"], None, sample_data["rewards"]
-    )
+def test_add_batch_without_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
+    buffer.add_batch(sample_data["contextualized_actions"], None, sample_data["rewards"])
 
     assert len(buffer) == sample_data["batch_size"]
     assert buffer.embedded_actions.shape == torch.Size([0, 0])
 
 
 def test_max_size_limit(sample_data: Dict[str, Any]) -> None:
-    buffer = InMemoryDataBuffer[torch.Tensor](
-        buffer_strategy=AllDataBufferStrategy(), max_size=2
-    )
+    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=2)
 
     buffer.add_batch(
         sample_data["contextualized_actions"],
@@ -132,9 +112,7 @@ def test_get_all_data(
     assert torch.equal(rewards_data, sample_data["rewards"])
 
 
-def test_get_batch(
-    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
-) -> None:
+def test_get_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -149,9 +127,7 @@ def test_get_batch(
     assert rewards_batch.shape == torch.Size([1])
 
 
-def test_get_batch_error(
-    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
-) -> None:
+def test_get_batch_error(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -162,26 +138,20 @@ def test_get_batch_error(
         buffer.get_batch(3)  # Request more samples than available
 
 
-def test_update_embeddings(
-    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
-) -> None:
+def test_update_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
         sample_data["rewards"],
     )
 
-    new_embeddings = torch.randn(
-        sample_data["batch_size"], sample_data["embedding_dim"]
-    )
+    new_embeddings = torch.randn(sample_data["batch_size"], sample_data["embedding_dim"])
     buffer.update_embeddings(new_embeddings)
 
     assert_close(buffer.embedded_actions, new_embeddings)
 
 
-def test_state_dict(
-    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
-) -> None:
+def test_state_dict(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -197,9 +167,7 @@ def test_state_dict(
     assert state["max_size"] == buffer.max_size
 
 
-def test_load_state_dict(
-    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
-) -> None:
+def test_load_state_dict(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -208,9 +176,7 @@ def test_load_state_dict(
 
     state = buffer.state_dict()
 
-    new_buffer = InMemoryDataBuffer[torch.Tensor](
-        buffer_strategy=AllDataBufferStrategy(), max_size=None
-    )
+    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
     new_buffer.load_state_dict(state)
 
     assert torch.equal(new_buffer.contextualized_actions, buffer.contextualized_actions)

@@ -41,9 +41,7 @@ def seed_tests() -> None:
             n_features,
         ),
         NeuralLinearBandit(
-            network=nn.Sequential(
-                nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, n_features)
-            ),
+            network=nn.Sequential(nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, n_features)),
             buffer=InMemoryDataBuffer[torch.Tensor](
                 AllDataBufferStrategy(),
                 device=torch.device("cpu"),
@@ -78,9 +76,7 @@ def test_trainer_fit_runs(bandit: AbstractBandit[ActionInputType]) -> None:
     device = "cpu"
     bandit = bandit.to(device)
 
-    dataset = torch.utils.data.TensorDataset(
-        torch.randn(10, 1, 3, device=device), torch.rand(10, 1, device=device)
-    )
+    dataset = torch.utils.data.TensorDataset(torch.randn(10, 1, 3, device=device), torch.rand(10, 1, device=device))
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=2)
     pl.Trainer(fast_dev_run=True).fit(bandit, dataloader)
 

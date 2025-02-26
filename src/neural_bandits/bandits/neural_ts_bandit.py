@@ -11,13 +11,9 @@ class NeuralTSBandit(NeuralBandit):
     and periodically updates the network parameters via gradient descent.
     """
 
-    def _score(
-        self, f_t_a: torch.Tensor, exploration_terms: torch.Tensor
-    ) -> torch.Tensor:
+    def _score(self, f_t_a: torch.Tensor, exploration_terms: torch.Tensor) -> torch.Tensor:
         # For TS, draw samples from Normal distributions:
         # For each arm: sample ~ N(mean = f_t_a, std = sigma)
-        ts_samples = torch.normal(
-            mean=f_t_a, std=exploration_terms
-        )  # shape: (batch_size, n_arms)
+        ts_samples = torch.normal(mean=f_t_a, std=exploration_terms)  # shape: (batch_size, n_arms)
 
         return ts_samples

@@ -8,11 +8,8 @@ from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
 
 
 @pytest.fixture
-def sample_data() -> (
-    tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor]
-):
-    """
-    Returns a tuple (dataloader, expected_contexts, expected_rewards).
+def sample_data() -> tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor]:
+    """Returns a tuple (dataloader, expected_contexts, expected_rewards).
     We'll produce a small dataset with shape (batch_size=2, m=3, context_dim=4).
     """
     # contexts shape: (2, 3, 4)
@@ -20,19 +17,13 @@ def sample_data() -> (
     # rewards shape: (2, 3)
     rewards = torch.tensor([[0.4, 0.2, 0.9], [0.1, 0.8, 0.7]])
 
-    dataset = cast(
-        Dataset[tuple[torch.Tensor, torch.Tensor]], TensorDataset(contexts, rewards)
-    )
-    dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
-        dataset, batch_size=1, shuffle=False
-    )
+    dataset = cast(Dataset[tuple[torch.Tensor, torch.Tensor]], TensorDataset(contexts, rewards))
+    dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(dataset, batch_size=1, shuffle=False)
     return dataloader, contexts, rewards
 
 
 def test_environment_iterator_length(
-    sample_data: tuple[
-        DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ],
+    sample_data: tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -41,9 +32,7 @@ def test_environment_iterator_length(
 
 
 def test_environment_iteration(
-    sample_data: tuple[
-        DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ],
+    sample_data: tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -52,20 +41,20 @@ def test_environment_iteration(
     # The environment returns only contextualized_actions on each iteration
     # We check that we get shape (1, 3, 4) each time from batch_size=1
     previous_all_rewards = None
-    for i, batch_contexts in enumerate(env):
+    for batch_contexts in env:
         assert batch_contexts.shape == (1, 3, 4)
         # environment stored them internally
         assert env._last_contextualized_actions is not None and torch.allclose(
             env._last_contextualized_actions, batch_contexts
         )
-        assert (previous_all_rewards is None and env._last_all_rewards is not None) or not torch.allclose(env._last_all_rewards, previous_all_rewards)  # type: ignore
+        assert (previous_all_rewards is None and env._last_all_rewards is not None) or (
+            not torch.allclose(env._last_all_rewards, previous_all_rewards)  # type: ignore
+        )
         previous_all_rewards = env._last_all_rewards
 
 
 def test_get_feedback(
-    sample_data: tuple[
-        DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ],
+    sample_data: tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
@@ -97,9 +86,7 @@ def test_get_feedback(
 
 
 def test_compute_regret(
-    sample_data: tuple[
-        DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor
-    ],
+    sample_data: tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], torch.Tensor, torch.Tensor],
 ) -> None:
     dataloader, contexts, rewards = sample_data
     env = BanditBenchmarkEnvironment(dataloader)
