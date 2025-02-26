@@ -379,6 +379,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
     def _train_nn(self) -> None:
         """Updates the `network` of the neural linear bandit.
+
         Uses the data retured by the data `buffer` (and its buffer strategy) to train the neural network.
         The `helper_network` adds a mock linear head to the `network` to train the embeddings.
         """
@@ -398,10 +399,11 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         for _ in range(num_steps):
             try:
                 x, _, y = self.buffer.get_batch(batch_size)
-            except ValueError:
+            except ValueError as e:
                 raise ValueError(
-                    f"The buffer strategy must return at least one batch of data to train the neural network. `train_batch_size` is {batch_size}."
-                )
+                    f"The buffer strategy must return at least one batch of data to train the neural network."
+                    f"`train_batch_size` is {batch_size}."
+                ) from e
             self.optimizers().zero_grad()  # type: ignore
 
             # x  # shape: (batch_size, n_network_input_size)
@@ -485,17 +487,21 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         self.buffer.update_embeddings(new_embedded_actions)
 
     def _update_head(self, z: torch.Tensor, y: torch.Tensor) -> None:
-        """Perform an update step on the head of the neural linear bandit. Does not recompute the linear model from scratch.
+        """Perform an update step on the head of the neural linear bandit.
+
+        Does not recompute the linear model from scratch and instead updates the existing linear model.
 
         Args:
             z: The embedded actions. Shape: (batch_size, n_actions, n_embedding_size)
             y: The rewards. Shape: (batch_size, n_actions)
         """
-
         super()._perform_update(z, y)
 
     def _retrain_head(self) -> None:
-        """Retrain the linear head of the neural linear bandit. Recomputes the linear model from scratch"""
+        """Retrain the linear head of the neural linear bandit.
+
+        Recomputes the linear model from scratch.
+        """
         # Retrieve training data.
         # We would like to retrain the head on the whole buffer.
         # We have to min with len(self.buffer) because the buffer might have deleted some of the old samples.

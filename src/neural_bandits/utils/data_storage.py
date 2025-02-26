@@ -128,7 +128,9 @@ class AbstractBanditDataBuffer(ABC, Generic[ActionInputType, StateDictType]):
     def get_all_data(
         self,
     ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
-        """Get all available data from the buffer. Note that data which may have been deleted due to buffer size limits is not included.
+        """Get all available data from the buffer.
+
+        Note that data which may have been deleted due to buffer size limits is not included.
 
         Returns:
             Tuple of (contextualized_actions, embedded_actions, rewards) for all available data in the buffer.
@@ -309,12 +311,13 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
     def get_all_data(
         self,
     ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
-        """Get all available data from the buffer. Note that data which may have been deleted due to buffer size limits is not included.
+        """Get all available data from the buffer.
+
+        Note that data which may have been deleted due to buffer size limits is not included.
 
         Returns:
             Tuple of (contextualized_actions, embedded_actions, rewards) for all available data in the buffer.
         """
-
         return self._get_data(torch.arange(len(self), device=self.device))
 
     def get_batch(
@@ -337,7 +340,9 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
         if len(available_indices) < batch_size:
             raise ValueError(
-                f"Requested batch size {batch_size} is larger than data retrieved by BufferStrategy {len(available_indices)}. To retrieve all data, use get_all_data()"
+                f"Requested batch size {batch_size} is larger than data retrieved by BufferStrategy."
+                f"BufferStrategy retrieved {len(available_indices)} data point(s)."
+                f"To retrieve all data, use get_all_data()."
             )
 
         perm = torch.randperm(len(available_indices), device=self.device)
@@ -354,7 +359,6 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Returns:
             Tuple of (contextualized_actions, embedded_actions, rewards) for the given indices.
         """
-
         contextualized_actions_tensor = self.contextualized_actions[
             indices
         ]  # shape: (batch_size, n_parts, n_network_input_size)
@@ -383,13 +387,15 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Args:
             embedded_actions: New embeddings for all contexts in buffer. Shape: (buffer_size, n_embedding_size)
         """
-        assert embedded_actions.shape[0] == len(
-            self
-        ), f"Number of embeddings to update must match buffer size. Expected {len(self)}, got {embedded_actions.shape[0]}"
+        assert embedded_actions.shape[0] == len(self), (
+            f"Number of embeddings to update must match buffer size. "
+            f"Expected {len(self)}, got {embedded_actions.shape[0]}"
+        )
 
-        assert (
-            embedded_actions.ndim == 2 and embedded_actions.shape[1] == self.embedded_actions.shape[1]
-        ), f"Embedding size does not match embeddings in buffer. Expected {self.embedded_actions.shape[1]}, got {embedded_actions.shape[1]}"
+        assert embedded_actions.ndim == 2 and embedded_actions.shape[1] == self.embedded_actions.shape[1], (
+            f"Embedding size does not match embeddings in buffer. "
+            f"Expected {self.embedded_actions.shape[1]}, got {embedded_actions.shape[1]}"
+        )
 
         self.embedded_actions = embedded_actions.to(self.device)
 

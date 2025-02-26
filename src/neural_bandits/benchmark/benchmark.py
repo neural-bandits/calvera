@@ -146,17 +146,21 @@ class BanditBenchmark(Generic[ActionInputType]):
 
     @staticmethod
     def from_config(config: dict[str, Any], logger: Optional[Logger] = None) -> "BanditBenchmark[Any]":
-        """Initialize a benchmark from a configuration of strings. Will instantiate all necessary classes from given strings for the user.
+        """Initialize a benchmark from a configuration of strings.
+
+        Will instantiate all necessary classes from given strings for the user.
 
         Args:
-            config: A dictionary of training parameters. These contain any configuration that is not directly passed to the bandit.
+            config: A dictionary of training parameters.
+                These contain any configuration that is not directly passed to the bandit.
                 - bandit: The name of the bandit to use.
                 - dataset: The name of the dataset to use.
-                - bandit_hparams: A dictionary of bandit hyperparameters. These will be filled and passed to the bandit's constructor.
-                - selector: The name of the selector to use. For the specific selectors, additional parameters can be passed:
+                - bandit_hparams: A dictionary of bandit hyperparameters.
+                    These will be filled and passed to the bandit's constructor.
+                - selector: The name of the selector to use.
+                    For the specific selectors, additional parameters can be passed:
                     - epsilon: For the EpsilonGreedySelector.
                     - k: Number of actions to select for the TopKSelector (Combinatorial Bandits).
-
                 For neural bandits:
                     - network: The name of the network to use.
                     - data_strategy: The name of the data strategy to use.
@@ -213,10 +217,9 @@ class BanditBenchmark(Generic[ActionInputType]):
         """Initializes the benchmark.
 
         Args:
-            BanditClass: A PyTorch Lightning module implementing your bandit.
+            bandit: A PyTorch Lightning module implementing your bandit.
             dataset: A dataset supplying (contextualized_actions (type: ActionInputType), all_rewards) tuples.
             training_params: Dictionary of parameters for training (e.g. batch_size, etc).
-            bandit_hparams: Dictionary of bandit hyperparameters. These will be passed to the bandit's constructor.
             logger: Optional Lightning logger to record metrics.
         """
         self.bandit = bandit
@@ -427,13 +430,14 @@ class BenchmarkAnalyzer:
 
 
 def run(
-    config: dict[str, Any] = {},
+    config: dict[str, Any],
     suppress_plots: bool = False,
 ) -> None:
     """Runs the benchmark training on a single given bandit.
 
     Args:
-        config: Contains the `bandit`, `dataset`, `bandit_hparams` and other parameters necessary for setting up the benchmark and bandit.
+        config: Contains the `bandit`, `dataset`, `bandit_hparams`
+            and other parameters necessary for setting up the benchmark and bandit.
         suppress_plots: If True, plots will not be automatically shown. Default is False.
     """
     logger = CSVLogger("logs/")
@@ -441,7 +445,9 @@ def run(
     print(f"Running benchmark for {config['bandit']} on {config['dataset']} dataset.")
     print(f"Config: {config}")
     print(
-        f"Dataset {config['dataset']}: {len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features and {benchmark.dataset.num_actions} actions."
+        f"Dataset {config['dataset']}:"
+        f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
+        f"and {benchmark.dataset.num_actions} actions."
     )
     benchmark.run()
 
