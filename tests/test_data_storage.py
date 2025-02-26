@@ -95,9 +95,7 @@ def test_max_size_limit(sample_data: Dict[str, Any]) -> None:
     assert not torch.equal(buffer.contextualized_actions, first_batch)
 
 
-def test_get_all_data(
-    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
-) -> None:
+def test_get_all_data(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],

@@ -259,9 +259,7 @@ def test_neural_linear_bandit_training_step(
     assert not torch.allclose(network[0].weight, nn_weights_before)
 
     # Also test that the helper network has been updated. Necessary for correct future updates.
-    assert not torch.allclose(
-        cast(nn.Sequential, bandit._helper_network.network)[0].weight, nn_weights_before
-    )
+    assert not torch.allclose(cast(nn.Sequential, bandit._helper_network.network)[0].weight, nn_weights_before)
 
 
 def test_neural_linear_sliding_window(
@@ -285,9 +283,7 @@ def test_neural_linear_sliding_window(
         # don't add a ReLU because its the final layer
     )
 
-    buffer = InMemoryDataBuffer[torch.Tensor](
-        buffer_strategy=SlidingWindowBufferStrategy(window_size=1)
-    )
+    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=SlidingWindowBufferStrategy(window_size=1))
 
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -310,9 +306,7 @@ def test_neural_linear_sliding_window(
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
         bandit,
-        torch.utils.data.DataLoader(
-            dataset, batch_size=2, shuffle=False, num_workers=0
-        ),
+        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
     )
 
     # After training step, buffer should have newly appended rows
@@ -337,9 +331,7 @@ def test_neural_linear_sliding_window(
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
         bandit,
-        torch.utils.data.DataLoader(
-            dataset, batch_size=2, shuffle=False, num_workers=0
-        ),
+        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
     )
 
     # The buffer should have grown

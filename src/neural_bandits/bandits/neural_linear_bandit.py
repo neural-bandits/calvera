@@ -388,9 +388,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         # linear head is trained in a seperate step but we "mock" a linear head with the final layer of the network.
 
         # Retrain given the data retrieved by the replay buffer
-        batch_size: int = min(
-            cast(int, self.hparams["train_batch_size"]), len(self.buffer)
-        )
+        batch_size: int = min(cast(int, self.hparams["train_batch_size"]), len(self.buffer))
         num_steps = math.ceil(self.num_samples / batch_size)
 
         self.network.train()
@@ -451,18 +449,10 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         """Update all of the embeddings stored in the replay buffer."""
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
 
-        contexts, _, _ = (
-            self.buffer.get_all_data()
-        )  # shape: (num_samples, n_network_input_size)
+        contexts, _, _ = self.buffer.get_all_data()  # shape: (num_samples, n_network_input_size)
 
-        num_samples = (
-            contexts.shape[0]
-            if isinstance(contexts, torch.Tensor)
-            else contexts[0].shape[0]
-        )
-        new_embedded_actions = torch.empty(
-            num_samples, self.hparams["n_embedding_size"], device=self.device
-        )
+        num_samples = contexts.shape[0] if isinstance(contexts, torch.Tensor) else contexts[0].shape[0]
+        new_embedded_actions = torch.empty(num_samples, self.hparams["n_embedding_size"], device=self.device)
 
         self.network.eval()
 
@@ -529,9 +519,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         num_samples = z.shape[0]
         batch_size = cast(int, self.hparams["train_batch_size"])
         for i in range(0, num_samples, batch_size):
-            z_batch = z[i : i + batch_size].to(
-                self.device
-            )  # shape: (num_samples, n_embedding_size)
+            z_batch = z[i : i + batch_size].to(self.device)  # shape: (num_samples, n_embedding_size)
             y_batch = y[i : i + batch_size].to(self.device)  # shape: (num_samples,)
             super()._perform_update(z_batch, y_batch)
 

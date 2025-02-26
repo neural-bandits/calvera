@@ -77,9 +77,7 @@ data_strategies: dict[str, Callable[[dict[str, Any]], DataBufferStrategy]] = {
 }
 selectors: dict[str, Callable[[dict[str, Any]], AbstractSelector]] = {
     "argmax": lambda params: ArgMaxSelector(),
-    "epsilon_greedy": lambda params: EpsilonGreedySelector(
-        params.get("epsilon", 0.1), seed=params["seed"]
-    ),
+    "epsilon_greedy": lambda params: EpsilonGreedySelector(params.get("epsilon", 0.1), seed=params["seed"]),
     "top_k": lambda params: TopKSelector(params.get("k", 1)),
 }
 
@@ -124,9 +122,7 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
         torch.nn.ReLU(),
         torch.nn.Linear(64, out_size),
     ),
-    "bert": lambda in_size, out_size: BertModel.from_pretrained(
-        "google/bert_uncased_L-2_H-128_A-2"
-    ),
+    "bert": lambda in_size, out_size: BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2"),
 }
 
 
@@ -149,9 +145,7 @@ class BanditBenchmark(Generic[ActionInputType]):
     """Benchmark class which trains a bandit on a dataset."""
 
     @staticmethod
-    def from_config(
-        config: dict[str, Any], logger: Optional[Logger] = None
-    ) -> "BanditBenchmark[Any]":
+    def from_config(config: dict[str, Any], logger: Optional[Logger] = None) -> "BanditBenchmark[Any]":
         """Initialize a benchmark from a configuration of strings. Will instantiate all necessary classes from given strings for the user.
 
         Args:
@@ -180,9 +174,7 @@ class BanditBenchmark(Generic[ActionInputType]):
 
         training_params = config
         bandit_hparams: dict[str, Any] = config.get("bandit_hparams", {})
-        bandit_hparams["selector"] = selectors[
-            bandit_hparams.get("selector", "argmax")
-        ](training_params)
+        bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")](training_params)
 
         assert dataset.context_size > 0, "Dataset must have a fix context size."
         bandit_hparams["n_features"] = dataset.context_size
@@ -192,19 +184,13 @@ class BanditBenchmark(Generic[ActionInputType]):
 
             network_input_size = dataset.context_size
             network_output_size = (
-                bandit_hparams[
-                    "n_embedding_size"
-                ]  # in neural linear we create an embedding
+                bandit_hparams["n_embedding_size"]  # in neural linear we create an embedding
                 if bandit_name == "neural_linear"
                 else 1  # in neural ucb/ts we predict the reward directly
             )
-            bandit_hparams["network"] = networks[training_params["network"]](
-                network_input_size, network_output_size
-            )
+            bandit_hparams["network"] = networks[training_params["network"]](network_input_size, network_output_size)
 
-            data_strategy = data_strategies[training_params["data_strategy"]](
-                training_params
-            )
+            data_strategy = data_strategies[training_params["data_strategy"]](training_params)
             bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](data_strategy)
 
         BanditClass = bandits[bandit_name]
@@ -244,9 +230,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         )
 
         self.dataset = dataset
-        self.dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = (
-            self._initialize_dataloader(dataset)
-        )
+        self.dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = self._initialize_dataloader(dataset)
         # Wrap the dataloader in an environment to simulate delayed feedback.
         self.environment = BanditBenchmarkEnvironment(self.dataloader)
 

@@ -345,9 +345,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
         return self._get_data(batch_indices)
 
-    def _get_data(
-        self, indices: torch.Tensor
-    ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+    def _get_data(self, indices: torch.Tensor) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
         """Get data for the given indices.
 
         Args:
@@ -390,8 +388,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         ), f"Number of embeddings to update must match buffer size. Expected {len(self)}, got {embedded_actions.shape[0]}"
 
         assert (
-            embedded_actions.ndim == 2
-            and embedded_actions.shape[1] == self.embedded_actions.shape[1]
+            embedded_actions.ndim == 2 and embedded_actions.shape[1] == self.embedded_actions.shape[1]
         ), f"Embedding size does not match embeddings in buffer. Expected {self.embedded_actions.shape[1]}, got {embedded_actions.shape[1]}"
 
         self.embedded_actions = embedded_actions.to(self.device)
@@ -428,9 +425,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Raises:
             ValueError: If the state dictionary is missing required keys.
         """
-        self.contextualized_actions = state_dict["contextualized_actions"].to(
-            device=self.device
-        )
+        self.contextualized_actions = state_dict["contextualized_actions"].to(device=self.device)
         self.embedded_actions = state_dict["embedded_actions"].to(device=self.device)
         self.rewards = state_dict["rewards"].to(device=self.device)
         self.buffer_strategy = state_dict["buffer_strategy"]
