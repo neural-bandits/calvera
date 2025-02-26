@@ -2,11 +2,7 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from neural_bandits.utils.selectors import (
-    ArgMaxSelector,
-    EpsilonGreedySelector,
-    TopKSelector,
-)
+from neural_bandits.utils.selectors import ArgMaxSelector, EpsilonGreedySelector, TopKSelector
 
 
 class TestArgMaxSelector:
@@ -93,9 +89,7 @@ class TestEpsilonGreedySelector:
             selections.append(selected)
 
         stacked_selections = torch.stack(selections)
-        assert (
-            stacked_selections.sum(dim=0) > 0
-        ).all()  # All actions should be selected at least once
+        assert (stacked_selections.sum(dim=0) > 0).all()  # All actions should be selected at least once
 
     @pytest.mark.parametrize("batch_size,n_arms", [(1, 3), (5, 2), (10, 4)])
     def test_output_shape_and_values(self, batch_size: int, n_arms: int) -> None:
@@ -104,9 +98,7 @@ class TestEpsilonGreedySelector:
         selected = selector(scores)
 
         assert selected.shape == (batch_size, n_arms)
-        assert selected.sum(dim=1).allclose(
-            torch.ones(batch_size, dtype=torch.int64)
-        )  # One selection per sample
+        assert selected.sum(dim=1).allclose(torch.ones(batch_size, dtype=torch.int64))  # One selection per sample
         assert ((selected == 0) | (selected == 1)).all()  # Only binary values
 
 
@@ -134,9 +126,7 @@ class TestTopKSelector:
 
     def test_batch_samples(self) -> None:
         selector = TopKSelector(k=2)
-        scores = torch.tensor(
-            [[1.0, 4.0, 3.0, 2.0], [4.0, 3.0, 2.0, 1.0], [1.0, 2.0, 4.0, 3.0]]
-        )
+        scores = torch.tensor([[1.0, 4.0, 3.0, 2.0], [4.0, 3.0, 2.0, 1.0], [1.0, 2.0, 4.0, 3.0]])
         selected = selector(scores)
 
         expected = torch.tensor(
@@ -177,12 +167,8 @@ class TestTopKSelector:
         assert selected[0, 2] == 0
         assert selected[0, 3] == 0
 
-    @pytest.mark.parametrize(
-        "batch_size,n_arms,k", [(1, 5, 2), (3, 4, 1), (5, 6, 3), (10, 3, 2)]
-    )
-    def test_output_shape_and_values(
-        self, batch_size: int, n_arms: int, k: int
-    ) -> None:
+    @pytest.mark.parametrize("batch_size,n_arms,k", [(1, 5, 2), (3, 4, 1), (5, 6, 3), (10, 3, 2)])
+    def test_output_shape_and_values(self, batch_size: int, n_arms: int, k: int) -> None:
         selector = TopKSelector(k=k)
         scores = torch.rand(batch_size, n_arms)
         selected = selector(scores)

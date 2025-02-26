@@ -9,12 +9,15 @@ from neural_bandits.benchmark.datasets.feedback_dataset import BanditFeedbackDat
 
 
 class BanditBenchmarkEnvironment(Generic[ActionInputType]):
-    """
-    Environment that iterates over a DataLoader, yielding only `contextualized_actions`.
-    Internally stores `rewards`, which can be retrieved by a helper method.
-    This is used to simulate a bandit environment with delayed feedback where the bandit can only see the actions and not the rewards.
+    """Environment that iterates over a DataLoader, yielding only `contextualized_actions`.
 
-    The bandit should first sample `contextualized_actions` by iterating over the environment.
+    Internally stores `rewards`, which can be retrieved by a helper method.
+    This is used to simulate a bandit environment with delayed feedback where the bandit can only see the actions and
+    not the rewards.
+
+    Internally stores `rewards`, which can be retrieved by a helper method.
+    This is used to simulate a bandit environment with delayed feedback where the bandit can only see the actions
+    and not the rewards. The bandit should first sample `contextualized_actions` by iterating over the environment.
     The bandit can then choose the best actions.
     Finally, the bandit can receive rewards by calling `get_rewards_dataset(chosen_actions)`.
     Since this is a simulation, the bandit can also compute the regret by calling `compute_regret(chosen_actions)`.
@@ -41,8 +44,8 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]],
         device: Optional[torch.device] = None,
     ) -> None:
-        """
-        Initializes a BanditBenchmarkEnvironment.
+        """Initializes a BanditBenchmarkEnvironment.
+
         Args:
             dataloader: DataLoader that yields batches of (contextualized_actions, all_rewards) tuples.
             device: The device the tensors should be moved to. If None, the default device is used.
@@ -54,8 +57,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         self.device = device
 
     def __iter__(self) -> "BanditBenchmarkEnvironment[ActionInputType]":
-        """
-        Returns an iterator object for the BanditBenchmarkEnvironment.
+        """Returns an iterator object for the BanditBenchmarkEnvironment.
 
         This method initializes an iterator for the dataloader and returns the
         BanditBenchmarkEnvironment instance itself, allowing it to be used as an
@@ -68,8 +70,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         return self
 
     def __next__(self) -> ActionInputType:
-        """
-        Returns the next batch of contextualized actions from the DataLoader.
+        """Returns the next batch of contextualized actions from the DataLoader.
 
         Returns:
             The contextualized actions for the bandit to pick from.
@@ -86,16 +87,11 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
 
         if isinstance(contextualized_actions, torch.Tensor):
             batch_size, num_actions, _ = contextualized_actions.shape
-            contextualized_actions = cast(
-                ActionInputType, contextualized_actions.to(device=self.device)
-            )
+            contextualized_actions = cast(ActionInputType, contextualized_actions.to(device=self.device))
         elif isinstance(contextualized_actions, tuple):
             contextualized_actions = cast(
                 ActionInputType,
-                tuple(
-                    action_tensor.to(device=self.device)
-                    for action_tensor in contextualized_actions
-                ),
+                tuple(action_tensor.to(device=self.device) for action_tensor in contextualized_actions),
             )
             batch_size, num_actions, _ = contextualized_actions[0].shape
         else:
@@ -105,10 +101,12 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
 
         assert batch_size == all_rewards.size(
             0
-        ), f"Mismatched batch size of contextualized_actions and all_rewards tensors. Received {batch_size} and {all_rewards.size(0)}."
+        ), f"Mismatched batch size of contextualized_actions and all_rewards tensors. \
+            Received {batch_size} and {all_rewards.size(0)}."
         assert num_actions == all_rewards.size(
             1
-        ), f"Mismatched number of actions in contextualized_actions and all_rewards tensors. Received {num_actions} and {all_rewards.size(1)}."
+        ), f"Mismatched number of actions in contextualized_actions and all_rewards tensors. \
+            Received {num_actions} and {all_rewards.size(1)}."
 
         # Store them so we can fetch them later when building the update dataset
         self._last_contextualized_actions = contextualized_actions
@@ -116,25 +114,21 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         # Return only the contextualized actions for the bandit to pick from
         return contextualized_actions
 
-    def get_feedback(
-        self, chosen_actions: torch.Tensor
-    ) -> Dataset[tuple[ActionInputType, torch.Tensor]]:
-        """
-        Returns a small dataset with only the chosen actions & realized rewards of the last batch.
+    def get_feedback(self, chosen_actions: torch.Tensor) -> Dataset[tuple[ActionInputType, torch.Tensor]]:
+        """Returns a small dataset with only the chosen actions & realized rewards of the last batch.
+
         For combinatorial bandits, this feedback is semi-bandit feedback.
 
         Args:
-            chosen_actions: shape (n, m) (one-hot, possibly multiple "1"s). The actions chosen by the bandit. Must contain at least one and the same number of chosen actions ("1s") for all rows.
+            chosen_actions: shape (n, m) (one-hot, possibly multiple "1"s). The actions chosen by the bandit. Must
+                contain at least one and the same number of chosen actions ("1s") for all rows.
 
         Returns:
             BanditFeedbackDataset with the chosen actions (shape: (n, m, k)) and realized rewards (shape: (n, m)).
         """
-
         self._validate_chosen_actions(chosen_actions)
 
-        chosen_contextualized_actions = self._get_chosen_contextualized_actions(
-            chosen_actions
-        )
+        chosen_contextualized_actions = self._get_chosen_contextualized_actions(chosen_actions)
         realized_rewards = self._get_realized_rewards(chosen_actions)
 
         return BanditFeedbackDataset(
@@ -143,15 +137,17 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         )
 
     def compute_regret(self, chosen_actions: torch.Tensor) -> torch.Tensor:
-        """
-        Computes the regret for the most recent batch:
+        """Computes the regret for the most recent batch.
+
+        Definition:
           best_reward = max over top i actions (where i is the number of chosen actions)
           chosen_reward = sum over chosen actions (handles multiple 1s per row)
           regret = best_reward - chosen_reward
         Important: For combinatorial bandits assumes that the reward of a super-action is the sum of each chosen arm.
 
         Args:
-            chosen_actions: shape (n, k), one-hot, possibly multiple "1"s. The actions chosen by the bandit. Must contain at least one and the same number of chosen actions ("1s") for all rows.
+            chosen_actions: shape (n, k), one-hot, possibly multiple "1"s. The actions chosen by the bandit. Must
+                contain at least one and the same number of chosen actions ("1s") for all rows.
 
         Returns:
             Tensor of regrets shape (n, ).
@@ -175,14 +171,14 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
 
         assert (
             chosen_actions.size(0) == batch_size
-        ), f"Mismatched batch size of chosen_actions and contextualized_actions tensors. Received {chosen_actions.size(0)} and {batch_size}."
+        ), f"Mismatched batch size of chosen_actions and contextualized_actions tensors. \
+            Received {chosen_actions.size(0)} and {batch_size}."
         assert (
             chosen_actions.size(1) == num_actions
-        ), f"Mismatched number of actions in chosen_actions and contextualized_actions tensors. Received {chosen_actions.size(1)} and {num_actions}."
+        ), f"Mismatched number of actions in chosen_actions and contextualized_actions tensors. \
+            Received {chosen_actions.size(1)} and {num_actions}."
 
-        assert (
-            chosen_actions.sum(dim=1) > 0
-        ).all(), "No actions were chosen in some rows."
+        assert (chosen_actions.sum(dim=1) > 0).all(), "No actions were chosen in some rows."
         assert (
             chosen_actions.sum(dim=1) == chosen_actions.sum(dim=1)[0]
         ).all(), "Number of chosen actions is not the same for all rows."
@@ -195,9 +191,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         best_rewards = []  # will have shape (n, i)
         for batch_idx in range(batch_size):
             row = self._last_all_rewards[batch_idx]  # shape (m, )
-            i = int(
-                chosen_actions[batch_idx].sum().item()
-            )  # number of chosen actions in this row
+            i = int(chosen_actions[batch_idx].sum().item())  # number of chosen actions in this row
 
             assert i > 0, "No actions were chosen in this row!"
 
@@ -214,24 +208,18 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         best_action_rewards = torch.stack(best_rewards, dim=0)
         return best_action_rewards  # shape (n, i)
 
-    def _get_chosen_contextualized_actions(
-        self, chosen_actions: torch.Tensor
-    ) -> ActionInputType:
+    def _get_chosen_contextualized_actions(self, chosen_actions: torch.Tensor) -> ActionInputType:
         assert self._last_contextualized_actions is not None, "No actions were stored."
 
         mask = chosen_actions.bool()
 
         if isinstance(self._last_contextualized_actions, torch.Tensor):
             # Make shape match contextualized_actions for masked_select
-            expanded_mask = mask.unsqueeze(-1).expand_as(
-                self._last_contextualized_actions
-            )
+            expanded_mask = mask.unsqueeze(-1).expand_as(self._last_contextualized_actions)
 
             return cast(
                 ActionInputType,
-                torch.masked_select(
-                    self._last_contextualized_actions, expanded_mask
-                ).view(
+                torch.masked_select(self._last_contextualized_actions, expanded_mask).view(
                     self._last_contextualized_actions.size(0),
                     -1,
                     self._last_contextualized_actions.size(-1),
@@ -253,7 +241,8 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
             )  # tuple of shape (n, m, k)
         else:
             raise ValueError(
-                f"chosen_contextualized_actions must be a torch.Tensor or a tuple. Received {type(self._last_contextualized_actions)}."
+                f"chosen_contextualized_actions must be a torch.Tensor or a tuple. \
+                    Received {type(self._last_contextualized_actions)}."
             )
 
     def _get_realized_rewards(self, chosen_actions: torch.Tensor) -> torch.Tensor:
@@ -267,5 +256,6 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         )  # shape (n, m)
 
     def __len__(self) -> int:
+        """Returns the number of batches in the DataLoader."""
         assert self._iterator is not None, "No iterator was created."
         return len(self._iterator)

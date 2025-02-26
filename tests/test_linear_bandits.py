@@ -24,9 +24,7 @@ def seed_tests() -> None:
 
 @pytest.fixture
 def lin_ucb_bandit() -> LinearUCBBandit:
-    """
-    Setup LinearUCBBandit with n_features=5.
-    """
+    """Setup LinearUCBBandit with n_features=5."""
     n_features = 3
     module = LinearUCBBandit(n_features=n_features)
     return module
@@ -64,9 +62,7 @@ def approx_lin_ts_bandit() -> DiagonalPrecApproxLinearTSBandit:
 
 @pytest.fixture
 def simple_ucb_bandit() -> LinearUCBBandit:
-    """
-    Setup LinearUCBBandit with n_features=1.
-    """
+    """Setup LinearUCBBandit with n_features=1."""
     n_features = 1
     module = LinearUCBBandit(n_features=n_features)
     return module
@@ -99,13 +95,10 @@ def test_linear_bandits_forward_shapes(BanditClass: BanditClassType) -> None:
     # Forward in both LinearTSBandit and LinearUCBBandit returns a one-hot
     # encoding of shape (batch_size, n_arms).
     assert output.shape == (batch_size, n_arms), (
-        f"Expected one-hot shape (batch_size={batch_size}, n_arms={n_arms}), "
-        f"got {output.shape}"
+        f"Expected one-hot shape (batch_size={batch_size}, n_arms={n_arms}), " f"got {output.shape}"
     )
 
-    assert p.shape == (batch_size,), (
-        f"Expected probability shape (batch_size={batch_size}), " f"got {p.shape}"
-    )
+    assert p.shape == (batch_size,), f"Expected probability shape (batch_size={batch_size}), " f"got {p.shape}"
 
 
 @pytest.mark.parametrize("BanditClass", LinearBanditTypes)
@@ -124,14 +117,11 @@ def test_linear_bandits_forward_shape_errors(BanditClass: BanditClassType) -> No
 
 @pytest.mark.parametrize("BanditClass", LinearBanditTypes)
 def test_linear_bandit_defaults(BanditClass: BanditClassType) -> None:
-    """
-    Test default initialization of base LinearBandit.
+    """Test default initialization of base LinearBandit.
     Ensures shapes of precision_matrix, b, theta are correct.
     """
     n_features = 5
-    bandit: LinearBandit = BanditClass(
-        n_features=n_features, lazy_uncertainty_update=True
-    )
+    bandit: LinearBandit = BanditClass(n_features=n_features, lazy_uncertainty_update=True)
 
     assert bandit.precision_matrix.shape == (
         n_features,
@@ -142,19 +132,13 @@ def test_linear_bandit_defaults(BanditClass: BanditClassType) -> None:
         bandit.precision_matrix, torch.eye(n_features)
     ), "Default precision_matrix should be identity."
 
-    assert bandit.b.shape == (
-        n_features,
-    ), f"b should be (n_features,), got {bandit.b.shape}"
+    assert bandit.b.shape == (n_features,), f"b should be (n_features,), got {bandit.b.shape}"
 
-    assert bandit.theta.shape == (
-        n_features,
-    ), f"theta should be (n_features,), got {bandit.theta.shape}"
+    assert bandit.theta.shape == (n_features,), f"theta should be (n_features,), got {bandit.theta.shape}"
 
 
 def test_linear_ucb_correct_mean() -> None:
-    """
-    Test if LinearUCBBandit returns correct values for theta = (0, 0, 1).
-    """
+    """Test if LinearUCBBandit returns correct values for theta = (0, 0, 1)."""
     n_features = 3
     bandit = LinearUCBBandit(n_features=n_features)
 
@@ -162,9 +146,7 @@ def test_linear_ucb_correct_mean() -> None:
     bandit.theta = torch.tensor([0.0, 0.0, 1.0])
 
     # pass one batch of 3 arms
-    contextualized_actions = torch.tensor(
-        [[[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.0, 0.5, 1.0]]]
-    )
+    contextualized_actions = torch.tensor([[[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.0, 0.5, 1.0]]])
     output, p = bandit.forward(contextualized_actions)
 
     assert torch.allclose(
@@ -174,14 +156,12 @@ def test_linear_ucb_correct_mean() -> None:
 
     assert torch.allclose(
         p,
-        torch.ones((1)),
+        torch.ones(1),
     ), "Expected probability of 1 for all arms."
 
 
 def test_linear_ucb_correct_variance() -> None:
-    """
-    Test if LinearUCBBandit returns correct values for same UCB means but different variances.
-    """
+    """Test if LinearUCBBandit returns correct values for same UCB means but different variances."""
     n_features = 3
     bandit = LinearUCBBandit(n_features=n_features)
 
@@ -197,9 +177,7 @@ def test_linear_ucb_correct_variance() -> None:
     bandit.b = torch.zeros(n_features)
 
     # pass vectors where without alpha all arms are equally good
-    contextualized_actions = torch.tensor(
-        [[[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.5, 0.0, 1.0]]]
-    )
+    contextualized_actions = torch.tensor([[[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.5, 0.0, 1.0]]])
     output, p = bandit.forward(contextualized_actions)
 
     # test that now instead the arm with higher variance is selected
@@ -210,21 +188,17 @@ def test_linear_ucb_correct_variance() -> None:
 
     assert torch.allclose(
         p,
-        torch.ones((1)),
+        torch.ones(1),
     ), "Expected probability of 1 for all arms."
 
 
 def test_linear_ucb_alpha() -> None:
-    """
-    Test alpha parameter in LinearUCBBandit to confirm it's settable and used.
-    """
+    """Test alpha parameter in LinearUCBBandit to confirm it's settable and used."""
     n_features = 3
     alpha = 25.0  # extreme alpha for testing
     bandit = LinearUCBBandit(n_features=n_features, alpha=alpha)
 
-    assert (
-        bandit.hparams["alpha"] == alpha
-    ), "Bandit's alpha should match the passed value."
+    assert bandit.hparams["alpha"] == alpha, "Bandit's alpha should match the passed value."
 
     # Manually adjust the bandits parameters
     bandit.theta = torch.ones(n_features)
@@ -238,9 +212,7 @@ def test_linear_ucb_alpha() -> None:
     bandit.b = torch.zeros(n_features)
 
     # pass vectors where without alpha all arms are equally good
-    contextualized_actions = torch.tensor(
-        [[[1.0, 0.5, 0.0], [0.0, 0.9, 0.5], [0.5, 0.0, 1.0]]]
-    )
+    contextualized_actions = torch.tensor([[[1.0, 0.5, 0.0], [0.0, 0.9, 0.5], [0.5, 0.0, 1.0]]])
     output, p = bandit.forward(contextualized_actions)
 
     # test that now instead the arm with higher variance is selected
@@ -251,14 +223,12 @@ def test_linear_ucb_alpha() -> None:
 
     assert torch.allclose(
         p,
-        torch.ones((1)),
+        torch.ones(1),
     ), "Expected probability of 1 for all arms."
 
 
 def test_linear_ts_correct() -> None:
-    """
-    Test if LinearTSBandit returns correct values for theta = (0, 0, 1).
-    """
+    """Test if LinearTSBandit returns correct values for theta = (0, 0, 1)."""
     n_features = 3
     bandit = LinearTSBandit(n_features=n_features)
 
@@ -266,9 +236,7 @@ def test_linear_ts_correct() -> None:
     bandit.theta = torch.tensor([0.0, 0.0, 1.0])
 
     # pass one batch of 3 arms
-    contextualized_actions = torch.tensor(
-        [[[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.0, 0.5, 1.0]]]
-    )
+    contextualized_actions = torch.tensor([[[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.0, 0.5, 1.0]]])
     output, _ = bandit.forward(contextualized_actions)
 
     assert torch.allclose(
@@ -301,16 +269,13 @@ def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -
     bandit._perform_update(chosen_actions, realized_rewards)
 
     # Check that parameters have been updated
-    assert not torch.equal(
-        bandit.precision_matrix, initial_precision_matrix
-    ), "Precision matrix should be updated"
+    assert not torch.equal(bandit.precision_matrix, initial_precision_matrix), "Precision matrix should be updated"
     assert not torch.equal(bandit.b, initial_b), "b should be updated"
     assert not torch.equal(bandit.theta, initial_theta), "theta should be updated"
 
 
 def test_update_correct() -> None:
-    """
-    In this simple scenario:
+    """In this simple scenario:
       - n_features = 1
       - precision_matrix = [[1.0]]
       - b = [0.0]
@@ -337,9 +302,7 @@ def test_update_correct() -> None:
     assert torch.allclose(
         bandit.precision_matrix, expected_M, atol=1e-6
     ), f"Expected M={expected_M}, got {bandit.precision_matrix}"
-    assert torch.allclose(
-        bandit.b, expected_b, atol=1e-6
-    ), f"Expected b={expected_b}, got {bandit.b}"
+    assert torch.allclose(bandit.b, expected_b, atol=1e-6), f"Expected b={expected_b}, got {bandit.b}"
     assert torch.allclose(
         bandit.theta, expected_theta, atol=1e-6
     ), f"Expected theta={expected_theta}, got {bandit.theta}"
@@ -347,9 +310,7 @@ def test_update_correct() -> None:
 
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
 def test_update_shapes_parameterized(BanditClass: BanditClassType) -> None:
-    """
-    Test if parameters have correct shapes after update.
-    """
+    """Test if parameters have correct shapes after update."""
     bandit: LinearBandit = BanditClass(n_features=3)
     batch_size = 10
     n_features = bandit.n_features
@@ -372,9 +333,7 @@ def test_update_shapes_parameterized(BanditClass: BanditClassType) -> None:
 
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
 def test_update_invalid_shapes_parameterized(BanditClass: BanditClassType) -> None:
-    """
-    Test if assertion errors are raised for invalid input shapes.
-    """
+    """Test if assertion errors are raised for invalid input shapes."""
     bandit: LinearBandit = BanditClass(n_features=3)
     batch_size = 10
     n_features = bandit.n_features
@@ -397,9 +356,7 @@ def test_update_invalid_shapes_parameterized(BanditClass: BanditClassType) -> No
 def test_update_zero_denominator(
     simple_ucb_bandit: LinearUCBBandit,
 ) -> None:
-    """
-    Test if assertion error is raised when denominator is zero.
-    """
+    """Test if assertion error is raised when denominator is zero."""
     bandit = simple_ucb_bandit
     batch_size = 10
     n_features = bandit.n_features
@@ -422,9 +379,7 @@ def test_update_zero_denominator(
         bandit._perform_update(chosen_actions, realized_rewards)
 
 
-@pytest.mark.parametrize(
-    "BanditClass", [DiagonalPrecApproxLinearUCBBandit, DiagonalPrecApproxLinearTSBandit]
-)
+@pytest.mark.parametrize("BanditClass", [DiagonalPrecApproxLinearUCBBandit, DiagonalPrecApproxLinearTSBandit])
 def test_approx_prec_update(BanditClass: BanditClassType) -> None:
     """
     Test if the precision matrix is updated correctly using the diagonal approximation.
@@ -433,23 +388,19 @@ def test_approx_prec_update(BanditClass: BanditClassType) -> None:
     bandit = BanditClass(n_features=n_features, lazy_uncertainty_update=True, eps=0.0)
     bandit.theta = torch.tensor([0.0, 0.5, 1.0])
 
-    contextualized_actions = torch.tensor(
-        [[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.0, 0.5, 1.0]]
-    )
+    contextualized_actions = torch.tensor([[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.0, 0.5, 1.0]])
     output, _ = bandit.forward(contextualized_actions.unsqueeze(0))
 
     expected_output = torch.tensor([[0, 0, 1]])
 
-    assert torch.allclose(
-        output, expected_output
-    ), "Expected one-hot encoding of the arm with highest expected reward."
+    assert torch.allclose(output, expected_output), "Expected one-hot encoding of the arm with highest expected reward."
 
     # Update precision matrix using the diagonal approximation
     bandit._update_precision_matrix(contextualized_actions)
 
-    expected_precision_matrix = torch.tensor(
-        [[1.0, 0.0, 0.0], [0.0, 1.5, 0.0], [0.0, 0.0, 1.25]]
-    ) + torch.eye(n_features)
+    expected_precision_matrix = torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.5, 0.0], [0.0, 0.0, 1.25]]) + torch.eye(
+        n_features
+    )
 
     assert torch.allclose(
         bandit.precision_matrix, expected_precision_matrix

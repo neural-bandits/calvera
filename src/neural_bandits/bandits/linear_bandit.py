@@ -7,6 +7,11 @@ from neural_bandits.bandits.abstract_bandit import AbstractBandit
 
 
 class LinearBandit(AbstractBandit[torch.Tensor], ABC):
+    """Baseclass for linear bandit algorithms.
+
+    Implements the update method for linear bandits. Also adds all necesary attributes.
+    """
+
     # The precision matrix is the inverse of the covariance matrix of the chosen contextualized actions.
     precision_matrix: torch.Tensor
     b: torch.Tensor
@@ -20,11 +25,13 @@ class LinearBandit(AbstractBandit[torch.Tensor], ABC):
         **kw_args: Any,
     ) -> None:
         """Initializes the LinearBanditModule.
+
         Args:
             n_features: The number of features in the bandit model.
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
-            update step.
+                update step.
+            kw_args: Additional keyword arguments. Saved as hyperparameters.
         """
         super().__init__()
         self.n_features = n_features
@@ -48,9 +55,7 @@ class LinearBandit(AbstractBandit[torch.Tensor], ABC):
         self.register_buffer("b", torch.zeros(n_features))
         self.register_buffer("theta", torch.zeros(n_features))
 
-    def _predict_action(
-        self, contextualized_actions: torch.Tensor, **kwargs: Any
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _predict_action(self, contextualized_actions: torch.Tensor, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
         chosen_actions, p = self._predict_action_hook(contextualized_actions, **kwargs)
         if not self.lazy_uncertainty_update:
             chosen_contextualized_actions = contextualized_actions[
@@ -108,20 +113,23 @@ class LinearBandit(AbstractBandit[torch.Tensor], ABC):
         chosen_actions: torch.Tensor,
         realized_rewards: torch.Tensor,
     ) -> None:
-        """
-        Perform an update step on the linear bandit given the actions that were chosen and the rewards that were observed.
-        The difference between `_update` and `_perform_update` is that `_update` is the method that is called by the lightning training loop
-        and therefore has the signature `_update(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor` and is also logging.
-        We require `_perform_update` for the NeuralLinear bandit which calls this method to update the parameters of its linear head.
+        """Perform an update step on the linear bandit.
+
+        Perform an update step on the linear bandit given the actions that were chosen and the rewards that were
+        observed. The difference between `_update` and `_perform_update` is that `_update` is the method that is called
+        by the lightning training loop and therefore has the signature
+        `_update(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor` and is also logging.
+        We require `_perform_update` for the NeuralLinearBandit which calls this method to update the parameters of
+        its linear head.
 
         Args:
             chosen_actions: The chosen contextualized actions in this batch. Shape: (batch_size, n_features)
             realized_rewards: The realized rewards of the chosen action in this batch. Shape: (batch_size,)
         """
-
         assert (
             chosen_actions.ndim == 3
-        ), f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) but got shape {chosen_actions.shape}"
+        ), f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) but got shape \
+            {chosen_actions.shape}"
 
         assert (
             realized_rewards.ndim == 2
@@ -130,18 +138,22 @@ class LinearBandit(AbstractBandit[torch.Tensor], ABC):
         assert (
             chosen_actions.shape[0] == realized_rewards.shape[0]
             and chosen_actions.shape[1] == realized_rewards.shape[1]
-        ), f"Batch size and num_chosen actions of chosen_actions and realized_rewards must match. Got {chosen_actions.shape[0]} and {realized_rewards.shape[0]}."
+        ), f"Batch size and num_chosen actions of chosen_actions and realized_rewards must match. \
+            Got {chosen_actions.shape[0]} and {realized_rewards.shape[0]}."
 
         assert (
             chosen_actions.shape[2] == self.hparams["n_features"]
-        ), f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) and n_features must match the bandit's n_features. Got {chosen_actions.shape[1]} but expected {self.hparams['n_features']}."
+        ), f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) and n_features must match the \
+            bandit's n_features. Got {chosen_actions.shape[1]} but expected {self.hparams['n_features']}."
 
         assert (
             chosen_actions.shape[1] == 1
-        ), f"For now we only support chosing one action at once. Instead got {chosen_actions.shape[1]}. Combinatorial bandits will be implemented in the future."
+        ), f"For now we only support chosing one action at once. Instead got {chosen_actions.shape[1]}. \
+            Combinatorial bandits will be implemented in the future."
         chosen_actions = chosen_actions.squeeze(1)
         realized_rewards = realized_rewards.squeeze(1)
-        # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial Semi-Bandits (https://arxiv.org/pdf/1406.7443)
+        # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial
+        #   Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
         if self.lazy_uncertainty_update:
             self._update_precision_matrix(chosen_actions)
@@ -149,13 +161,9 @@ class LinearBandit(AbstractBandit[torch.Tensor], ABC):
         self.b.add_(chosen_actions.T @ realized_rewards)  # shape: (features,)
         self.theta.copy_(self.precision_matrix @ self.b)
 
-        assert (
-            self.b.ndim == 1 and self.b.shape[0] == self.n_features
-        ), "updated b should have shape (n_features,)"
+        assert self.b.ndim == 1 and self.b.shape[0] == self.n_features, "updated b should have shape (n_features,)"
 
-        assert (
-            self.theta.ndim == 1 and self.theta.shape[0] == self.n_features
-        ), "Theta should have shape (n_features,)"
+        assert self.theta.ndim == 1 and self.theta.shape[0] == self.n_features, "Theta should have shape (n_features,)"
 
     def _update_precision_matrix(self, chosen_actions: torch.Tensor) -> torch.Tensor:
         # Calculate new precision matrix using the Sherman-Morrison-Woodbury formula.
@@ -179,7 +187,5 @@ class LinearBandit(AbstractBandit[torch.Tensor], ABC):
         )  # add small value to diagonal to ensure invertibility
 
         # should be symmetric
-        assert torch.allclose(
-            self.precision_matrix, self.precision_matrix.T
-        ), "M must be symmetric"
+        assert torch.allclose(self.precision_matrix, self.precision_matrix.T), "Precision matrix must be symmetric"
         return self.precision_matrix

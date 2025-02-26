@@ -19,14 +19,10 @@ def test_online_bandit_logger_decorator_basic() -> None:
     # 2. Check log_metrics
     decorator.log_metrics({"loss": 0.5}, step=0)
     # Ensure that the wrapped logger’s log_metrics was called with updated metrics
-    mock_logger.log_metrics.assert_called_with(
-        {"training_run": 0, "loss": 0.5, "pre_metric": 123.0}, 0
-    )
+    mock_logger.log_metrics.assert_called_with({"training_run": 0, "loss": 0.5, "pre_metric": 123.0}, 0)
 
     decorator.log_metrics({"loss": 0.9}, step=1)
-    mock_logger.log_metrics.assert_called_with(
-        {"training_run": 0, "loss": 0.9, "pre_metric": 53.0}, 1
-    )
+    mock_logger.log_metrics.assert_called_with({"training_run": 0, "loss": 0.9, "pre_metric": 53.0}, 1)
 
     # assert it throws an AssertionError
     with pytest.raises(AssertionError):
