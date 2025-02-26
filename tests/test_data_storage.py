@@ -115,6 +115,23 @@ def test_max_size_limit(sample_data: Dict[str, Any]) -> None:
     assert not torch.equal(buffer.contextualized_actions, first_batch)
 
 
+def test_get_all_data(
+    buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
+) -> None:
+    buffer.add_batch(
+        sample_data["contextualized_actions"],
+        sample_data["embedded_actions"],
+        sample_data["rewards"],
+    )
+
+    context_data, embedded_data, rewards_data = buffer.get_all_data()
+
+    assert torch.equal(context_data, sample_data["contextualized_actions"])
+    assert embedded_data is not None, "Embedded actions should not be None"
+    assert torch.equal(embedded_data, sample_data["embedded_actions"])
+    assert torch.equal(rewards_data, sample_data["rewards"])
+
+
 def test_get_batch(
     buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]
 ) -> None:

@@ -1,5 +1,5 @@
 import math
-from typing import Any, Generic, cast
+from typing import Any, Generic, Optional, cast
 
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
@@ -64,9 +64,10 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         buffer: AbstractBanditDataBuffer[ActionInputType, Any],
         n_embedding_size: int,
         selector: AbstractSelector = ArgMaxSelector(),
-        network_update_freq: int = 32,
-        network_update_batch_size: int = 32,
-        head_update_freq: int = 1,
+        head_update_freq: Optional[int] = 1,
+        network_update_freq: Optional[int] = 32,
+        train_batch_size: int = 32,
+        max_head_retrain_samples: Optional[int] = 10000,
         lr: float = 1e-3,
         max_grad_norm: float = 5.0,
     ) -> None:
@@ -78,8 +79,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             n_embedding_size: The size of the embedding produced by the neural network.
             selector: The selector used to choose the best action. Default is ArgMaxSelector.
             network_update_freq: The interval (in steps) at which the neural network is updated. Default is 32. None means the neural network is never updated.
-            network_update_batch_size: The batch size for the neural network update. Default is 32.
-            head_update_freq: The interval (in steps) at which the neural network is updated. Default is 1. None means the linear head is never updated independently.
+            train_batch_size: The batch size for the neural network update. Default is 32.
             lr: The learning rate for the optimizer of the neural network. Default is 1e-3.
             max_grad_norm: The maximum norm of the gradients for the neural network. Default is 5.0.
             eta: The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). Default is 6.0.
@@ -90,16 +90,14 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         assert (
             network_update_freq is None or network_update_freq > 0
         ), "The network_update_freq must be greater than 0. Set it to None to never update the neural network."
-        assert (
-            head_update_freq is None or head_update_freq > 0
-        ), "The head_update_freq must be greater than 0. Set it to None to never update the head independently."
 
         self.save_hyperparameters(
             {
                 "n_embedding_size": n_embedding_size,  # same as n_features
-                "network_update_freq": network_update_freq,
-                "network_update_batch_size": network_update_batch_size,
                 "head_update_freq": head_update_freq,
+                "network_update_freq": network_update_freq,
+                "train_batch_size": train_batch_size,
+                "max_head_retrain_samples": max_head_retrain_samples,
                 "lr": lr,
                 "max_grad_norm": max_grad_norm,
             }
@@ -109,7 +107,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder, hence the single output dimension.
         # TODO: it would be cleaner if this was a lightning module?
-        self.helper_network = HelperNetwork(
+        self._helper_network = HelperNetwork(
             self.network,
             self.hparams["n_embedding_size"],
         ).to(self.device)
@@ -227,7 +225,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             and self.num_samples % self.hparams["network_update_freq"] == 0
         )
 
-        self._update_replay_buffer(
+        embedded_actions = self._update_replay_buffer(
             chosen_contextualized_actions,
             realized_rewards,
             should_update_network,
@@ -236,14 +234,14 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         if should_update_network:
             self._train_nn()
             self._update_embeddings()
+            self._retrain_head()
 
         should_update_head = (
             self.hparams["head_update_freq"] is not None
             and self.num_samples % self.hparams["head_update_freq"] == 0
         )
-        if should_update_head or should_update_network:
-            self._update_head()
-            print("updated head")
+        if should_update_head:
+            self._update_head(embedded_actions, realized_rewards)
 
         return -realized_rewards.sum()
 
@@ -252,7 +250,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         chosen_contextualized_actions: ActionInputType,  # shape: (batch_size, n_chosen_arms, n_network_input_size)
         realized_rewards: torch.Tensor,  # shape: (batch_size, n_chosen_arms)
         should_update_network: bool,
-    ) -> None:
+    ) -> torch.Tensor:
         batch_size, n_chosen_arms = realized_rewards.shape
 
         # Compute (or mock) the embeddings of the chosen actions to update the replay buffer
@@ -296,6 +294,8 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             embedded_actions=chosen_embedded_actions.squeeze(1),
             rewards=realized_rewards.squeeze(1),
         )
+
+        return chosen_embedded_actions
 
     def _embed_contextualized_actions(
         self,
@@ -369,34 +369,42 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         return embedded_actions
 
-    def _train_nn(
-        self,
-    ) -> None:
-        """Perform a full update on the network of the neural linear bandit."""
+    def _train_nn(self) -> None:
+        """Updates the `network` of the neural linear bandit.
+        Uses the data retured by the data `buffer` (and its buffer strategy) to train the neural network.
+        The `helper_network` adds a mock linear head to the `network` to train the embeddings.
+        """
         # TODO: How can we use a Lightning trainer here? Possibly extract into a separate BanditNeuralNetwork module?
 
         # We train the neural network so that it produces embeddings that are useful for a linear head.
         # The actual linear head is trained in a seperate step but we "mock" a linear head with the final layer of the network.
 
-        # Retrain on the whole buffer
-        batch_size: int = cast(int, self.hparams["network_update_batch_size"])
+        # Retrain given the data retrieved by the replay buffer
+        batch_size: int = min(
+            cast(int, self.hparams["train_batch_size"]), len(self.buffer)
+        )
         num_steps = math.ceil(self.num_samples / batch_size)
 
         self.network.train()
-        self.helper_network.reset_linear_head()
+        self._helper_network.reset_linear_head()
         for _ in range(num_steps):
-            x, _, y = self.buffer.get_batch(batch_size)
+            try:
+                x, _, y = self.buffer.get_batch(batch_size)
+            except ValueError:
+                raise ValueError(
+                    f"The buffer strategy must return at least one batch of data to train the neural network. `train_batch_size` is {batch_size}."
+                )
             self.optimizers().zero_grad()  # type: ignore
 
             # x  # shape: (batch_size, n_network_input_size)
             # y  # shape: (batch_size,)
 
             if isinstance(x, torch.Tensor):
-                y_pred: torch.Tensor = self.helper_network.forward(
+                y_pred: torch.Tensor = self._helper_network.forward(
                     x.to(self.device)
                 )  # shape: (batch_size,)
             else:
-                y_pred = self.helper_network.forward(
+                y_pred = self._helper_network.forward(
                     *tuple(input_part.to(self.device) for input_part in x)
                 )  # shape: (batch_size,)
 
@@ -407,7 +415,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             cost.backward()  # type: ignore
 
             torch.nn.utils.clip_grad_norm_(
-                self.helper_network.parameters(), self.hparams["max_grad_norm"]
+                self._helper_network.parameters(), self.hparams["max_grad_norm"]
             )
 
             self.optimizers().step()  # type: ignore
@@ -434,21 +442,27 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         return torch.nn.functional.mse_loss(y_pred, y)
 
     def _update_embeddings(self) -> None:
-        """Update the embeddings of the neural linear bandit"""
+        """Update all of the embeddings stored in the replay buffer."""
         # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
-        contexts, _, _ = self.buffer.get_batch(
-            self.num_samples
+
+        contexts, _, _ = (
+            self.buffer.get_all_data()
         )  # shape: (num_samples, n_network_input_size)
 
+        num_samples = (
+            contexts.shape[0]
+            if isinstance(contexts, torch.Tensor)
+            else contexts[0].shape[0]
+        )
         new_embedded_actions = torch.empty(
-            self.num_samples, self.hparams["n_embedding_size"], device=self.device
+            num_samples, self.hparams["n_embedding_size"], device=self.device
         )
 
         self.network.eval()
 
-        batch_size = cast(int, self.hparams["network_update_batch_size"])
+        batch_size = cast(int, self.hparams["train_batch_size"])
         with torch.no_grad():
-            for i in range(0, self.num_samples, batch_size):
+            for i in range(0, num_samples, batch_size):
                 if isinstance(contexts, torch.Tensor):
                     batch_input = cast(
                         ActionInputType,
@@ -479,11 +493,31 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         self.buffer.update_embeddings(new_embedded_actions)
 
-    def _update_head(self) -> None:
-        """Perform an update step on the head of the neural linear bandit. Currently, it recomputes the linear head from scratch."""
-        # TODO: make this sequential! Then we don't need to reset the parameters on every update (+ update the method comment).
-        # TODO: But when we recompute after training the neural network, we need to actually reset these parameters. And we need to only load the latest data from the replay buffer.
-        # TODO: We could actually make this recompute configurable and not force a recompute but just continue using the old head.
+    def _update_head(self, z: torch.Tensor, y: torch.Tensor) -> None:
+        """Perform an update step on the head of the neural linear bandit.
+
+        Args:
+            z: The embedded actions. Shape: (batch_size, n_actions, n_embedding_size)
+            y: The rewards. Shape: (batch_size, n_actions)
+        """
+
+        super()._perform_update(z, y)
+
+    def _retrain_head(self) -> None:
+        """Retrain the linear head of the neural linear bandit."""
+        # Retrieve training data.
+        # We would like to retrain the head on the whole buffer.
+        # We have to min with len(self.buffer) because the buffer might have deleted some of the old samples.
+        _, z, y = self.buffer.get_all_data()
+
+        if z is None:
+            raise ValueError("Embedded actions required for updating linear head")
+
+        # We need to unsqueeze the tensors because the buffer might not store the action dimension
+        if z.ndim == 2:
+            z = z.unsqueeze(1)
+        if y.ndim == 1:
+            y = y.unsqueeze(1)
 
         # Reset the parameters
         self.precision_matrix.copy_(
@@ -494,20 +528,20 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             torch.zeros(self.hparams["n_embedding_size"], device=self.device)
         )
 
-        # Update the linear head
-        _, z, y = self.buffer.get_batch(self.num_samples)
-        z = z.to(self.device) if z is not None else None
-        y = y.to(self.device)
-
-        if z is None:
-            raise ValueError("Embedded actions required for updating linear head")
-
-        super()._perform_update(z.unsqueeze(1), y.unsqueeze(1))
+        # Perform the update batch-wise
+        num_samples = z.shape[0]
+        batch_size = cast(int, self.hparams["train_batch_size"])
+        for i in range(0, num_samples, batch_size):
+            z_batch = z[i : i + batch_size].to(
+                self.device
+            )  # shape: (num_samples, n_embedding_size)
+            y_batch = y[i : i + batch_size].to(self.device)  # shape: (num_samples,)
+            super()._perform_update(z_batch, y_batch)
 
     def configure_optimizers(
         self,
     ) -> OptimizerLRSchedulerConfig:
-        opt = torch.optim.Adam(self.helper_network.parameters(), lr=self.hparams["lr"])
+        opt = torch.optim.Adam(self._helper_network.parameters(), lr=self.hparams["lr"])
         scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=1, gamma=0.95)
         return {
             "optimizer": opt,

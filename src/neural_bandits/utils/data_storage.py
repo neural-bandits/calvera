@@ -118,6 +118,17 @@ class AbstractBanditDataBuffer(ABC, Generic[ActionInputType, StateDictType]):
         pass
 
     @abstractmethod
+    def get_all_data(
+        self,
+    ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+        """Get all available data from the buffer. Note that data which may have been deleted due to buffer size limits is not included.
+
+        Returns:
+            Tuple of (contextualized_actions, embedded_actions, rewards) for all available data in the buffer.
+        """
+        pass
+
+    @abstractmethod
     def get_batch(
         self,
         batch_size: int,
@@ -300,11 +311,22 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
                 self.embedded_actions = self.embedded_actions[-self.max_size :]
             self.rewards = self.rewards[-self.max_size :]
 
+    def get_all_data(
+        self,
+    ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+        """Get all available data from the buffer. Note that data which may have been deleted due to buffer size limits is not included.
+
+        Returns:
+            Tuple of (contextualized_actions, embedded_actions, rewards) for all available data in the buffer.
+        """
+
+        return self._get_data(torch.arange(len(self), device=self.device))
+
     def get_batch(
         self,
         batch_size: int,
     ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
-        """Get a random batch of training data from the buffer.
+        """Get a random batch of training data from the buffer. Uses the buffer strategy to select data.
 
         Args:
             batch_size: Number of samples in each batch
@@ -313,23 +335,37 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
             Iterator of (contextualized_actions, embedded_actions, rewards) batches. Contextualized actions can be a single tensor or a tuple of tensors.
 
         Raises:
-            ValueError: If batch_size exceeds available data
+            ValueError: If batch_size exceeds available data.
         """
+        # e.g. only sample from last n samples
         available_indices = self.buffer_strategy.get_training_indices(len(self)).to(
             self.device
         )
 
         if len(available_indices) < batch_size:
             raise ValueError(
-                f"Requested batch size {batch_size} is larger than available data {len(available_indices)}"
+                f"Requested batch size {batch_size} is larger than data retrieved by BufferStrategy {len(available_indices)}. To retrieve all data, use get_all_data()"
             )
 
-        batch_indices = available_indices[
-            torch.randint(0, len(available_indices), (batch_size,), device=self.device)
-        ]
+        perm = torch.randperm(len(available_indices), device=self.device)
+        batch_indices = available_indices[perm[:batch_size]]
+
+        return self._get_data(batch_indices)
+
+    def _get_data(
+        self, indices: torch.Tensor
+    ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+        """Get data for the given indices.
+
+        Args:
+            indices: Indices of data points to retrieve.
+
+        Returns:
+            Tuple of (contextualized_actions, embedded_actions, rewards) for the given indices.
+        """
 
         contextualized_actions_tensor = self.contextualized_actions[
-            batch_indices
+            indices
         ]  # shape: (batch_size, n_parts, n_network_input_size)
         if contextualized_actions_tensor.size(1) == 1:  # single input
             contextualized_actions_batch = cast(
@@ -344,11 +380,11 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
                 ActionInputType, contextualized_actions_tuple
             )
 
-        rewards_batch = self.rewards[batch_indices]
+        rewards_batch = self.rewards[indices]
 
         embedded_actions_batch = None
         if self.embedded_actions.numel() > 0:
-            embedded_actions_batch = self.embedded_actions[batch_indices]
+            embedded_actions_batch = self.embedded_actions[indices]
 
         return contextualized_actions_batch, embedded_actions_batch, rewards_batch
 
@@ -358,11 +394,14 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Args:
             embedded_actions: New embeddings for all contexts in buffer. Shape: (buffer_size, n_embedding_size)
         """
-        assert len(embedded_actions) == len(
+        assert embedded_actions.shape[0] == len(
             self
-        ), "Number of embeddings must match buffer size"
+        ), f"Number of embeddings to update must match buffer size. Expected {len(self)}, got {embedded_actions.shape[0]}"
 
-        # TODO: Assert dimensions of embedded_actions fit the buffer
+        assert (
+            embedded_actions.ndim == 2
+            and embedded_actions.shape[1] == self.embedded_actions.shape[1]
+        ), f"Embedding size does not match embeddings in buffer. Expected {self.embedded_actions.shape[1]}, got {embedded_actions.shape[1]}"
 
         self.embedded_actions = embedded_actions.to(self.device)
 
@@ -373,7 +412,11 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
     def state_dict(
         self,
     ) -> BanditStateDict:
-        """Create a state dictionary for checkpointing."""
+        """Create a state dictionary for checkpointing.
+
+        Returns:
+            Dictionary containing all necessary state information.
+        """
         return {
             "contextualized_actions": self.contextualized_actions,
             "embedded_actions": self.embedded_actions,
@@ -386,7 +429,14 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self,
         state_dict: BanditStateDict,
     ) -> None:
-        """Load state from a checkpoint dictionary."""
+        """Load state from a checkpoint dictionary.
+
+        Args:
+            state_dict: Dictionary containing state information.
+
+        Raises:
+            ValueError: If the state dictionary is missing required keys.
+        """
         self.contextualized_actions = state_dict["contextualized_actions"].to(
             device=self.device
         )

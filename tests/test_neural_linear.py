@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import MagicMock
 
 import lightning as pl
@@ -6,7 +7,11 @@ import torch
 import torch.nn as nn
 
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
-from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer
+from neural_bandits.utils.data_storage import (
+    AllDataBufferStrategy,
+    InMemoryDataBuffer,
+    SlidingWindowBufferStrategy,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -186,16 +191,17 @@ def test_neural_linear_bandit_training_step(
         n_embedding_size=n_embedding_size,
         network_update_freq=4,
         head_update_freq=2,
-        network_update_batch_size=2,
+        train_batch_size=2,
         lr=1e-3,
         buffer=buffer,
     )
+    # If True the uncertainty will be updated in the training and not the forward step.
     bandit.lazy_uncertainty_update = True
 
     theta_1 = bandit.theta.clone()
     precision_matrix_1 = bandit.precision_matrix.clone()
     b_1 = bandit.b.clone()
-    nn_before = network[0].weight.clone()
+    nn_weights_before = network[0].weight.clone()
 
     # Initially empty buffer
     assert buffer.contextualized_actions.numel() == 0
@@ -229,7 +235,7 @@ def test_neural_linear_bandit_training_step(
     ), "Precision matrix must be positive definite, but eigenvalues are not all positive."
 
     # But the network should not have been updated
-    assert torch.allclose(nn_before, network[0].weight)
+    assert torch.allclose(nn_weights_before, network[0].weight)
 
     # Store the updated values
     theta_2 = bandit.theta.clone()
@@ -263,7 +269,105 @@ def test_neural_linear_bandit_training_step(
     ), "Precision matrix must be positive definite, but eigenvalues are not all positive."
 
     # And the network should have been updated
-    assert not torch.allclose(nn_before, network[0].weight)
+    assert network is bandit.network, "Network should be updated in place."
+    assert not torch.allclose(network[0].weight, nn_weights_before)
+
+    # Also test that the helper network has been updated. Necessary for correct future updates.
+    assert not torch.allclose(
+        cast(nn.Sequential, bandit._helper_network.network)[0].weight, nn_weights_before
+    )
+
+
+def test_neural_linear_sliding_window(
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    ],
+) -> None:
+    """
+    Verify that the sliding window buffer strategy works as expected with neural linear.
+    Basically, only testing that we are able to use the sliding window buffer strategy without errors.
+    But its not that easy to test that the buffer technique is used correctly.
+    """
+    actions, rewards, dataset = small_context_reward_batch
+    n_features = actions.shape[2]
+    n_embedding_size = 4
+
+    network = nn.Sequential(
+        nn.Linear(n_features, n_embedding_size, bias=False),
+        # don't add a ReLU because its the final layer
+    )
+
+    buffer = InMemoryDataBuffer[torch.Tensor](
+        buffer_strategy=SlidingWindowBufferStrategy(window_size=1)
+    )
+
+    bandit = NeuralLinearBandit[torch.Tensor](
+        network=network,
+        n_embedding_size=n_embedding_size,
+        network_update_freq=4,
+        head_update_freq=2,
+        train_batch_size=1,  # must be because window_size=1
+        lr=1e-3,
+        buffer=buffer,
+    )
+    # If True the uncertainty will be updated in the training and not the forward step.
+    bandit.lazy_uncertainty_update = True
+
+    theta_1 = bandit.theta.clone()
+    precision_matrix_1 = bandit.precision_matrix.clone()
+    b_1 = bandit.b.clone()
+    nn_weights_before = network[0].weight.clone()
+
+    # Run training step
+    trainer = pl.Trainer(fast_dev_run=True)
+    trainer.fit(
+        bandit,
+        torch.utils.data.DataLoader(
+            dataset, batch_size=2, shuffle=False, num_workers=0
+        ),
+    )
+
+    # After training step, buffer should have newly appended rows
+    assert buffer.contextualized_actions.shape[0] == 2
+    assert buffer.embedded_actions.shape[0] == 2
+    assert buffer.rewards.shape[0] == 2
+
+    # The head should have been updated
+    assert not torch.allclose(bandit.theta, theta_1)
+    assert not torch.allclose(bandit.precision_matrix, precision_matrix_1)
+    assert not torch.allclose(bandit.b, b_1)
+
+    # But the network should not have been updated
+    assert torch.allclose(nn_weights_before, network[0].weight)
+
+    # Store the updated values
+    theta_2 = bandit.theta.clone()
+    precision_matrix_2 = bandit.precision_matrix.clone()
+    b_2 = bandit.b.clone()
+
+    # Now run another training step
+    trainer = pl.Trainer(fast_dev_run=True)
+    trainer.fit(
+        bandit,
+        torch.utils.data.DataLoader(
+            dataset, batch_size=2, shuffle=False, num_workers=0
+        ),
+    )
+
+    # The buffer should have grown
+    assert buffer.contextualized_actions.shape[0] == 4
+    assert buffer.embedded_actions.shape[0] == 4
+    assert buffer.rewards.shape[0] == 4
+
+    # The head should have been updated again
+    assert not torch.allclose(bandit.theta, theta_2)
+    assert not torch.allclose(bandit.precision_matrix, precision_matrix_2)
+    assert not torch.allclose(bandit.b, b_2)
+
+    # And the network should have been updated
+    assert not torch.allclose(nn_weights_before, network[0].weight)
 
 
 def test_neural_linear_bandit_hparams_effect() -> None:
@@ -396,7 +500,7 @@ def test_neural_linear_bandit_tuple_input(
         n_embedding_size=n_embedding_size,
         network_update_freq=batch_size,
         head_update_freq=1,
-        network_update_batch_size=batch_size,
+        train_batch_size=batch_size,
         lr=1e-2,
     )
 

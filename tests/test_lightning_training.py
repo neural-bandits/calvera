@@ -49,7 +49,7 @@ def seed_tests() -> None:
                 device=torch.device("cpu"),
             ),
             n_embedding_size=n_features,
-            network_update_batch_size=2,
+            train_batch_size=2,
         ),
         NeuralUCBBandit(
             n_features,
