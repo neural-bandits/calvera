@@ -16,7 +16,7 @@ class CovertypeDataset(AbstractDataset[torch.Tensor]):
     """
 
     num_actions: int = 7
-    context_size: int = 54
+    context_size: int = 54 * 7  # disjoint model
     num_samples: int = 581012
 
     def __init__(self, dest_path: str = "./data") -> None:

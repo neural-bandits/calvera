@@ -1,14 +1,25 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Generic, TypeVar, Union
 
 import lightning as pl
 import torch
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
+
+"""
+    The inputs for some models is just a tensor and for others a tuple of several torch tensors.
+    For example, the input to a model from the `transformers` library is a tuple of three tensors
+    corresponding to the `input_ids`, `attention_mask`, and `token_type_ids`.
+    On the other hand, a neural network only takes a single tensor as input.
+"""
+ActionInputType = TypeVar(
+    "ActionInputType", bound=Union[torch.Tensor, tuple[torch.Tensor, ...]]
+)
 
 logger = logging.getLogger(__name__)
 
 
-class AbstractBandit(ABC, pl.LightningModule):
+class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
     """Defines the interface for all Bandit algorithms by implementing pytorch Lightning Module methods."""
 
     def forward(
@@ -26,17 +37,17 @@ class AbstractBandit(ABC, pl.LightningModule):
         Returns:
             tuple:
             - chosen_actions: One-hot encoding of which actions were chosen.
-                Shape: (batch_size, n_chosen_actions).
+                Shape: (batch_size, n_actions).
             - p: The probability of the chosen actions. In the combinatorial case,
                 this will be a super set of actions. Non-probabilistic algorithms should always return 1.
-                Shape: (batch_size, n_chosen_actions).
+                Shape: (batch_size, ).
         """
         return self._predict_action(*args, **kwargs)
 
     @abstractmethod
     def _predict_action(
         self,
-        contextualized_actions: torch.Tensor,
+        contextualized_actions: ActionInputType,
         **kwargs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass is computed batch-wise. Given the contextualized actions, selects a single best action,
@@ -46,12 +57,13 @@ class AbstractBandit(ABC, pl.LightningModule):
         Deterministic algorithms like UCB will always return 1.
 
         Args:
-            contextualized_actions: Tensor of shape (batch_size, n_actions, n_features).
+            contextualized_actions: Input into bandit or network containing all actions. Either Tensor of shape (batch_size, n_actions, n_features)
+                or a tuple of tensors of shape (batch_size, n_actions, n_features) if there are several inputs to the model.
 
         Returns:
             tuple:
             - chosen_actions: One-hot encoding of which actions were chosen.
-                Shape: (batch_size, n_chosen_actions).
+                Shape: (batch_size, n_actions).
             - p: The probability of the chosen actions. In the combinatorial case,
                 this will be one probability for the super set of actions. Deterministic algorithms (like UCB) should always return 1.
                 Shape: (batch_size, ).
@@ -104,6 +116,11 @@ class AbstractBandit(ABC, pl.LightningModule):
                 for logging/visualization of the training process.
         """
         pass
+
+    def configure_optimizers(self) -> OptimizerLRScheduler:
+        """Configure the optimizers and learning rate schedulers. This method is required by LightningModule.
+        Can be overwritten by the concrete bandit classes."""
+        return None
 
     def on_train_start(self) -> None:
         super().on_train_start()

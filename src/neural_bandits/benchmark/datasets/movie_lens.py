@@ -218,11 +218,9 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         store_features: Whether to store the user and movie features. If True, the features will be stored in `dest_path`.
     """
 
-    num_actions: int = (
-        -1
-    )  # There is no constant number of actions in the MovieLens dataset.
-    num_samples: int = -1
-    context_size: int = -1
+    num_actions: int  # There is no constant number of actions in the MovieLens dataset.
+    context_size: int  # The context size is determined by the user and movie features.
+    num_samples: int  # 525 for small, for ml-32m it is more
 
     def __init__(
         self,
@@ -251,6 +249,12 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
 
         # We can predict k movies per user. The idea is that we only predict a user once.
         self.num_actions = self.history.shape[-1]
+        self.num_samples = self.user_features.shape[0]
+        self.context_size = (
+            self.user_features.shape[-1] * self.movie_features.shape[-1]
+            if self.outer_product
+            else self.user_features.shape[-1] + self.movie_features.shape[-1]
+        )
 
     def __len__(self) -> int:
         return self.user_features.shape[0]

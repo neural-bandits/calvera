@@ -298,7 +298,7 @@ def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -
     initial_theta = bandit.theta.clone()
 
     # Perform training step
-    bandit.update(chosen_actions, realized_rewards)
+    bandit._perform_update(chosen_actions, realized_rewards)
 
     # Check that parameters have been updated
     assert not torch.equal(
@@ -328,7 +328,7 @@ def test_update_correct() -> None:
     chosen_contextualized_actions = torch.tensor([[[2.0]]])  # shape (1,1)
     realized_rewards = torch.tensor([[1.0]])  # shape (1,1)
 
-    bandit.update(chosen_contextualized_actions, realized_rewards)
+    bandit._perform_update(chosen_contextualized_actions, realized_rewards)
 
     expected_M = torch.tensor([[0.2]])
     expected_b = torch.tensor([2.0])
@@ -359,7 +359,7 @@ def test_update_shapes_parameterized(BanditClass: BanditClassType) -> None:
     realized_rewards = torch.randn(batch_size, 1)
 
     # Perform training step
-    bandit.update(chosen_actions, realized_rewards)
+    bandit._perform_update(chosen_actions, realized_rewards)
 
     # Check shapes of updated parameters
     assert bandit.precision_matrix.shape == (
@@ -388,10 +388,10 @@ def test_update_invalid_shapes_parameterized(BanditClass: BanditClassType) -> No
 
     # Check for assertion errors
     with pytest.raises(AssertionError):
-        bandit.update(chosen_actions_invalid, realized_rewards)
+        bandit._perform_update(chosen_actions_invalid, realized_rewards)
 
     with pytest.raises(AssertionError):
-        bandit.update(chosen_actions, realized_rewards_invalid)
+        bandit._perform_update(chosen_actions, realized_rewards_invalid)
 
 
 def test_update_zero_denominator(
@@ -410,7 +410,7 @@ def test_update_zero_denominator(
     chosen_actions[0, 0] = torch.nan
 
     with pytest.raises(AssertionError):
-        bandit.update(chosen_actions, realized_rewards)
+        bandit._perform_update(chosen_actions, realized_rewards)
 
     # Create dummy data that will cause zero denominator
     chosen_actions = torch.tensor([[2.0]])
@@ -419,7 +419,7 @@ def test_update_zero_denominator(
     bandit.precision_matrix = torch.tensor([[-0.25]])  # shape (1,1)
 
     with pytest.raises(AssertionError):
-        bandit.update(chosen_actions, realized_rewards)
+        bandit._perform_update(chosen_actions, realized_rewards)
 
 
 @pytest.mark.parametrize(

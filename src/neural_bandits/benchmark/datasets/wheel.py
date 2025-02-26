@@ -102,8 +102,9 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         seed: Seed for the random number generator.
     """
 
+    num_features: int = 2
     num_actions: int = 5
-    context_size: int = 2
+    context_size: int = 2 * 5
 
     def __init__(
         self,
@@ -161,7 +162,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         batch_size = max(int(self.num_samples / 3), 1)
         while len(data_list) < self.num_samples:
             raw_data = (
-                torch.rand(batch_size, self.context_size, generator=generator) * 2.0
+                torch.rand(batch_size, self.num_features, generator=generator) * 2.0
                 - 1.0
             ).float()
             norms = torch.norm(raw_data, dim=1)

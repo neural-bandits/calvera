@@ -11,7 +11,7 @@ from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class NeuralBandit(AbstractBandit, ABC):
+class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
     """NeuralUCB bandit implementation as a PyTorch Lightning module.
     The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for exploration.
 
@@ -26,7 +26,7 @@ class NeuralBandit(AbstractBandit, ABC):
         self,
         n_features: int,
         network: nn.Module,
-        buffer: AbstractBanditDataBuffer,
+        buffer: AbstractBanditDataBuffer[torch.Tensor, Any],
         selector: AbstractSelector = ArgMaxSelector(),
         lambda_: float = 0.00001,
         nu: float = 0.00001,
@@ -118,7 +118,7 @@ class NeuralBandit(AbstractBandit, ABC):
 
         Returns:
             tuple:
-            - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, num_actions).
+            - chosen_actions: One-hot encoding of which actions were chosen. Shape: (batch_size, n_arms).
             - p: Will always return a tensor of ones because UCB does not work on probabilities. Shape: (batch_size, ).
         """
         batch_size, n_arms, n_features = contextualized_actions.shape
@@ -194,7 +194,7 @@ class NeuralBandit(AbstractBandit, ABC):
 
     def _update(
         self,
-        batch: torch.Tensor,
+        batch: tuple[torch.Tensor, torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
         """Execute a single training step.
@@ -213,7 +213,7 @@ class NeuralBandit(AbstractBandit, ABC):
         contextualized_actions: torch.Tensor = batch[
             0
         ]  # shape: (batch_size, n_arms, n_features)
-        realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, n_arms)
+        realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, )
 
         # Update bandit's history
         self.buffer.add_batch(

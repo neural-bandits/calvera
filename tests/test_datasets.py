@@ -107,7 +107,7 @@ class TestWheelBanditDataset:
 class TestImdbReviewsDataset:
     @pytest.fixture
     def dataset(self) -> ImdbMovieReviews:
-        return ImdbMovieReviews(dest_path="./data")
+        return ImdbMovieReviews()
 
     def test_len(self, dataset: ImdbMovieReviews) -> None:
         assert len(dataset) == 24904
