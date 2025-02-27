@@ -8,11 +8,7 @@ import torch.nn as nn
 from neural_bandits.bandits.neural_bandit import NeuralBandit
 from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.utils.data_storage import (
-    AbstractBanditDataBuffer,
-    AllDataBufferStrategy,
-    InMemoryDataBuffer,
-)
+from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer
 
 
 @pytest.fixture(autouse=True)
@@ -21,17 +17,13 @@ def seed_tests() -> None:
 
 
 @pytest.fixture
-def network_and_buffer() -> Tuple[int, nn.Module, AbstractBanditDataBuffer]:
+def network_and_buffer() -> Tuple[int, nn.Module, InMemoryDataBuffer]:
     """
     Create a simple network and buffer for bandit testing
     """
     n_features: int = 4
-    network: nn.Module = nn.Sequential(
-        nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1)
-    )
-    buffer: AbstractBanditDataBuffer = InMemoryDataBuffer(
-        buffer_strategy=AllDataBufferStrategy()
-    )
+    network: nn.Module = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
+    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
     return n_features, network, buffer
 
 
@@ -70,7 +62,7 @@ def small_context_reward_batch() -> tuple[
 # ------------------------------------------------------------------------------
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_forward_shape(
-    network_and_buffer: Tuple[int, nn.Module, AbstractBanditDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
     bandit_type: str,
 ) -> None:
     """
@@ -81,9 +73,7 @@ def test_neural_bandit_forward_shape(
     n_features, network, buffer = network_and_buffer
 
     if bandit_type == "ucb":
-        bandit: NeuralBandit = NeuralUCBBandit(
-            n_features=n_features, network=network, buffer=buffer
-        )
+        bandit: NeuralBandit = NeuralUCBBandit(n_features=n_features, network=network, buffer=buffer)
     else:
         bandit = NeuralTSBandit(n_features=n_features, network=network, buffer=buffer)
 
@@ -95,12 +85,12 @@ def test_neural_bandit_forward_shape(
         n_arms,
     ), f"Expected shape {(batch_size, n_arms)}, got {output.shape}"
     assert p.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {p.shape}"
-    assert torch.all(0 <= p) and torch.all(p <= 1), "Probabilities should be in [0, 1]"
+    assert torch.all(p >= 0) and torch.all(p <= 1), "Probabilities should be in [0, 1]"
 
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_training_step(
-    network_and_buffer: Tuple[int, nn.Module, AbstractBanditDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
@@ -136,99 +126,77 @@ def test_neural_bandit_training_step(
             num_grad_steps=10,
         )
 
-    params_1 = {
-        name: param.clone() for name, param in bandit.theta_t.named_parameters()
-    }
+    params_1 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
-    assert bandit.buffer.contextualized_actions.numel() == 0
-    assert bandit.buffer.rewards.numel() == 0
+    assert buffer.contextualized_actions.numel() == 0
+    assert buffer.rewards.numel() == 0
 
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
         bandit,
-        torch.utils.data.DataLoader(
-            dataset, batch_size=3, shuffle=False, num_workers=0
-        ),
+        torch.utils.data.DataLoader(dataset, batch_size=3, shuffle=False, num_workers=0),
     )
 
-    assert bandit.buffer.contextualized_actions.shape[0] == actions.shape[0]
-    assert bandit.buffer.rewards.shape[0] == rewards.shape[0]
+    assert buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert buffer.rewards.shape[0] == rewards.shape[0]
 
     # Training should happen because we're within initial_train_steps (buffer size = 2 <= 4)
     # Network parameters should have been updated
     for name, param in bandit.theta_t.named_parameters():
-        assert not torch.allclose(
-            param, params_1[name]
-        ), f"Parameter {name} was not updated"
+        assert not torch.allclose(param, params_1[name]), f"Parameter {name} was not updated"
 
-    params_2 = {
-        name: param.clone() for name, param in bandit.theta_t.named_parameters()
-    }
+    params_2 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
         bandit,
-        torch.utils.data.DataLoader(
-            dataset, batch_size=3, shuffle=False, num_workers=0
-        ),
+        torch.utils.data.DataLoader(dataset, batch_size=3, shuffle=False, num_workers=0),
     )
 
-    assert bandit.buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
-    assert bandit.buffer.rewards.shape[0] == 2 * rewards.shape[0]
+    assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 2 * rewards.shape[0]
 
     # Training should happen because we're within initial_train_steps (buffer size = 4 <= 4)
     # Network parameters should have been updated
     for name, param in bandit.theta_t.named_parameters():
-        assert not torch.allclose(
-            param, params_2[name]
-        ), f"Parameter {name} was not updated"
+        assert not torch.allclose(param, params_2[name]), f"Parameter {name} was not updated"
 
-    params_3 = {
-        name: param.clone() for name, param in bandit.theta_t.named_parameters()
-    }
+    params_3 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
         bandit,
-        torch.utils.data.DataLoader(
-            dataset, batch_size=3, shuffle=False, num_workers=0
-        ),
+        torch.utils.data.DataLoader(dataset, batch_size=3, shuffle=False, num_workers=0),
     )
 
-    assert bandit.buffer.contextualized_actions.shape[0] == 3 * actions.shape[0]
-    assert bandit.buffer.rewards.shape[0] == 3 * rewards.shape[0]
+    assert buffer.contextualized_actions.shape[0] == 3 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 3 * rewards.shape[0]
 
     # Training should NOT happen here because 6 % 4 != 0
     # Network parameters should remain unchanged
     for name, param in bandit.theta_t.named_parameters():
         assert torch.allclose(param, params_3[name])
 
-    params_4 = {
-        name: param.clone() for name, param in bandit.theta_t.named_parameters()
-    }
+    params_4 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(
         bandit,
-        torch.utils.data.DataLoader(
-            dataset, batch_size=3, shuffle=False, num_workers=0
-        ),
+        torch.utils.data.DataLoader(dataset, batch_size=3, shuffle=False, num_workers=0),
     )
 
-    assert bandit.buffer.contextualized_actions.shape[0] == 4 * actions.shape[0]
-    assert bandit.buffer.rewards.shape[0] == 4 * rewards.shape[0]
+    assert buffer.contextualized_actions.shape[0] == 4 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 4 * rewards.shape[0]
 
     # Training SHOULD happen here because 8 % 4 == 0
     # Network parameters should be updated
     for name, param in bandit.theta_t.named_parameters():
-        assert not torch.allclose(
-            param, params_4[name]
-        ), f"Parameter {name} was not updated"
+        assert not torch.allclose(param, params_4[name]), f"Parameter {name} was not updated"
 
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_hparams_effect(
-    network_and_buffer: Tuple[int, nn.Module, AbstractBanditDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
     bandit_type: str,
 ) -> None:
     """
@@ -287,7 +255,7 @@ def test_neural_bandit_hparams_effect(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_parameter_validation(
-    network_and_buffer: Tuple[int, nn.Module, AbstractBanditDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
     bandit_type: str,
 ) -> None:
     """
@@ -297,10 +265,7 @@ def test_neural_bandit_parameter_validation(
 
     BanditClass: Type[Union[NeuralUCBBandit, NeuralTSBandit]]
 
-    if bandit_type == "ucb":
-        BanditClass = NeuralUCBBandit
-    else:
-        BanditClass = NeuralTSBandit
+    BanditClass = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
 
     # This should work fine
     BanditClass(
@@ -313,9 +278,7 @@ def test_neural_bandit_parameter_validation(
     )
 
     # Invalid: train_interval not divisible by batch_size
-    with pytest.raises(
-        AssertionError, match="train_interval must be divisible by train_batch_size"
-    ):
+    with pytest.raises(AssertionError, match="train_interval must be divisible by train_batch_size"):
         BanditClass(
             n_features=n_features,
             network=network,
@@ -344,68 +307,48 @@ def test_neural_bandit_parameter_validation(
 # 2) Specific Tests for each Bandit Type
 # ------------------------------------------------------------------------------
 def test_ucb_score_method(
-    network_and_buffer: Tuple[int, nn.Module, AbstractBanditDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
 ) -> None:
     """
     Test that NeuralUCBBandit._score method correctly implements UCB scoring.
     """
-    f_t_a: torch.Tensor = torch.tensor(
-        [[1.0, 2.0, 3.0, 4.0], [2.0, 3.0, 4.0, 5.0], [3.0, 4.0, 5.0, 6.0]]
-    )
-    exploration_terms: torch.Tensor = torch.tensor(
-        [[0.5, 0.4, 0.3, 0.2], [0.4, 0.3, 0.2, 0.1], [0.3, 0.2, 0.1, 0.05]]
-    )
+    f_t_a: torch.Tensor = torch.tensor([[1.0, 2.0, 3.0, 4.0], [2.0, 3.0, 4.0, 5.0], [3.0, 4.0, 5.0, 6.0]])
+    exploration_terms: torch.Tensor = torch.tensor([[0.5, 0.4, 0.3, 0.2], [0.4, 0.3, 0.2, 0.1], [0.3, 0.2, 0.1, 0.05]])
 
     n_features, network, buffer = network_and_buffer
-    bandit: NeuralUCBBandit = NeuralUCBBandit(
-        n_features=n_features, network=network, buffer=buffer
-    )
+    bandit: NeuralUCBBandit = NeuralUCBBandit(n_features=n_features, network=network, buffer=buffer)
 
     scores: torch.Tensor = bandit._score(f_t_a, exploration_terms)
 
     expected_scores: torch.Tensor = f_t_a + exploration_terms
-    assert torch.allclose(
-        scores, expected_scores
-    ), "UCB scoring should be f_t_a + exploration_terms"
+    assert torch.allclose(scores, expected_scores), "UCB scoring should be f_t_a + exploration_terms"
 
 
 def test_ts_score_method(
-    network_and_buffer: Tuple[int, nn.Module, AbstractBanditDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
 ) -> None:
     """
     Test that NeuralTSBandit._score method correctly implements TS scoring.
     """
     batch_size, n_arms = 3, 4
     f_t_a: torch.Tensor = torch.ones((batch_size, n_arms))  # means all set to 1.0
-    exploration_terms: torch.Tensor = (
-        torch.ones((batch_size, n_arms)) * 0.1
-    )  # std devs all set to 0.1
+    exploration_terms: torch.Tensor = torch.ones((batch_size, n_arms)) * 0.1  # std devs all set to 0.1
 
     n_features, network, buffer = network_and_buffer
-    bandit: NeuralTSBandit = NeuralTSBandit(
-        n_features=n_features, network=network, buffer=buffer
-    )
+    bandit: NeuralTSBandit = NeuralTSBandit(n_features=n_features, network=network, buffer=buffer)
 
     scores: torch.Tensor = bandit._score(f_t_a, exploration_terms)
 
     # We can't test exact values due to randomness, but we can verify:
     # 1. Shape is correct
-    assert (
-        scores.shape == f_t_a.shape
-    ), f"Expected shape {f_t_a.shape}, got {scores.shape}"
+    assert scores.shape == f_t_a.shape, f"Expected shape {f_t_a.shape}, got {scores.shape}"
 
     # 2. Values differ from means (extremely unlikely to be exactly equal)
-    assert not torch.allclose(
-        scores, f_t_a
-    ), "TS scores should differ from means due to sampling"
+    assert not torch.allclose(scores, f_t_a), "TS scores should differ from means due to sampling"
 
     # 3. Most values should be within 3 standard deviations (99.7% statistically)
-    within_bounds: float = (
-        ((scores - f_t_a).abs() <= 3 * exploration_terms).float().mean().item()
-    )
-    assert (
-        within_bounds > 0.95
-    ), f"Expected >95% of samples within 3σ, got {within_bounds * 100:.2f}%"
+    within_bounds: float = ((scores - f_t_a).abs() <= 3 * exploration_terms).float().mean().item()
+    assert within_bounds > 0.95, f"Expected >95% of samples within 3σ, got {within_bounds * 100:.2f}%"
 
 
 def test_neural_ucb_forward_deterministic() -> None:
@@ -416,9 +359,7 @@ def test_neural_ucb_forward_deterministic() -> None:
     network = nn.Sequential(nn.Linear(n_features, 1, bias=False))
     network[0].weight.data = torch.tensor([[1.0, 0.1]])
 
-    buffer: AbstractBanditDataBuffer = InMemoryDataBuffer(
-        buffer_strategy=AllDataBufferStrategy()
-    )
+    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
     bandit: NeuralUCBBandit = NeuralUCBBandit(
         n_features=n_features,
         network=network,
@@ -453,9 +394,7 @@ def test_neural_ts_forward_stochastic() -> None:
     network = nn.Sequential(nn.Linear(n_features, 1, bias=False))
     network[0].weight.data = torch.tensor([[1.0, 1.0]])
 
-    buffer: AbstractBanditDataBuffer = InMemoryDataBuffer(
-        buffer_strategy=AllDataBufferStrategy()
-    )
+    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
     bandit: NeuralTSBandit = NeuralTSBandit(
         n_features=n_features,
         network=network,
@@ -485,6 +424,4 @@ def test_neural_ts_forward_stochastic() -> None:
     assert arm1_count > 0, "Arm 1 was never chosen in TS"
 
     # For Thompson sampling with equal rewards, the distribution should be roughly balanced
-    assert (
-        0.2 <= arm0_count / n_runs <= 0.8
-    ), f"Expected balanced choices, got {arm0_count}/{n_runs} for arm 0"
+    assert 0.2 <= arm0_count / n_runs <= 0.8, f"Expected balanced choices, got {arm0_count}/{n_runs} for arm 0"
