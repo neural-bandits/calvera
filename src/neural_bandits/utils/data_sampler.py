@@ -11,22 +11,25 @@ class AbstractDataSampler(Sampler[int], ABC):
     Implements the basic functionality required for sampling from a dataset.
     Subclasses need only implement the _get_iterator method to define
     their specific sampling strategy.
-
-    Args:
-        data_source: Dataset to sample from
     """
 
     def __init__(
         self,
         data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
     ) -> None:
-        # super().__init__(data_source)
+        """Initializes the AbstractDataSampler.
+
+        Args:
+            data_source: Dataset to sample from
+        """
         self.data_source = data_source
 
     def __len__(self) -> int:
+        """Returns the number of elements in the data source."""
         return len(self.data_source)  # type: ignore
 
     def __iter__(self) -> Iterator[int]:
+        """Returns an iterator of the specified `data_source` indices in random order."""
         return self._get_iterator()
 
     @abstractmethod
@@ -36,18 +39,19 @@ class AbstractDataSampler(Sampler[int], ABC):
 
 
 class RandomDataSampler(AbstractDataSampler):
-    """Samples elements randomly without replacement.
-
-    Args:
-        data_source: Dataset to sample from
-        generator: Optional PyTorch Generator for reproducible randomness
-    """
+    """Samples elements randomly without replacement."""
 
     def __init__(
         self,
         data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
         generator: Optional[torch.Generator] = None,
     ) -> None:
+        """Initializes the RandomDataSampler.
+
+        Args:
+            data_source: Dataset to sample from
+            generator: Optional PyTorch Generator for reproducible randomness
+        """
         super().__init__(data_source)
         self.generator = generator
 
@@ -61,13 +65,7 @@ class RandomDataSampler(AbstractDataSampler):
 
 
 class SortedDataSampler(AbstractDataSampler):
-    """Samples elements in sorted order based on a key function.
-
-    Args:
-        data_source: Dataset to sample from
-        key_fn: Function that returns the sorting key for each dataset index
-        reverse: Whether to sort in descending order (default: False)
-    """
+    """Samples elements in sorted order based on a key function."""
 
     def __init__(
         self,
@@ -75,6 +73,13 @@ class SortedDataSampler(AbstractDataSampler):
         key_fn: Callable[[int], Any],
         reverse: bool = False,
     ) -> None:
+        """Initializes the SortedDataSampler.
+
+        Args:
+            data_source: Dataset to sample from
+            key_fn: Function that returns the sorting key for each dataset index
+            reverse: Whether to sort in descending order (default: False)
+        """
         super().__init__(data_source)
         self.key_fn = key_fn
         self.reverse = reverse

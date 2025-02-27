@@ -10,18 +10,15 @@ import pandas as pd
 import torch
 from transformers import BertTokenizer, PreTrainedTokenizer
 
-from neural_bandits.benchmark.datasets.abstract_dataset import (
-    AbstractDataset,
-    TextItemType,
-)
+from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 logger = logging.getLogger(__name__)
 
 
 def _download_imdb_data(dest_path: str) -> None:
-    """
-    Download the IMDB dataset archive if it does not already exist. See
-    https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
+    """Download the IMDB dataset archive if it does not already exist.
+
+    See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
     """
     url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 
@@ -36,7 +33,6 @@ def _download_imdb_data(dest_path: str) -> None:
 
 def _extract_data(tar_path: str, extract_dir: str) -> None:
     """Extract the tar.gz dataset archive."""
-
     extracted_folder = os.path.join(extract_dir, "aclImdb")
     if not os.path.exists(extracted_folder):
         logger.info("Extracting dataset...")
@@ -47,11 +43,9 @@ def _extract_data(tar_path: str, extract_dir: str) -> None:
         logger.info("Dataset already extracted.")
 
 
-def _load_imdb_data(
-    data_dir: str, subset: str = "train"
-) -> Tuple[list[str], list[int]]:
-    """
-    Load IMDB reviews and labels from the specified subset directory.
+def _load_imdb_data(data_dir: str, subset: str = "train") -> Tuple[list[str], list[int]]:
+    """Load IMDB reviews and labels from the specified subset directory.
+
     Assumes a directory structure: aclImdb/{train,test}/{pos,neg}
     """
     texts = []
@@ -73,11 +67,8 @@ def _setup_dataset(
     dest_path: str | None = None,
 ) -> pd.DataFrame:
     """Download and setup the dataset."""
-
     dest_path_or_current_path = (
-        dest_path
-        if dest_path is not None
-        else os.path.join(pathlib.Path(__file__).parent.absolute())
+        dest_path if dest_path is not None else os.path.join(pathlib.Path(__file__).parent.absolute())
     )
     if os.path.exists(dest_path_or_current_path) and not os.path.exists(
         os.path.join(dest_path_or_current_path, "aclImdb")
@@ -88,13 +79,9 @@ def _setup_dataset(
             dest_path_or_current_path,
         )
 
-    texts, sentiments = _load_imdb_data(
-        os.path.join(dest_path_or_current_path, "aclImdb"), partition
-    )
+    texts, sentiments = _load_imdb_data(os.path.join(dest_path_or_current_path, "aclImdb"), partition)
 
-    data = pd.DataFrame(
-        {"text": texts, "sentiment": sentiments}  # 1 for positive, 0 for negative
-    )
+    data = pd.DataFrame({"text": texts, "sentiment": sentiments})  # 1 for positive, 0 for negative
 
     data.drop_duplicates(inplace=True)
     data["text"] = data["text"].apply(_preprocess_text)
@@ -112,13 +99,22 @@ def _preprocess_text(text: str) -> str:
     return text
 
 
-class ImdbMovieReviews(AbstractDataset[TextItemType]):
-    """A dataset for the IMDB movie reviews sentiment classification task. See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
+# Type for the input to the transformer model.
+# The input is a tuple containing the `input_ids`, `attention_mask`, and `token_type_ids`.
+TextActionInputType = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+
+
+class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
+    """A dataset for the IMDB movie reviews sentiment classification task.
+
+    See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
 
     Args:
-        dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded to the current directory.
+        dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded to
+            the current directory.
         partition: The partition of the dataset to use. Either "train" or "test".
-        max_len: The maximum length of the input text. If the text is longer than this, it will be truncated.
+        max_len: The maximum length of the input text. If the text is longer than this, it will be truncated. If it is
+            shorter, it will be padded. Default is 255. This is also the `context_size` of the dataset.
         tokenizer: A tokenizer from the `transformers` library. If None, the `BertTokenizer` will be used.
     """
 
@@ -126,17 +122,26 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
     # We cannot provide a context size directly since the context is the text itself. You should use the output of this
     # dataset as the input to a transformer model. Then you can use the output of the model as the context, then apply
     # the `MultiClassContextualizer` to it.
-    context_size: int = -1
+    context_size: int  # will be set to `max_len` in the constructor
     # We only provide the number of samples for the training set here.
     num_samples: int = 24904
 
     def __init__(
         self,
-        dest_path: str | None = None,
+        dest_path: str = "./data",
         partition: Literal["train", "test"] = "train",
         max_len: int = 255,
         tokenizer: PreTrainedTokenizer | None = None,
     ):
+        """Initialize the IMDB movie reviews dataset.
+
+        Args:
+            dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded
+                to the current directory.
+            partition: The partition of the dataset to use. Either "train" or "test".
+            max_len: The maximum length of the input text. If the text is longer than this, it will be truncated.
+            tokenizer: A tokenizer from the `transformers` library. If None, the `BertTokenizer` will be used.
+        """
         # Using disjoint contextualization for this dataset does not work. We have a sequence of tokens.
         super().__init__(needs_disjoint_contextualization=False)
 
@@ -144,17 +149,16 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
             partition=partition,
             dest_path=dest_path,
         )
-        self.max_len = max_len
+        self.context_size = max_len
 
         if tokenizer is None:
-            self.tokenizer = BertTokenizer.from_pretrained(
-                "bert-base-uncased", padding="max_length", truncation=True
-            )
+            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", padding="max_length", truncation=True)
 
     def __len__(self) -> int:
+        """Return the number of samples in this dataset."""
         return len(self.data)
 
-    def __getitem__(self, idx: int) -> Tuple[TextItemType, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[TextActionInputType, torch.Tensor]:
         """Return the input and reward for the given index.
 
         Args:
@@ -165,12 +169,11 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
             Specifically, the input is a tuple containing the `input_ids`, `attention_mask`, and `token_type_ids`.
             (cmp. https://huggingface.co/docs/transformers/v4.49.0/en/main_classes/tokenizer#transformers.PreTrainedTokenizer.__call__)
         """
-
         inputs = self.tokenizer(
             self.data["text"][idx],
             None,
             add_special_tokens=True,
-            max_length=self.max_len,
+            max_length=self.context_size,
             padding="max_length",
             truncation=True,
             return_token_type_ids=True,
@@ -191,6 +194,12 @@ class ImdbMovieReviews(AbstractDataset[TextItemType]):
         )
 
     def reward(self, idx: int, action: int) -> float:
-        """Return the reward for the given index and action. 1.0 if the action is the correct sentiment, 0.0
-        otherwise."""
+        """Return the reward for the given index and action.
+
+        1.0 if the action is the correct sentiment, 0.0 otherwise.
+
+        Args:
+            idx: The index of the sample.
+            action: The action to evaluate.
+        """
         return 1.0 if action == self.data["sentiment"][idx] else 0.0

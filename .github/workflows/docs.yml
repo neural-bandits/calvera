@@ -1,0 +1,48 @@
+name: Build GitHub Pages
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Make sure that the build and deploy jobs run in sequence to avoid merge conflicts.
+concurrency:
+  group: build_deploy_gh_pages
+  cancel-in-progress: false
+
+jobs:
+  build_and_deploy_mkdocs:
+    runs-on: ubuntu-latest
+ 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # See: https://github.com/marketplace/actions/setup-micromamba
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+          cache-environment-key: micromamba-env-${{ hashFiles('environment.yml') }}
+          init-shell: >-
+            bash
+
+      - name: Build documentation
+        run: mkdocs build --config-file mkdocs.yml
+        shell: micromamba-shell {0}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload entire repository
+          path: 'site'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

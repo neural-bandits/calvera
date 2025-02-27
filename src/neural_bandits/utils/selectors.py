@@ -6,6 +6,7 @@ import torch
 
 class AbstractSelector(ABC):
     """Defines the interface for all bandit action selectors.
+
     Given a tensor of scores per action, the selector chooses an action (i.e. an arm)
     or a set of actions (i.e. a super arm in combinatorial bandits). The selector
     returns a one hot encoded tensor of the chosen actions.
@@ -40,9 +41,7 @@ class ArgMaxSelector(AbstractSelector):
             One-hot encoded selected actions. Shape: (batch_size, n_arms).
         """
         _, n_arms = scores.shape
-        return torch.nn.functional.one_hot(
-            torch.argmax(scores, dim=1), num_classes=n_arms
-        )
+        return torch.nn.functional.one_hot(torch.argmax(scores, dim=1), num_classes=n_arms)
 
 
 class EpsilonGreedySelector(AbstractSelector):
@@ -62,7 +61,9 @@ class EpsilonGreedySelector(AbstractSelector):
             self.generator.manual_seed(seed)
 
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
-        """Select actions using the epsilon-greedy strategy for each sample in the batch. If the device of the scores
+        """Select actions using the epsilon-greedy strategy for each sample in the batch.
+
+        If the device of the scores
         tensor is different from the device of the generator, the generator is moved to the device of the scores tensor.
 
         Args:
@@ -77,15 +78,11 @@ class EpsilonGreedySelector(AbstractSelector):
 
         batch_size, n_arms = scores.shape
 
-        random_vals = torch.rand(
-            batch_size, generator=self.generator, device=scores.device
-        )
+        random_vals = torch.rand(batch_size, generator=self.generator, device=scores.device)
         explore_mask = random_vals < self.epsilon
 
         greedy_actions = torch.argmax(scores, dim=1)
-        random_actions = torch.randint(
-            0, n_arms, (batch_size,), generator=self.generator, device=scores.device
-        )
+        random_actions = torch.randint(0, n_arms, (batch_size,), generator=self.generator, device=scores.device)
 
         selected_actions = torch.where(explore_mask, random_actions, greedy_actions)
 
@@ -115,13 +112,9 @@ class TopKSelector(AbstractSelector):
             Shape: (batch_size, n_arms).
         """
         batch_size, n_arms = scores.shape
-        assert (
-            self.k <= n_arms
-        ), f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
+        assert self.k <= n_arms, f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
 
-        selected_actions = torch.zeros(
-            batch_size, n_arms, dtype=torch.int64, device=scores.device
-        )
+        selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64, device=scores.device)
         remaining_scores = scores.clone()
 
         selected_mask = torch.zeros_like(scores, dtype=torch.bool, device=scores.device)

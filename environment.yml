@@ -8,6 +8,9 @@ dependencies:
   - python=3.10 # or don't specify the version and use latest stable
   - wandb
   - lightning
+  - mkdocs
+  - mkdocs-material
+  - mkdocstrings
 
   # Good to have
   - numpy
@@ -39,3 +42,4 @@ dependencies:
       - simple_parsing
       - print-on-steroids[exceptions]
       - wandb[sweeps]
+      - mkdocstrings[python]
