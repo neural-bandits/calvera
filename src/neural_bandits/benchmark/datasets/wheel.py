@@ -17,7 +17,9 @@ def sample_rewards(
     mu_large: float,
     std_large: float,
 ) -> torch.Tensor:
-    """Sample rewards for each context according to the Wheel Bandit rules. See https://arxiv.org/abs/1802.09127.
+    """Sample rewards for each context according to the Wheel Bandit rules.
+
+    Based on: Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling" https://arxiv.org/abs/1802.09127
 
     Args:
         generator: The random number generator to use. Should already be seeded for reproducibility.

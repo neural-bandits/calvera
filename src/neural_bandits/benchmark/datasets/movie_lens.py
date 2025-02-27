@@ -130,8 +130,8 @@ def _setup_movielens(
         data["userId"] = data["userId"].astype("int")
         data["movieId"] = data["movieId"].astype("int")
 
-        # We will only use `userId` and `movieId` for now (inspired by the approach from Li et. al., 2010 (see
-        # https://arxiv.org/abs/1003.0146))
+        # We will only use `userId` and `movieId` for now (Based on: Li et al. "A contextual-bandit
+        # approach to personalized news article recommendation" https://arxiv.org/abs/1003.0146)
         # Additionally, we will use the `timestamp` to split the data into history and future.
 
         # Build the complete `viewed` relationship matrix.
