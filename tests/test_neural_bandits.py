@@ -17,13 +17,13 @@ def seed_tests() -> None:
 
 
 @pytest.fixture
-def network_and_buffer() -> Tuple[int, nn.Module, InMemoryDataBuffer]:
+def network_and_buffer() -> Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]]:
     """
     Create a simple network and buffer for bandit testing
     """
     n_features: int = 4
     network: nn.Module = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
     return n_features, network, buffer
 
 
@@ -62,7 +62,7 @@ def small_context_reward_batch() -> tuple[
 # ------------------------------------------------------------------------------
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_forward_shape(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     bandit_type: str,
 ) -> None:
     """
@@ -90,7 +90,7 @@ def test_neural_bandit_forward_shape(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_training_step(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
@@ -140,7 +140,7 @@ def test_neural_bandit_training_step(
     assert buffer.contextualized_actions.shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == rewards.shape[0]
 
-    # Training should happen because we're within initial_train_steps (buffer size = 2 <= 4)
+    # Training should happen because we're within `initial_train_steps` (buffer size = 2 <= 4)
     # Network parameters should have been updated
     for name, param in bandit.theta_t.named_parameters():
         assert not torch.allclose(param, params_1[name]), f"Parameter {name} was not updated"
@@ -156,7 +156,7 @@ def test_neural_bandit_training_step(
     assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * rewards.shape[0]
 
-    # Training should happen because we're within initial_train_steps (buffer size = 4 <= 4)
+    # Training should happen because we're within `initial_train_steps` (buffer size = 4 <= 4)
     # Network parameters should have been updated
     for name, param in bandit.theta_t.named_parameters():
         assert not torch.allclose(param, params_2[name]), f"Parameter {name} was not updated"
@@ -196,7 +196,7 @@ def test_neural_bandit_training_step(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_hparams_effect(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     bandit_type: str,
 ) -> None:
     """
@@ -255,7 +255,7 @@ def test_neural_bandit_hparams_effect(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_parameter_validation(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     bandit_type: str,
 ) -> None:
     """
@@ -277,7 +277,7 @@ def test_neural_bandit_parameter_validation(
         initial_train_steps=48,
     )
 
-    # Invalid: train_interval not divisible by batch_size
+    # Invalid: `train_interval` not divisible by `batch_size`
     with pytest.raises(AssertionError, match="train_interval must be divisible by train_batch_size"):
         BanditClass(
             n_features=n_features,
@@ -288,7 +288,7 @@ def test_neural_bandit_parameter_validation(
             initial_train_steps=45,
         )
 
-    # Invalid: initial_train_steps not divisible by batch_size
+    # Invalid: `initial_train_steps` not divisible by `batch_size`
     with pytest.raises(
         AssertionError,
         match="initial_train_steps must be divisible by train_batch_size",
@@ -307,7 +307,7 @@ def test_neural_bandit_parameter_validation(
 # 2) Specific Tests for each Bandit Type
 # ------------------------------------------------------------------------------
 def test_ucb_score_method(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
 ) -> None:
     """
     Test that NeuralUCBBandit._score method correctly implements UCB scoring.
@@ -325,7 +325,7 @@ def test_ucb_score_method(
 
 
 def test_ts_score_method(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer],
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
 ) -> None:
     """
     Test that NeuralTSBandit._score method correctly implements TS scoring.
@@ -359,7 +359,7 @@ def test_neural_ucb_forward_deterministic() -> None:
     network = nn.Sequential(nn.Linear(n_features, 1, bias=False))
     network[0].weight.data = torch.tensor([[1.0, 0.1]])
 
-    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
     bandit: NeuralUCBBandit = NeuralUCBBandit(
         n_features=n_features,
         network=network,
@@ -394,7 +394,7 @@ def test_neural_ts_forward_stochastic() -> None:
     network = nn.Sequential(nn.Linear(n_features, 1, bias=False))
     network[0].weight.data = torch.tensor([[1.0, 1.0]])
 
-    buffer = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
     bandit: NeuralTSBandit = NeuralTSBandit(
         n_features=n_features,
         network=network,
