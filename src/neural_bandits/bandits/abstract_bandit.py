@@ -32,14 +32,13 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         Args:
             contextualized_actions: Tensor of shape (batch_size, n_actions, n_features).
-            args: Additional arguments. Passed to the `_predict_action` method
-            kwargs: Additional keyword arguments. Passed to the `_predict_action` method.
+            *args: Additional arguments. Passed to the `_predict_action` method
+            **kwargs: Additional keyword arguments. Passed to the `_predict_action` method.
 
         Returns:
-            tuple:
-            - chosen_actions: One-hot encoding of which actions were chosen.
+            chosen_actions: One-hot encoding of which actions were chosen.
                 Shape: (batch_size, n_actions).
-            - p: The probability of the chosen actions. In the combinatorial case,
+            p: The probability of the chosen actions. In the combinatorial case,
                 this will be a super set of actions. Non-probabilistic algorithms should always return 1.
                 Shape: (batch_size, ).
         """
@@ -65,10 +64,9 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             **kwargs: Additional keyword arguments.
 
         Returns:
-            tuple:
-            - chosen_actions: One-hot encoding of which actions were chosen.
+            chosen_actions: One-hot encoding of which actions were chosen.
                 Shape: (batch_size, n_actions).
-            - p: The probability of the chosen actions. In the combinatorial case,
+            p: The probability of the chosen actions. In the combinatorial case,
                 this will be one probability for the super set of actions. Deterministic algorithms (like UCB) should
                 always return 1. Shape: (batch_size, ).
         """
@@ -89,8 +87,8 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 this will be reset for each new data loader.
             data_loader_idx: The index of the data loader. This is useful if you have multiple data loaders
                 at once and want to do something different for each one.
-            args: Additional arguments. Passed to the `_update` method.
-            kwargs: Additional keyword arguments. Passed to the `_update` method.
+            *args: Additional arguments. Passed to the `_update` method.
+            **kwargs: Additional keyword arguments. Passed to the `_update` method.
 
         Returns:
             The loss value. In most cases, it makes sense to return the negative reward.
@@ -115,8 +113,8 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 this will be reset for each new data loader.
             data_loader_idx: The index of the data loader. This is useful if you have multiple data loaders
                 at once and want to do something different for each one.
-            args: Additional arguments.
-            kwargs: Additional keyword arguments.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             The loss value. In most cases, it makes sense to return the negative reward.
