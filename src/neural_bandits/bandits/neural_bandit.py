@@ -33,8 +33,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         max_grad_norm: float = 20.0,
         num_grad_steps: int = 1000,
         early_stop_threshold: Optional[float] = 1e-3,
-        train_interval: int = 100,
-        initial_train_steps: int = 1000,
+        train_interval: int = 64,
+        initial_train_steps: int = 1024,
         **kw_args: Any,
     ) -> None:
         """Initialize the NeuralUCB bandit module.
@@ -56,6 +56,9 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             **kw_args: Additional arguments passed to parent class.
         """
         assert train_batch_size <= train_interval, "Batch size must be less than or equals to train interval."
+
+        assert initial_train_steps % train_batch_size == 0, "initial_train_steps must be divisible by train_batch_size"
+        assert train_interval % train_batch_size == 0, "train_interval must be divisible by train_batch_size"
 
         super().__init__()
 
@@ -81,7 +84,6 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         self.selector = selector if selector is not None else ArgMaxSelector()
 
         self._trained_once: bool = False
-        self._last_training_divisor: int = 0  # Used to track when to train
 
         # Model parameters
 
@@ -197,15 +199,15 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         )
 
         # Train network based on schedule
-        should_train = len(self.buffer) < self.hparams["initial_train_steps"] or self._last_training_divisor <= int(
-            (len(self.buffer) - self.hparams["initial_train_steps"]) / self.hparams["train_interval"]
+        should_train = len(self.buffer) <= self.hparams["initial_train_steps"] or (
+            len(self.buffer) > self.hparams["initial_train_steps"]
+            and len(self.buffer) % self.hparams["train_interval"] == 0
         )
 
         if should_train:
             loss = self._train_network()
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
             self._trained_once = True
-            self._last_training_divisor += 1 if len(self.buffer) >= self.hparams["initial_train_steps"] else 0
 
         # Logging
         self.log(
