@@ -6,12 +6,10 @@ from neural_bandits.bandits.neural_bandit import NeuralBandit
 class NeuralUCBBandit(NeuralBandit):
     """NeuralUCB bandit implementation as a PyTorch Lightning module.
 
-    The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for
-    exploration.
-
     Based on: Zhou et al. "Neural Contextual Bandits with UCB-based Exploration" https://arxiv.org/abs/1911.04462
 
-    The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for exploration.
+    The NeuralUCB algorithm using a neural network for function approximation with diagonal approximation for
+    exploration.
     """
 
     def _score(self, f_t_a: torch.Tensor, exploration_terms: torch.Tensor) -> torch.Tensor:

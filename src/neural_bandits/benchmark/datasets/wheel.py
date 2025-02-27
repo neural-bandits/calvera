@@ -19,7 +19,8 @@ def sample_rewards(
 ) -> torch.Tensor:
     """Sample rewards for each context according to the Wheel Bandit rules.
 
-    Based on: Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for Thompson Sampling" https://arxiv.org/abs/1802.09127
+    Based on: Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for
+    Thompson Sampling" https://arxiv.org/abs/1802.09127
 
     Args:
         generator: The random number generator to use. Should already be seeded for reproducibility.
@@ -90,7 +91,11 @@ def sample_rewards(
 
 
 class WheelBanditDataset(AbstractDataset[torch.Tensor]):
-    """Generates a dataset for the Wheel Bandit problem (https://arxiv.org/abs/1802.09127)."""
+    """Generates a dataset for the Wheel Bandit problem.
+
+    Based on: Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for
+    Thompson Sampling" https://arxiv.org/abs/1802.09127
+    """
 
     num_features: int = 2
     num_actions: int = 5

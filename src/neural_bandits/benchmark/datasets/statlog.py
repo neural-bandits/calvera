@@ -9,7 +9,7 @@ from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 class StatlogDataset(AbstractDataset[torch.Tensor]):
     """Loads the Statlog (Shuttle) dataset as a PyTorch Dataset from the UCI repository.
 
-    See https://archive.ics.uci.edu/dataset/148/statlog+shuttle for data related information.
+    More information can be found at https://archive.ics.uci.edu/dataset/148/statlog+shuttle.
     """
 
     num_actions: int = 9

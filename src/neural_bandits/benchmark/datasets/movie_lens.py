@@ -18,7 +18,7 @@ def _download_movielens(
 ) -> None:
     """Downloads the 'small' MovieLens dataset if it does not already exist.
 
-    See (from https://files.grouplens.org/datasets/movielens) for further information.
+    More information can be found at https://files.grouplens.org/datasets/movielens.
 
     Args:
         dest_path: The directory where the dataset will be stored.
@@ -179,11 +179,10 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
 
     The dataset is provided by the GroupLens Research specifically by Harper and Konstan (2015, The MovieLens Datasets:
     History and Context). It contains ratings ofmovies by different users. We do not use the ratings directly here but
-    only the information that a user has rated and therefore watched this movie. More information can be found
-    [here](https://www.grouplens.org/datasets/movielens/).
+    only the information that a user has rated and therefore watched this movie. More information can be found at https://www.grouplens.org/datasets/movielens/.
     We build the context by using the SVD decomposition of the user-movie matrix. The context is the outer product of
-    the user and movie features. This approach is described in "A contextual-bandit approach to personalized news
-    article recommendation" by Li et. al. (2010).
+    the user and movie features. Based on: Li et al. "A contextual-bandit approach to personalized news
+    article recommendation" https://arxiv.org/abs/1003.0146
     """
 
     num_actions: int  # There is no constant number of actions in the MovieLens dataset.
