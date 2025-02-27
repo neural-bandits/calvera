@@ -1,8 +1,6 @@
-## Hello World
-I was deployed automatically by the GitHub Actions workflow!
+## Bandit Algorithms
 
-!!! note
-    This is a note
+
 
 
 ## Referencing Code from here
