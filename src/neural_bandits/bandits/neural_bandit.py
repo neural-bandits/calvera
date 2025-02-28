@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -277,7 +277,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         super().on_train_epoch_start()
         self._trained_once = False
 
-    def on_save_checkpoint(self, checkpoint):
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
         """Handle saving custom state.
 
         This ensures all components are properly serialized during checkpoint saving.
@@ -300,7 +300,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         checkpoint["_trained_once"] = self._trained_once
 
-    def on_load_checkpoint(self, checkpoint):
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
         """Handle loading custom state.
 
         This ensures all components are properly restored during checkpoint loading.
