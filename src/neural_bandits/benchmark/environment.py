@@ -1,11 +1,10 @@
 from typing import Generic, Optional, cast
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 
-from neural_bandits.bandits.abstract_bandit import ActionInputType
-from neural_bandits.benchmark.datasets.feedback_dataset import BanditFeedbackDataset
+from neural_bandits.bandits.action_input_type import ActionInputType
 
 
 class BanditBenchmarkEnvironment(Generic[ActionInputType]):
@@ -99,14 +98,14 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
                 f"contextualized_actions must be a torch.Tensor or a tuple. Received {type(contextualized_actions)}."
             )
 
-        assert batch_size == all_rewards.size(
-            0
-        ), f"Mismatched batch size of contextualized_actions and all_rewards tensors. \
-            Received {batch_size} and {all_rewards.size(0)}."
-        assert num_actions == all_rewards.size(
-            1
-        ), f"Mismatched number of actions in contextualized_actions and all_rewards tensors. \
-            Received {num_actions} and {all_rewards.size(1)}."
+        assert batch_size == all_rewards.size(0), (
+            f"Mismatched batch size of contextualized_actions and all_rewards tensors."
+            f"Received {batch_size} and {all_rewards.size(0)}."
+        )
+        assert num_actions == all_rewards.size(1), (
+            f"Mismatched number of actions in contextualized_actions and all_rewards tensors."
+            f"Received {num_actions} and {all_rewards.size(1)}."
+        )
 
         # Store them so we can fetch them later when building the update dataset
         self._last_contextualized_actions = contextualized_actions
@@ -114,8 +113,8 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         # Return only the contextualized actions for the bandit to pick from
         return contextualized_actions
 
-    def get_feedback(self, chosen_actions: torch.Tensor) -> Dataset[tuple[ActionInputType, torch.Tensor]]:
-        """Returns a small dataset with only the chosen actions & realized rewards of the last batch.
+    def get_feedback(self, chosen_actions: torch.Tensor) -> tuple[ActionInputType, torch.Tensor]:
+        """Returns the chosen actions & realized rewards of the last batch.
 
         For combinatorial bandits, this feedback is semi-bandit feedback.
 
@@ -131,7 +130,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         chosen_contextualized_actions = self._get_chosen_contextualized_actions(chosen_actions)
         realized_rewards = self._get_realized_rewards(chosen_actions)
 
-        return BanditFeedbackDataset(
+        return (
             chosen_contextualized_actions,
             realized_rewards,
         )
@@ -169,14 +168,14 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
             else self._last_contextualized_actions[0].shape
         )
 
-        assert (
-            chosen_actions.size(0) == batch_size
-        ), f"Mismatched batch size of chosen_actions and contextualized_actions tensors. \
-            Received {chosen_actions.size(0)} and {batch_size}."
-        assert (
-            chosen_actions.size(1) == num_actions
-        ), f"Mismatched number of actions in chosen_actions and contextualized_actions tensors. \
-            Received {chosen_actions.size(1)} and {num_actions}."
+        assert chosen_actions.size(0) == batch_size, (
+            "Mismatched batch size of chosen_actions and contextualized_actions tensors."
+            "Received {chosen_actions.size(0)} and {batch_size}."
+        )
+        assert chosen_actions.size(1) == num_actions, (
+            f"Mismatched number of actions in chosen_actions and contextualized_actions tensors."
+            f"Received {chosen_actions.size(1)} and {num_actions}."
+        )
 
         assert (chosen_actions.sum(dim=1) > 0).all(), "No actions were chosen in some rows."
         assert (
@@ -241,8 +240,8 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
             )  # tuple of shape (n, m, k)
         else:
             raise ValueError(
-                f"chosen_contextualized_actions must be a torch.Tensor or a tuple. \
-                    Received {type(self._last_contextualized_actions)}."
+                f"chosen_contextualized_actions must be a torch.Tensor or a tuple."
+                f"Received {type(self._last_contextualized_actions)}."
             )
 
     def _get_realized_rewards(self, chosen_actions: torch.Tensor) -> torch.Tensor:

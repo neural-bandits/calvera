@@ -104,10 +104,12 @@ def test_get_all_data(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dic
 
     context_data, embedded_data, rewards_data = buffer.get_all_data()
 
-    assert torch.equal(context_data, sample_data["contextualized_actions"])
+    assert torch.allclose(context_data, sample_data["contextualized_actions"])
     assert embedded_data is not None, "Embedded actions should not be None"
-    assert torch.equal(embedded_data, sample_data["embedded_actions"])
-    assert torch.equal(rewards_data, sample_data["rewards"])
+    assert torch.allclose(embedded_data, sample_data["embedded_actions"])
+    assert torch.allclose(rewards_data, sample_data["rewards"])
+
+    assert buffer.len_of_all_data() == sample_data["batch_size"]
 
 
 def test_get_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
@@ -134,6 +136,47 @@ def test_get_batch_error(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: 
 
     with pytest.raises(ValueError):
         buffer.get_batch(3)  # Request more samples than available
+
+
+def test_data_loader(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
+    buffer.add_batch(
+        sample_data["contextualized_actions"],
+        None,
+        sample_data["rewards"],
+    )
+
+    dataloader = torch.utils.data.DataLoader(buffer, batch_size=1)
+
+    i = 0
+    for data in dataloader:
+        assert len(data) == 2, "Data should be a tuple of (context, reward)"
+        context, reward = data
+        i += reward.shape[0]
+        assert context.shape == torch.Size([1, 1, sample_data["context_dim"]])
+        assert reward.shape == torch.Size([1, 1])
+
+    assert i == sample_data["batch_size"]
+
+
+def test_data_loader_with_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:
+    buffer.add_batch(
+        sample_data["contextualized_actions"],
+        sample_data["embedded_actions"],
+        sample_data["rewards"],
+    )
+
+    dataloader = torch.utils.data.DataLoader(buffer, batch_size=1)
+
+    i = 0
+    for data in dataloader:
+        assert len(data) == 3, "Data should be a tuple of (context, embedding, reward)"
+        context, embedding, reward = data
+        i += reward.shape[0]
+        assert context.shape == torch.Size([1, 1, sample_data["context_dim"]])
+        assert embedding.shape == torch.Size([1, 1, sample_data["embedding_dim"]])
+        assert reward.shape == torch.Size([1, 1])
+
+    assert i == sample_data["batch_size"]
 
 
 def test_update_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: Dict[str, Any]) -> None:

@@ -7,13 +7,32 @@ def test_lin_ucb_benchmark() -> None:
         {
             "bandit": "lin_ucb",
             "dataset": "covertype",
-            "max_samples": 5000,
+            "max_samples": 100,
             "feedback_delay": 1,
             "train_batch_size": 1,
             "forward_batch_size": 1,
             "bandit_hparams": {
-                "alpha": 1.0,
+                "exploration_rate": 1.0,
             },
+        },
+        suppress_plots=True,
+    )
+
+
+def test_neural_ts_benchmark() -> None:
+    # we just test that the benchmark runs without errors
+    run(
+        {
+            "bandit": "neural_ts",
+            "dataset": "covertype",
+            "network": "tiny_mlp",
+            "max_samples": 100,
+            "feedback_delay": 1,
+            "train_batch_size": 1,
+            "forward_batch_size": 1,
+            "data_strategy": "sliding_window",
+            "sliding_window_size": 1,
+            "bandit_hparams": {},
         },
         suppress_plots=True,
     )

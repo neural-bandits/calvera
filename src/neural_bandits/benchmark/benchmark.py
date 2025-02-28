@@ -18,7 +18,8 @@ except Exception as e:
     logging.warning(e)
     pass
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit, ActionInputType
+from neural_bandits.bandits.abstract_bandit import AbstractBandit
+from neural_bandits.bandits.action_input_type import ActionInputType
 from neural_bandits.bandits.linear_ts_bandit import (
     DiagonalPrecApproxLinearTSBandit,
     LinearTSBandit,
@@ -28,6 +29,7 @@ from neural_bandits.bandits.linear_ucb_bandit import (
     LinearUCBBandit,
 )
 from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
+from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
 from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
@@ -58,6 +60,7 @@ bandits: dict[str, type[AbstractBandit[Any]]] = {
     "approx_lin_ts": DiagonalPrecApproxLinearTSBandit,
     "neural_linear": NeuralLinearBandit,
     "neural_ucb": NeuralUCBBandit,
+    "neural_ts": NeuralTSBandit,
 }
 
 datasets: dict[str, type[AbstractDataset[Any]]] = {
@@ -155,15 +158,19 @@ class BanditBenchmark(Generic[ActionInputType]):
                 These contain any configuration that is not directly passed to the bandit.
                 - bandit: The name of the bandit to use.
                 - dataset: The name of the dataset to use.
-                - bandit_hparams: A dictionary of bandit hyperparameters.
-                    These will be filled and passed to the bandit's constructor.
                 - selector: The name of the selector to use.
                     For the specific selectors, additional parameters can be passed:
                     - epsilon: For the EpsilonGreedySelector.
                     - k: Number of actions to select for the TopKSelector (Combinatorial Bandits).
+                - data_strategy: The name of the data strategy to initialize the Buffer with.
+                - bandit_hparams: A dictionary of bandit hyperparameters.
+                    These will be filled and passed to the bandit's constructor.
+                - max_steps: The maximum number of steps to train the bandit. This makes sense in combination
+                    with AllDataBufferStrategy.
                 For neural bandits:
                     - network: The name of the network to use.
                     - data_strategy: The name of the data strategy to use.
+                    - gradient_clip_val: The maximum gradient norm for clipping.
                     For neural linear:
                         - n_embedding_size: The size of the embedding layer.
 
@@ -273,19 +280,19 @@ class BanditBenchmark(Generic[ActionInputType]):
         for contextualized_actions in self.environment:
             chosen_actions = self._predict_actions(contextualized_actions)
             # Optional: compute and log regret.
-            if self.logger is not None:
-                regret = self.environment.compute_regret(chosen_actions)
-                self.logger.pre_training_log({"regret": regret})
+            # if self.logger is not None:
+            # regret = self.environment.compute_regret(chosen_actions)
+            # TODO: log regret
 
             # Get feedback dataset for the chosen actions.
-            feedback_dataset = self.environment.get_feedback(chosen_actions)
+            chosen_contextualized_actions, realized_rewards = self.environment.get_feedback(chosen_actions)
             assert train_batch_size <= chosen_actions.size(
                 0
             ), "train_batch_size must be lower than or equal to the data loaders batch_size (feedback_delay)."
-            feedback_loader = DataLoader(feedback_dataset, batch_size=train_batch_size)
-
             trainer = pl.Trainer(
                 max_epochs=1,
+                max_steps=self.training_params.get("max_steps", -1),
+                gradient_clip_val=self.training_params.get("gradient_clip_val", 0.0),
                 logger=self.logger,
                 enable_progress_bar=False,
                 enable_checkpointing=False,
@@ -293,8 +300,9 @@ class BanditBenchmark(Generic[ActionInputType]):
                 log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
             )
 
+            self.bandit.record_chosen_action_feedback(chosen_contextualized_actions, realized_rewards)
             # Train the bandit on the current feedback.
-            trainer.fit(self.bandit, feedback_loader)
+            trainer.fit(self.bandit)
 
     def _predict_actions(self, contextualized_actions: ActionInputType) -> torch.Tensor:
         """Predicts actions for the given contextualized_actions.
@@ -365,14 +373,18 @@ class BenchmarkAnalyzer:
         self.suppress_plots = suppress_plots
         self.df = self.load_logs()
 
-    def load_logs(self) -> Any:
+    def load_logs(self) -> Optional[pd.DataFrame]:
         """Loads the logs from the log path.
 
         Returns:
             A pandas DataFrame containing the logs.
         """
         # Load CSV data (e.g., using pandas)
-        return pd.read_csv(os.path.join(self.log_path, self.metrics_file))
+        try:
+            return pd.read_csv(os.path.join(self.log_path, self.metrics_file))
+        except FileNotFoundError:
+            logging.warning(f"Could not find metrics file {self.metrics_file} in {self.log_path}.")
+            return None
 
     def plot_accumulated_metric(self, metric_name: str) -> None:
         """Plots the accumulated metric over training steps.
@@ -380,6 +392,13 @@ class BenchmarkAnalyzer:
         Args:
             metric_name: The name of the metric to plot.
         """
+        if self.df is None:
+            return
+
+        if metric_name not in self.df.columns:
+            print(f"\nNo {metric_name} data found in logs.")
+            return
+
         accumulated_metric = self.df[metric_name].fillna(0).cumsum()
 
         plt.figure(figsize=(10, 5))
@@ -397,6 +416,13 @@ class BenchmarkAnalyzer:
         Args:
             metric_name: The name of the metric to plot.
         """
+        if self.df is None:
+            return
+
+        if metric_name not in self.df.columns:
+            print(f"\nNo {metric_name} data found in logs.")
+            return
+
         # Print average metrics
         valid_idx = self.df[metric_name].dropna().index
         accumulated_metric = self.df.loc[valid_idx, metric_name].cumsum()
@@ -415,6 +441,8 @@ class BenchmarkAnalyzer:
     def plot_loss(self) -> None:
         """Plots the loss over training steps."""
         # Generate a plot for the loss
+        if self.df is None:
+            return
         if "loss" not in self.df.columns:
             print("\nNo loss data found in logs.")
             return
@@ -469,7 +497,7 @@ if __name__ == "__main__":
             "train_batch_size": 1,
             "forward_batch_size": 1,
             "bandit_hparams": {
-                "alpha": 1.0,
+                "exploration_rate": 1.0,
             },
         }
     )

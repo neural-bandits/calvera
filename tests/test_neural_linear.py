@@ -169,7 +169,7 @@ def test_neural_linear_bandit_training_step(
     ],
 ) -> None:
     """Test that a training step runs without error on a small dataset and updates the replay buffer."""
-    actions, rewards, dataset = small_context_reward_batch
+    actions, rewards, _ = small_context_reward_batch
     n_features = actions.shape[2]
     n_embedding_size = 4
 
@@ -183,10 +183,10 @@ def test_neural_linear_bandit_training_step(
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
         n_embedding_size=n_embedding_size,
-        network_update_freq=4,
-        head_update_freq=2,
+        min_samples_required_for_training=4,
+        initial_train_steps=0,
         train_batch_size=2,
-        lr=1e-3,
+        learning_rate=1e-3,
         buffer=buffer,
     )
     # If True the uncertainty will be updated in the training and not the forward step.
@@ -204,10 +204,8 @@ def test_neural_linear_bandit_training_step(
 
     # Run training step
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
-    )
+    bandit.record_chosen_action_feedback(actions, rewards)
+    trainer.fit(bandit)
 
     # After training step, buffer should have newly appended rows
     assert buffer.contextualized_actions.shape[0] == actions.shape[0]
@@ -234,10 +232,8 @@ def test_neural_linear_bandit_training_step(
 
     # Now run another training step
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
-    )
+    bandit.record_chosen_action_feedback(actions, rewards)
+    trainer.fit(bandit)
 
     # The buffer should have grown
     assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
@@ -274,7 +270,7 @@ def test_neural_linear_sliding_window(
     Basically, only testing that we are able to use the sliding window buffer strategy without errors.
     But its not that easy to test that the buffer technique is used correctly.
     """
-    actions, rewards, dataset = small_context_reward_batch
+    actions, rewards, _ = small_context_reward_batch
     n_features = actions.shape[2]
     n_embedding_size = 4
 
@@ -288,10 +284,10 @@ def test_neural_linear_sliding_window(
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
         n_embedding_size=n_embedding_size,
-        network_update_freq=4,
-        head_update_freq=2,
+        min_samples_required_for_training=4,
+        initial_train_steps=0,
         train_batch_size=1,  # must be because window_size=1
-        lr=1e-3,
+        learning_rate=1e-3,
         buffer=buffer,
     )
     # If True the uncertainty will be updated in the training and not the forward step.
@@ -304,10 +300,9 @@ def test_neural_linear_sliding_window(
 
     # Run training step
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
-    )
+
+    bandit.record_chosen_action_feedback(actions, rewards)
+    trainer.fit(bandit)
 
     # After training step, buffer should have newly appended rows
     assert buffer.contextualized_actions.shape[0] == 2
@@ -329,10 +324,8 @@ def test_neural_linear_sliding_window(
 
     # Now run another training step
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0),
-    )
+    bandit.record_chosen_action_feedback(actions, rewards)
+    trainer.fit(bandit)
 
     # The buffer should have grown
     assert buffer.contextualized_actions.shape[0] == 4
@@ -363,9 +356,8 @@ def test_neural_linear_bandit_hparams_effect() -> None:
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
         n_embedding_size=n_embedding_size,
-        network_update_freq=10,
-        head_update_freq=5,
-        lr=1e-2,
+        min_samples_required_for_training=10,
+        learning_rate=1e-2,
         buffer=buffer,
     )
 
@@ -374,9 +366,8 @@ def test_neural_linear_bandit_hparams_effect() -> None:
     # comes from the inheritance of the LinearTSBandit
     assert bandit.hparams["n_features"] == n_embedding_size
     assert bandit.hparams["n_embedding_size"] == n_embedding_size
-    assert bandit.hparams["network_update_freq"] == 10
-    assert bandit.hparams["head_update_freq"] == 5
-    assert bandit.hparams["lr"] == 1e-2
+    assert bandit.hparams["min_samples_required_for_training"] == 10
+    assert bandit.hparams["learning_rate"] == 1e-2
 
     # Check that NeuralLinearBandit was configured accordingly
     assert bandit.precision_matrix.shape == (
@@ -454,7 +445,7 @@ def test_neural_linear_bandit_tuple_input(
     n_chosen_arms = 1
     n_embedding_size = 10
 
-    contextualized_actions, chosen_contextualized_actions, _, dataset = small_context_reward_tupled_batch
+    contextualized_actions, chosen_contextualized_actions, rewards, _ = small_context_reward_tupled_batch
 
     # Dummy network
     network = nn.Linear(n_features, n_embedding_size, bias=False)
@@ -465,10 +456,9 @@ def test_neural_linear_bandit_tuple_input(
         network=network.to("cpu"),
         buffer=InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy()),
         n_embedding_size=n_embedding_size,
-        network_update_freq=batch_size,
-        head_update_freq=1,
+        min_samples_required_for_training=batch_size,
         train_batch_size=batch_size,
-        lr=1e-2,
+        learning_rate=1e-2,
     ).to("cpu")
 
     output, p = bandit.forward(contextualized_actions)
@@ -496,10 +486,18 @@ def test_neural_linear_bandit_tuple_input(
 
     ###################### now for the training step ######################
     trainer = pl.Trainer(fast_dev_run=True, accelerator="cpu")
-    trainer.fit(bandit, torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0))
-    assert (
-        network.forward.call_count == 2 * n_chosen_arms
-    )  # batch_size * n_chosen_arms / batch_size. Once forward and once backward.
+    bandit.record_chosen_action_feedback(
+        chosen_contextualized_actions,
+        rewards,
+    )
+    # Call it once in record. This is unnecessary if we know that we will update the network but
+    # required if we want to update the head.
+    # TODO: We could refactor to only compute the embeddings in the update step of the head.
+    assert network.forward.call_count == 1
+    trainer.fit(bandit)
+    # Call it two more times in the training loop. Once during training and once after training
+    # to update the embeddings in the buffer. Both calls are required to update the head.
+    assert network.forward.call_count == 3
 
     call_args = network.forward.call_args
     assert call_args is not None, "network.forward was not called."
@@ -507,6 +505,7 @@ def test_neural_linear_bandit_tuple_input(
 
     # Check that the expected tensors are in args and compare them using torch.allclose.
     # We expect to receive tensors of shapes (batch_size * n_chosen_arms, n_features)
+    # Swapping the order of the chosen_contextualized_actions because the training batches are randomized
     expected_arg1 = chosen_contextualized_actions[0].reshape(batch_size * n_chosen_arms, n_features)
     expected_arg2 = chosen_contextualized_actions[1].reshape(batch_size * n_chosen_arms, n_features)
 
