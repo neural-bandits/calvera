@@ -1,4 +1,4 @@
-Below is the interface that all bandit algorithms share defined in the `AbstractBandit` class. The idea is that assertions happen in the `forward()` method for the input and in the `training_step()` method for the update using the provided rewards and chosen contextualized actions.
+Below is the interface that all bandit algorithms share, defined in the `AbstractBandit` class. The idea is that assertions happen in the `forward()` method for the input and in the `training_step()` method for the update using the provided rewards and chosen contextualized actions.
 The outwards facing methods are `forward()` and `training_step()`. `forward()` is used for inference and `training_step()` is used for training.
 So, when implementing a new bandit, the following methods need to be implemented:
 

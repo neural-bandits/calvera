@@ -65,16 +65,18 @@ plugins:
       handlers:
         python:
           paths: [src]
-
+          options:
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
 nav:
   - Docs: index.md
   - Examples: examples.md
-  - API reference:
+  - API Reference:
       - Bandit Interface: bandits.md
       - LinearTS and LinearUCB: linear_ts_and_linear_ucb.md
       - NeuralTS and NeuralUCB: neural_ts_and_neural_ucb.md
       - Neural Linear Bandit: neural_linear_bandit.md
       - Buffers: buffers.md
-      - Selectors: selectors.md
-      - Benchmarks: benchmarks.md
-      - Contributing: contributing.md
+      - Utils: utils.md
+      - Benchmark: benchmark.md
