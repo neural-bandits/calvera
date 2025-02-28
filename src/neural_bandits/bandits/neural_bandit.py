@@ -278,7 +278,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         self._trained_once = False
 
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        """Handle saving custom state.
+        """Handle saving custom NeuralBandit state.
 
         This ensures all components are properly serialized during checkpoint saving.
         """
@@ -286,15 +286,12 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         checkpoint["Z_t"] = self.Z_t
 
+        checkpoint["selector_type"] = self.selector.__class__.__name__
         if isinstance(self.selector, EpsilonGreedySelector):
-            checkpoint["selector_type"] = "EpsilonGreedySelector"
             checkpoint["selector_epsilon"] = self.selector.epsilon
             checkpoint["selector_generator_state"] = self.selector.generator.get_state()
         elif isinstance(self.selector, TopKSelector):
-            checkpoint["selector_type"] = "TopKSelector"
             checkpoint["selector_k"] = self.selector.k
-        else:
-            checkpoint["selector_type"] = "ArgMaxSelector"
 
         checkpoint["network_state"] = self.theta_t.state_dict()
 

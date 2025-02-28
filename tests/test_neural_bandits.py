@@ -9,6 +9,7 @@ from neural_bandits.bandits.neural_bandit import NeuralBandit
 from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
 from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer
+from neural_bandits.utils.selectors import EpsilonGreedySelector
 
 
 @pytest.fixture(autouse=True)
@@ -301,6 +302,249 @@ def test_neural_bandit_parameter_validation(
             train_interval=34,
             initial_train_steps=50,
         )
+
+
+@pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
+def test_neural_bandit_save_load_checkpoint(
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    ],
+    tmp_path,
+    bandit_type: str,
+) -> None:
+    """
+    Test saving and loading a Neural bandit model checkpoint.
+    Supports both UCB and TS variants.
+    Verifies that the loaded model preserves state and produces identical predictions.
+    """
+    n_features, network, buffer = network_and_buffer
+    actions, rewards, dataset = small_context_reward_batch
+
+    if bandit_type == "ucb":
+        original_bandit: NeuralBandit = NeuralUCBBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            lambda_=0.05,
+            nu=0.1,
+            learning_rate=0.02,
+            train_batch_size=1,
+            train_interval=2,
+            initial_train_steps=1,
+        )
+    else:
+        original_bandit = NeuralTSBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            lambda_=0.05,
+            nu=0.1,
+            learning_rate=0.02,
+            train_batch_size=1,
+            train_interval=2,
+            initial_train_steps=1,
+        )
+
+    test_context = torch.randn(1, 3, n_features)
+
+    original_predictions, _ = original_bandit(test_context)
+
+    trainer = pl.Trainer(
+        default_root_dir=str(tmp_path),
+        max_steps=3,
+        enable_checkpointing=True,
+    )
+    trainer.fit(original_bandit, torch.utils.data.DataLoader(dataset, batch_size=1))
+
+    checkpoint_path = tmp_path / f"neural_{bandit_type}.ckpt"
+    trainer.save_checkpoint(checkpoint_path)
+
+    new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
+    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+
+    bandit_class = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
+    loaded_bandit = bandit_class.load_from_checkpoint(
+        checkpoint_path,
+        n_features=n_features,
+        network=new_network,
+        buffer=new_buffer,
+    )
+
+    # Verify hyperparameters are preserved
+    assert loaded_bandit.hparams["lambda_"] == original_bandit.hparams["lambda_"]
+    assert loaded_bandit.hparams["nu"] == original_bandit.hparams["nu"]
+    assert loaded_bandit.hparams["learning_rate"] == original_bandit.hparams["learning_rate"]
+
+    # Verify Z_t tensor is preserved
+    assert torch.allclose(original_bandit.Z_t, loaded_bandit.Z_t)
+
+    # Verify network weights are preserved
+    for (orig_name, orig_param), (loaded_name, loaded_param) in zip(
+        original_bandit.theta_t.named_parameters(), loaded_bandit.theta_t.named_parameters()
+    ):
+        assert orig_name == loaded_name
+        assert torch.allclose(orig_param, loaded_param)
+
+    # Verify the model produces identical predictions after loading
+    loaded_predictions, _ = loaded_bandit(test_context)
+
+    if bandit_type == "ucb":
+        assert torch.allclose(original_bandit(test_context)[0], loaded_bandit(test_context)[0])
+    else:
+        n_samples = 50
+        original_choices = []
+        loaded_choices = []
+
+        for i in range(n_samples):
+            seed = 1000 + i
+            torch.manual_seed(seed)
+            orig_action, _ = original_bandit(test_context)
+            torch.manual_seed(seed)
+            loaded_action, _ = loaded_bandit(test_context)
+
+            original_choices.append(orig_action.argmax(dim=1).item())
+            loaded_choices.append(loaded_action.argmax(dim=1).item())
+
+        # Verify the pattern of selections is similar (correlation > 0.8)
+        agreement_rate = (
+            sum(
+                original_choice == loaded_choice
+                for original_choice, loaded_choice in zip(original_choices, loaded_choices)
+            )
+            / n_samples
+        )
+        assert agreement_rate > 0.8, f"Models only agreed on {agreement_rate:.1%} of selections"
+
+
+@pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
+def test_neural_bandit_save_load_with_epsilon_greedy(
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    ],
+    tmp_path,
+    bandit_type: str,
+) -> None:
+    """
+    Test saving and loading a Neural bandit with EpsilonGreedySelector.
+    Ensures the selector type and state are preserved.
+    """
+    n_features, network, buffer = network_and_buffer
+    actions, rewards, dataset = small_context_reward_batch
+
+    epsilon = 0.15
+
+    if bandit_type == "ucb":
+        original_bandit: NeuralBandit = NeuralUCBBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            selector=EpsilonGreedySelector(epsilon=epsilon, seed=42),
+            train_batch_size=1,
+            initial_train_steps=1,
+        )
+    else:
+        original_bandit = NeuralTSBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            selector=EpsilonGreedySelector(epsilon=epsilon, seed=42),
+            train_batch_size=1,
+            initial_train_steps=1,
+        )
+
+    trainer = pl.Trainer(
+        default_root_dir=str(tmp_path),
+        max_steps=1,
+        enable_checkpointing=True,
+    )
+    trainer.fit(original_bandit, torch.utils.data.DataLoader(dataset, batch_size=1))
+
+    checkpoint_path = tmp_path / f"neural_{bandit_type}_eps_greedy.ckpt"
+    trainer.save_checkpoint(checkpoint_path)
+
+    new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
+    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+
+    bandit_class = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
+    loaded_bandit = bandit_class.load_from_checkpoint(
+        checkpoint_path,
+        n_features=n_features,
+        network=new_network,
+        buffer=new_buffer,
+    )
+
+    # Verify selector was properly restored
+    assert isinstance(loaded_bandit.selector, EpsilonGreedySelector)
+    assert loaded_bandit.selector.epsilon == epsilon
+
+
+@pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
+def test_neural_bandit_buffer_state_preserved(
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    ],
+    tmp_path,
+    bandit_type: str,
+) -> None:
+    """
+    Test that buffer contents are preserved when saving/loading a checkpoint.
+    """
+    n_features, network, buffer = network_and_buffer
+    actions, rewards, dataset = small_context_reward_batch
+
+    if bandit_type == "ucb":
+        original_bandit: NeuralBandit = NeuralUCBBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            train_interval=2,
+            train_batch_size=2,
+            initial_train_steps=2,
+        )
+    else:
+        original_bandit = NeuralTSBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            train_interval=2,
+            train_batch_size=2,
+            initial_train_steps=2,
+        )
+
+    trainer = pl.Trainer(
+        default_root_dir=str(tmp_path),
+        max_steps=1,
+        enable_checkpointing=True,
+    )
+    trainer.fit(original_bandit, torch.utils.data.DataLoader(dataset, batch_size=2))
+
+    checkpoint_path = tmp_path / f"neural_{bandit_type}_buffer.ckpt"
+    trainer.save_checkpoint(checkpoint_path)
+
+    new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
+    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+
+    bandit_class = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
+    loaded_bandit = bandit_class.load_from_checkpoint(
+        checkpoint_path,
+        n_features=n_features,
+        network=new_network,
+        buffer=new_buffer,
+    )
+
+    assert len(loaded_bandit.buffer) == 2
+
+    assert torch.equal(actions, loaded_bandit.buffer.contextualized_actions)  # type: ignore
+    assert torch.equal(rewards.squeeze(1), loaded_bandit.buffer.rewards)  # type: ignore
 
 
 # ------------------------------------------------------------------------------
