@@ -50,7 +50,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         learning_rate_decay: float = 1.0,
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: Optional[float] = 1e-3,
-        min_samples_required_for_training: Optional[int] = 128,
+        min_samples_required_for_training: Optional[int] = 64,
         initial_train_steps: int = 1024,
     ) -> None:
         """Initialize the NeuralUCB bandit module.
@@ -80,7 +80,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             min_samples_required_for_training: If less samples have been added via `record_chosen_action_feedback`
                 than this value, the network is not trained.
                 If None, the network is trained every time `trainer.fit` is called.
-                Defaults to None. Must be greater 0.
+                Defaults to 64. Must be greater 0.
             initial_train_steps: For the first `initial_train_steps` samples, the network is always trained even if
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
