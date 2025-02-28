@@ -156,7 +156,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         """
         pass
 
-    def record_chosen_action_feedback(
+    def record_feedback(
         self,
         contextualized_actions: ActionInputType,
         rewards: torch.Tensor,
@@ -321,7 +321,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         contextualized_actions = batch[0]  # shape: (batch_size, n_chosen_arms, n_features)
 
         if self._custom_data_loader_passed:
-            self.record_chosen_action_feedback(contextualized_actions, realized_rewards)
+            self.record_feedback(contextualized_actions, realized_rewards)
 
         if isinstance(contextualized_actions, torch.Tensor):
             assert (

@@ -303,7 +303,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         return embedded_actions
 
-    def record_chosen_action_feedback(
+    def record_feedback(
         self,
         contextualized_actions: ActionInputType,
         rewards: torch.Tensor,
@@ -436,7 +436,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         else:  # update the head
             assert len(batch) == 3, (
                 "For head updates, batch must be three tensors: (contextualized_actions, embedded_actions, rewards)."
-                "Either use the `record_chosen_action_feedback` method and do not pass a `train_dataloader`"
+                "Either use the `record_feedback` method and do not pass a `train_dataloader`"
                 "to `trainer.fit` or make sure that enough data exists to train the network "
                 "or manually set `should_train_network` to `True`."
             )

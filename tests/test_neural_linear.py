@@ -204,7 +204,7 @@ def test_neural_linear_bandit_training_step(
 
     # Run training step
     trainer = pl.Trainer(fast_dev_run=True)
-    bandit.record_chosen_action_feedback(actions, rewards)
+    bandit.record_feedback(actions, rewards)
     # buffer should have newly appended rows
     assert buffer.contextualized_actions.shape[0] == actions.shape[0]
     assert buffer.embedded_actions.shape[0] == actions.shape[0]
@@ -236,7 +236,7 @@ def test_neural_linear_bandit_training_step(
     # Now run another training step
     trainer = pl.Trainer(fast_dev_run=True)
 
-    bandit.record_chosen_action_feedback(actions, rewards)
+    bandit.record_feedback(actions, rewards)
     # The buffer should have grown
     assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.embedded_actions.shape[0] == 2 * actions.shape[0]
@@ -272,7 +272,7 @@ def test_neural_linear_bandit_training_step(
 
     # Set the should_train_network to True manually
     trainer = pl.Trainer(fast_dev_run=True)
-    bandit.record_chosen_action_feedback(actions, rewards)
+    bandit.record_feedback(actions, rewards)
     assert not bandit.should_train_network, "Not enough data to train yet."
     bandit.should_train_network = True
     assert bandit.should_train_network, "Just set it."
@@ -300,10 +300,10 @@ def test_neural_linear_bandit_training_step(
     nn_weights_before = network[0].weight.clone()
 
     trainer = pl.Trainer(fast_dev_run=True)
-    bandit.record_chosen_action_feedback(actions, rewards)
+    bandit.record_feedback(actions, rewards)
     assert not bandit.should_train_network, "Not enough data to train yet."
     # Add a second batch!
-    bandit.record_chosen_action_feedback(actions, rewards)
+    bandit.record_feedback(actions, rewards)
     assert bandit.should_train_network, "Has enough data now."
     bandit.should_train_network = False
     assert not bandit.should_train_network, "Just set it."
@@ -396,7 +396,7 @@ def test_neural_linear_sliding_window(
     # Run training step
     trainer = pl.Trainer(fast_dev_run=True)
 
-    bandit.record_chosen_action_feedback(actions, rewards)
+    bandit.record_feedback(actions, rewards)
     trainer.fit(bandit)
 
     # After training step, buffer should have newly appended rows
@@ -419,7 +419,7 @@ def test_neural_linear_sliding_window(
 
     # Now run another training step
     trainer = pl.Trainer(fast_dev_run=True)
-    bandit.record_chosen_action_feedback(actions, rewards)
+    bandit.record_feedback(actions, rewards)
     trainer.fit(bandit)
 
     # The buffer should have grown
@@ -581,7 +581,7 @@ def test_neural_linear_bandit_tuple_input(
 
     ###################### now for the training step ######################
     trainer = pl.Trainer(fast_dev_run=True, accelerator="cpu")
-    bandit.record_chosen_action_feedback(
+    bandit.record_feedback(
         chosen_contextualized_actions,
         rewards,
     )

@@ -77,7 +77,7 @@ def test_trainer_fit_runs(bandit: AbstractBandit[torch.Tensor]) -> None:
     device = "cpu"
     bandit = bandit.to(device)
 
-    bandit.record_chosen_action_feedback(torch.randn(10, 1, 3, device=device), torch.rand(10, 1, device=device))
+    bandit.record_feedback(torch.randn(10, 1, 3, device=device), torch.rand(10, 1, device=device))
     pl.Trainer(fast_dev_run=True).fit(bandit)
 
     contextualized_actions = torch.randn(10, 2, 3, device=device)

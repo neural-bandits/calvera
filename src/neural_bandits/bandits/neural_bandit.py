@@ -77,7 +77,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 Default is 1. Must be greater than 0.
             early_stop_threshold: Loss threshold for early stopping. None to disable.
                 Defaults to 1e-3. Must be greater equal 0.
-            min_samples_required_for_training: If less samples have been added via `record_chosen_action_feedback`
+            min_samples_required_for_training: If less samples have been added via `record_feedback`
                 than this value, the network is not trained.
                 If None, the network is trained every time `trainer.fit` is called.
                 Defaults to 64. Must be greater 0.
@@ -204,7 +204,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         """Compute a score based on the predicted rewards and exploration terms."""
         pass
 
-    def record_chosen_action_feedback(self, contextualized_actions: torch.Tensor, rewards: torch.Tensor) -> None:
+    def record_feedback(self, contextualized_actions: torch.Tensor, rewards: torch.Tensor) -> None:
         """Records a pair of chosen actions and rewards in the buffer.
 
         Also checks if the network should be updated based on the number of samples seen so far
@@ -215,7 +215,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 Size: (batch_size, n_actions, n_features).
             rewards: The rewards that were observed for the chosen actions. Size: (batch_size, n_actions).
         """
-        super().record_chosen_action_feedback(contextualized_actions, rewards)
+        super().record_feedback(contextualized_actions, rewards)
 
         if (
             self.is_initial_training_stage()

@@ -300,7 +300,7 @@ class BanditBenchmark(Generic[ActionInputType]):
                 log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
             )
 
-            self.bandit.record_chosen_action_feedback(chosen_contextualized_actions, realized_rewards)
+            self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards)
             # Train the bandit on the current feedback.
             trainer.fit(self.bandit)
 
