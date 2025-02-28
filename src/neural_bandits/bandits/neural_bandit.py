@@ -8,7 +8,7 @@ from torch import optim
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
 from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
-from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
+from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector, EpsilonGreedySelector, TopKSelector
 
 
 class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
@@ -276,3 +276,53 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         """Reset the `_trained_once` flag at the start of each epoch."""
         super().on_train_epoch_start()
         self._trained_once = False
+
+    def on_save_checkpoint(self, checkpoint):
+        """Handle saving custom state.
+
+        This ensures all components are properly serialized during checkpoint saving.
+        """
+        checkpoint["buffer_state"] = self.buffer.state_dict()
+
+        checkpoint["Z_t"] = self.Z_t
+
+        if isinstance(self.selector, EpsilonGreedySelector):
+            checkpoint["selector_type"] = "EpsilonGreedySelector"
+            checkpoint["selector_epsilon"] = self.selector.epsilon
+            checkpoint["selector_generator_state"] = self.selector.generator.get_state()
+        elif isinstance(self.selector, TopKSelector):
+            checkpoint["selector_type"] = "TopKSelector"
+            checkpoint["selector_k"] = self.selector.k
+        else:
+            checkpoint["selector_type"] = "ArgMaxSelector"
+
+        checkpoint["network_state"] = self.theta_t.state_dict()
+
+        checkpoint["_trained_once"] = self._trained_once
+
+    def on_load_checkpoint(self, checkpoint):
+        """Handle loading custom state.
+
+        This ensures all components are properly restored during checkpoint loading.
+        """
+        if checkpoint.get("buffer_state"):
+            self.buffer.load_state_dict(checkpoint["buffer_state"])
+
+        if "Z_t" in checkpoint:
+            self.register_buffer("Z_t", checkpoint["Z_t"])
+
+        if "selector_type" in checkpoint:
+            if checkpoint["selector_type"] == "EpsilonGreedySelector":
+                self.selector = EpsilonGreedySelector(epsilon=checkpoint["selector_epsilon"])
+                if "selector_generator_state" in checkpoint:
+                    self.selector.generator.set_state(checkpoint["selector_generator_state"])
+            elif checkpoint["selector_type"] == "TopKSelector":
+                self.selector = TopKSelector(k=checkpoint["selector_k"])
+            else:
+                self.selector = ArgMaxSelector()
+
+        if "network_state" in checkpoint:
+            self.theta_t.load_state_dict(checkpoint["network_state"])
+
+        if "_trained_once" in checkpoint:
+            self._trained_once = checkpoint["_trained_once"]
