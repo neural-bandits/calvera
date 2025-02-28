@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Tuple, Type, Union
 
 import lightning as pl
@@ -312,7 +313,7 @@ def test_neural_bandit_save_load_checkpoint(
         torch.Tensor,
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
     ],
-    tmp_path,
+    tmp_path: Path,
     bandit_type: str,
 ) -> None:
     """
@@ -427,7 +428,7 @@ def test_neural_bandit_save_load_with_epsilon_greedy(
         torch.Tensor,
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
     ],
-    tmp_path,
+    tmp_path: Path,
     bandit_type: str,
 ) -> None:
     """
@@ -492,7 +493,7 @@ def test_neural_bandit_buffer_state_preserved(
         torch.Tensor,
         torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
     ],
-    tmp_path,
+    tmp_path: Path,
     bandit_type: str,
 ) -> None:
     """
