@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def _download_imdb_data(dest_path: str) -> None:
     """Download the IMDB dataset archive if it does not already exist.
 
-    See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
+    More information can be found at https://ai.stanford.edu/~amaas/data/sentiment/.
     """
     url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 
@@ -107,7 +107,7 @@ TextActionInputType = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
     """A dataset for the IMDB movie reviews sentiment classification task.
 
-    See https://ai.stanford.edu/~amaas/data/sentiment/ for further information.
+    More information can be found at https://ai.stanford.edu/~amaas/data/sentiment/.
 
     Args:
         dest_path: The path to the directory where the dataset is stored. If None, the dataset will be downloaded to

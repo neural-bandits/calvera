@@ -6,6 +6,8 @@ from neural_bandits.bandits.neural_bandit import NeuralBandit
 class NeuralTSBandit(NeuralBandit):
     """Neural Thompson Sampling (TS) bandit implementation as a PyTorch Lightning module.
 
+    Based on: Zhang et al. "Neural Thompson Sampling" https://arxiv.org/abs/2010.00827
+
     Implements the NeuralTS algorithm using a neural network for function approximation
     with a diagonal approximation. The module maintains a history of contexts and rewards,
     and periodically updates the network parameters via gradient descent.
