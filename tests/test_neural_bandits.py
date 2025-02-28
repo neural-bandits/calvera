@@ -1,4 +1,4 @@
-from typing import List, Tuple, Type, Union
+from typing import Any, List, Tuple, Type, Union, cast
 
 import lightning as pl
 import pytest
@@ -8,7 +8,7 @@ import torch.nn as nn
 from neural_bandits.bandits.neural_bandit import NeuralBandit
 from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
 from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer
+from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
 
 
 @pytest.fixture(autouse=True)
@@ -111,9 +111,8 @@ def test_neural_bandit_training_step(
             network=network,
             buffer=buffer,
             train_batch_size=2,
-            train_interval=4,
+            min_samples_required_for_training=4,
             initial_train_steps=4,
-            num_grad_steps=10,
         )
     else:
         bandit = NeuralTSBandit(
@@ -121,24 +120,24 @@ def test_neural_bandit_training_step(
             network=network,
             buffer=buffer,
             train_batch_size=2,
-            train_interval=4,
+            min_samples_required_for_training=4,
             initial_train_steps=4,
-            num_grad_steps=10,
         )
 
     params_1 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
     assert buffer.contextualized_actions.numel() == 0
     assert buffer.rewards.numel() == 0
+    assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
-    trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=3, shuffle=False, num_workers=0),
-    )
+    trainer = pl.Trainer(fast_dev_run=True, max_steps=10)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert bandit.should_train_network, "Should train network after new samples"
+    trainer.fit(bandit)
 
     assert buffer.contextualized_actions.shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == rewards.shape[0]
+    assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
     # Training should happen because we're within `initial_train_steps` (buffer size = 2 <= 4)
     # Network parameters should have been updated
@@ -148,13 +147,13 @@ def test_neural_bandit_training_step(
     params_2 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=3, shuffle=False, num_workers=0),
-    )
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert bandit.should_train_network, "Should train network after new samples"
+    trainer.fit(bandit)
 
     assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * rewards.shape[0]
+    assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
     # Training should happen because we're within `initial_train_steps` (buffer size = 4 <= 4)
     # Network parameters should have been updated
@@ -164,15 +163,17 @@ def test_neural_bandit_training_step(
     params_3 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=3, shuffle=False, num_workers=0),
-    )
+    bandit.record_chosen_action_feedback(actions, rewards)
+
+    assert not bandit.should_train_network, "Not enough samples to train"
+
+    trainer.fit(bandit)
 
     assert buffer.contextualized_actions.shape[0] == 3 * actions.shape[0]
     assert buffer.rewards.shape[0] == 3 * rewards.shape[0]
+    assert not bandit.is_initial_training_stage(), "Should not be in initial training stage"
 
-    # Training should NOT happen here because 6 % 4 != 0
+    # Training should NOT happen here because new samples since last train = 2 = (6 - 4) <= 4
     # Network parameters should remain unchanged
     for name, param in bandit.theta_t.named_parameters():
         assert torch.allclose(param, params_3[name])
@@ -180,16 +181,251 @@ def test_neural_bandit_training_step(
     params_4 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(
-        bandit,
-        torch.utils.data.DataLoader(dataset, batch_size=3, shuffle=False, num_workers=0),
-    )
+    bandit.record_chosen_action_feedback(actions, rewards)
+
+    assert bandit.should_train_network, "Should train network after new samples"
+
+    trainer.fit(bandit)
 
     assert buffer.contextualized_actions.shape[0] == 4 * actions.shape[0]
     assert buffer.rewards.shape[0] == 4 * rewards.shape[0]
+    assert not bandit.is_initial_training_stage(), "Should not be in initial training stage"
 
-    # Training SHOULD happen here because 8 % 4 == 0
+    # Training SHOULD happen here because new samples since last train = 4 = (8 - 4) <= 4
     # Network parameters should be updated
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(param, params_4[name]), f"Parameter {name} was not updated"
+
+    params_5 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
+
+    trainer = pl.Trainer(fast_dev_run=True)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert not bandit.should_train_network, "Not enough samples to train"
+
+    assert buffer.contextualized_actions.shape[0] == 5 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 5 * rewards.shape[0]
+    assert not bandit.is_initial_training_stage(), "Should not be in initial training stage"
+
+    bandit.should_train_network = True
+    assert bandit.should_train_network, "Just set it to True"
+
+    trainer.fit(bandit)
+
+    # Training should happen because explicitly set to True
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(param, params_5[name]), f"Parameter {name} was not updated"
+
+
+@pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
+def test_neural_bandit_training_step_custom_dataloader(
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    ],
+    bandit_type: str,
+) -> None:
+    """
+    Test that a training step runs without error and updates parameters correctly
+    for both UCB and TS bandits.
+    """
+    actions, rewards, dataset = small_context_reward_batch
+    n_features, network, buffer = network_and_buffer
+
+    if bandit_type == "ucb":
+        bandit: NeuralBandit = NeuralUCBBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            train_batch_size=2,
+            min_samples_required_for_training=4,
+            initial_train_steps=4,
+        )
+    else:
+        bandit = NeuralTSBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            train_batch_size=2,
+            min_samples_required_for_training=4,
+            initial_train_steps=4,
+        )
+
+    params_1 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
+
+    assert buffer.contextualized_actions.numel() == 0
+    assert buffer.rewards.numel() == 0
+
+    trainer = pl.Trainer(fast_dev_run=True, max_steps=10)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert bandit.should_train_network, "Should train network after new samples"
+    trainer.fit(bandit)
+
+    assert buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert buffer.rewards.shape[0] == rewards.shape[0]
+    assert bandit.is_initial_training_stage(), "Should be in initial training stage"
+
+    # Training should happen because we're within `initial_train_steps` (buffer size = 2 <= 4)
+    # Network parameters should have been updated
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(param, params_1[name]), f"Parameter {name} was not updated"
+
+    params_2 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
+
+    trainer = pl.Trainer(fast_dev_run=True)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert bandit.should_train_network, "Should train network after new samples"
+    trainer.fit(bandit)
+
+    assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 2 * rewards.shape[0]
+    assert bandit.is_initial_training_stage(), "Should be in initial training stage"
+
+    # Training should happen because we're within `initial_train_steps` (buffer size = 4 <= 4)
+    # Network parameters should have been updated
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(param, params_2[name]), f"Parameter {name} was not updated"
+
+    params_3 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
+
+    trainer = pl.Trainer(fast_dev_run=True)
+
+    assert not bandit.should_train_network, "Not enough samples to train"
+
+    trainer.fit(bandit, torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0))
+
+    assert buffer.contextualized_actions.shape[0] == 3 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 3 * rewards.shape[0]
+    assert not bandit.is_initial_training_stage(), "Should be in initial training stage"
+
+    # Training should happen here because we called trainer.fit with a dataloader.
+    # even if not enough new samples since last train = 2 = (6 - 4) <= 4
+    # we still force the update.
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(param, params_3[name])
+
+
+@pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
+def test_neural_bandit_training_step_sliding_window(
+    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    ],
+    bandit_type: str,
+) -> None:
+    """
+    Test that a training step runs with SlidingWindowBufferStrategy runs without error and
+    updates parameters correctly for both UCB and TS bandits.
+
+    It's hard to test that we actually trained on the correct data though.
+    """
+    actions, rewards, dataset = small_context_reward_batch
+    n_features, network, _ = network_and_buffer
+    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=SlidingWindowBufferStrategy(window_size=4))
+
+    if bandit_type == "ucb":
+        bandit: NeuralBandit = NeuralUCBBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            train_batch_size=2,
+            min_samples_required_for_training=4,
+            initial_train_steps=4,
+        )
+    else:
+        bandit = NeuralTSBandit(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            train_batch_size=2,
+            min_samples_required_for_training=4,
+            initial_train_steps=4,
+        )
+
+    params_1 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
+
+    assert buffer.contextualized_actions.numel() == 0
+    assert buffer.rewards.numel() == 0
+    assert bandit.is_initial_training_stage(), "Should be in initial training stage"
+
+    trainer = pl.Trainer(fast_dev_run=True, max_steps=10)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert bandit.should_train_network, "Should train network after new samples"
+    assert buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert buffer.rewards.shape[0] == rewards.shape[0]
+    trainer.fit(bandit)
+
+    # Training should happen because we're within `initial_train_steps` (buffer size = 2 <= 4)
+    # Network parameters should have been updated
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(param, params_1[name]), f"Parameter {name} was not updated"
+
+    params_2 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
+
+    trainer = pl.Trainer(fast_dev_run=True)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert bandit.should_train_network, "Should train network after new samples"
+    assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 2 * rewards.shape[0]
+    assert bandit.is_initial_training_stage(), "Should be in initial training stage"
+    trainer.fit(bandit)
+
+    # Training should happen because we're within `initial_train_steps` (buffer size = 4 <= 4)
+    # Network parameters should have been updated
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(param, params_2[name]), f"Parameter {name} was not updated"
+
+    params_3 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
+
+    trainer = pl.Trainer(fast_dev_run=True)
+
+    bandit.record_chosen_action_feedback(actions, rewards)
+
+    assert buffer.contextualized_actions.shape[0] == 3 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 3 * rewards.shape[0]
+    assert not bandit.is_initial_training_stage(), "Should not be in initial training stage"
+    assert not bandit.should_train_network, "Not enough samples to train"
+
+    trainer.fit(bandit)
+
+    # Training should NOT happen here because new samples since last train = 2 = (6 - 4) <= 4
+    # Network parameters should remain unchanged
+    for name, param in bandit.theta_t.named_parameters():
+        assert torch.allclose(param, params_3[name])
+
+    params_4 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
+
+    trainer = pl.Trainer(fast_dev_run=True)
+    bandit.record_chosen_action_feedback(actions, rewards)
+
+    assert buffer.contextualized_actions.shape[0] == 4 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 4 * rewards.shape[0]
+    assert not bandit.is_initial_training_stage(), "Should not be in initial training stage"
+    assert bandit.should_train_network, "Should train network after new samples"
+
+    trainer.fit(bandit)
+
+    # Training SHOULD happen here because new samples since last train = 4 = (8 - 4) <= 4
+    # Network parameters should be updated
+    for name, param in bandit.theta_t.named_parameters():
+        assert not torch.allclose(param, params_4[name]), f"Parameter {name} was not updated"
+
+    trainer = pl.Trainer(fast_dev_run=True)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert buffer.contextualized_actions.shape[0] == 5 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 5 * rewards.shape[0]
+    assert not bandit.is_initial_training_stage(), "Should not be in initial training stage"
+    assert not bandit.should_train_network, "Not enough samples to train"
+
+    bandit.should_train_network = True
+    assert bandit.should_train_network, "Just set it to True"
+
+    trainer.fit(bandit)
+
+    # Training should happen because explicitly set to True
     for name, param in bandit.theta_t.named_parameters():
         assert not torch.allclose(param, params_4[name]), f"Parameter {name} was not updated"
 
@@ -205,11 +441,11 @@ def test_neural_bandit_hparams_effect(
     """
     n_features, network, buffer = network_and_buffer
 
-    lambda_: float = 0.1
-    nu: float = 0.2
+    weight_decay: float = 0.1
+    exploration_rate: float = 0.2
     learning_rate: float = 0.01
     train_batch_size: int = 25
-    train_interval: int = 50
+    min_samples_required_for_training: int = 50
     initial_train_steps: int = 100
 
     if bandit_type == "ucb":
@@ -217,11 +453,13 @@ def test_neural_bandit_hparams_effect(
             n_features=n_features,
             network=network,
             buffer=buffer,
-            lambda_=lambda_,
-            nu=nu,
+            weight_decay=weight_decay,
+            exploration_rate=exploration_rate,
             learning_rate=learning_rate,
+            learning_rate_decay=0.2,
+            learning_rate_scheduler_step_size=2,
             train_batch_size=train_batch_size,
-            train_interval=train_interval,
+            min_samples_required_for_training=min_samples_required_for_training,
             initial_train_steps=initial_train_steps,
         )
     else:
@@ -229,28 +467,34 @@ def test_neural_bandit_hparams_effect(
             n_features=n_features,
             network=network,
             buffer=buffer,
-            lambda_=lambda_,
-            nu=nu,
+            weight_decay=weight_decay,
+            exploration_rate=exploration_rate,
             learning_rate=learning_rate,
+            learning_rate_decay=0.2,
+            learning_rate_scheduler_step_size=2,
             train_batch_size=train_batch_size,
-            train_interval=train_interval,
+            min_samples_required_for_training=min_samples_required_for_training,
             initial_train_steps=initial_train_steps,
         )
 
     assert bandit.hparams["n_features"] == n_features
-    assert bandit.hparams["lambda_"] == lambda_
-    assert bandit.hparams["nu"] == nu
+    assert bandit.hparams["weight_decay"] == weight_decay
+    assert bandit.hparams["exploration_rate"] == exploration_rate
     assert bandit.hparams["train_batch_size"] == train_batch_size
     assert bandit.hparams["learning_rate"] == learning_rate
-    assert bandit.hparams["train_interval"] == train_interval
+    assert bandit.hparams["min_samples_required_for_training"] == min_samples_required_for_training
     assert bandit.hparams["initial_train_steps"] == initial_train_steps
 
-    assert torch.all(bandit.Z_t == lambda_), "Z_t should be initialized with lambda_"
+    assert torch.all(bandit.Z_t == weight_decay), "Z_t should be initialized with weight_decay"
 
-    optimizer = bandit.configure_optimizers()
-    assert isinstance(optimizer, torch.optim.SGD)
-    assert optimizer.param_groups[0]["lr"] == learning_rate
-    assert optimizer.param_groups[0]["weight_decay"] == lambda_
+    opt_lr = cast(dict[str, Any], bandit.configure_optimizers())
+    assert isinstance(opt_lr["optimizer"], torch.optim.Adam)
+    assert opt_lr["optimizer"].param_groups[0]["lr"] == learning_rate
+    assert opt_lr["optimizer"].param_groups[0]["weight_decay"] == weight_decay
+
+    assert isinstance(opt_lr["lr_scheduler"], torch.optim.lr_scheduler.StepLR)
+    assert opt_lr["lr_scheduler"].step_size == 2
+    assert opt_lr["lr_scheduler"].gamma == 0.2
 
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
@@ -273,32 +517,31 @@ def test_neural_bandit_parameter_validation(
         network=network,
         buffer=buffer,
         train_batch_size=16,
-        train_interval=32,
+        min_samples_required_for_training=32,
         initial_train_steps=48,
     )
 
-    # Invalid: `train_interval` not divisible by `batch_size`
-    with pytest.raises(AssertionError, match="train_interval must be divisible by train_batch_size"):
-        BanditClass(
-            n_features=n_features,
-            network=network,
-            buffer=buffer,
-            train_batch_size=15,
-            train_interval=40,
-            initial_train_steps=45,
-        )
-
-    # Invalid: `initial_train_steps` not divisible by `batch_size`
+    # Invalid: negative parameters
     with pytest.raises(
         AssertionError,
-        match="initial_train_steps must be divisible by train_batch_size",
     ):
         BanditClass(
             n_features=n_features,
             network=network,
             buffer=buffer,
-            train_batch_size=17,
-            train_interval=34,
+            train_batch_size=15,
+            min_samples_required_for_training=-40,
+            initial_train_steps=45,
+        )
+
+    # Invalid: negative parameters
+    with pytest.raises(AssertionError):
+        BanditClass(
+            n_features=n_features,
+            network=network,
+            buffer=buffer,
+            train_batch_size=-17,
+            min_samples_required_for_training=34,
             initial_train_steps=50,
         )
 
@@ -364,8 +607,8 @@ def test_neural_ucb_forward_deterministic() -> None:
         n_features=n_features,
         network=network,
         buffer=buffer,
-        lambda_=1.0,
-        nu=0.1,
+        weight_decay=1.0,
+        exploration_rate=0.1,
     )
 
     contextualized_actions: torch.Tensor = torch.tensor(
@@ -399,8 +642,8 @@ def test_neural_ts_forward_stochastic() -> None:
         n_features=n_features,
         network=network,
         buffer=buffer,
-        lambda_=1.0,
-        nu=1.0,
+        weight_decay=1.0,
+        exploration_rate=1.0,
     )
 
     # Two actions with equal expected rewards

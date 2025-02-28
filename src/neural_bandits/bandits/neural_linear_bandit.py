@@ -80,7 +80,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         The type of the input data to the neural network. Can be a single tensor or a tuple of tensors.
     """
 
-    _should_train_network = True
+    _should_train_network = False
     _samples_without_training_network = 0
 
     def __init__(
@@ -141,7 +141,6 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             "The min_samples_required_for_training must be greater than 0."
             "Set it to None to never update the neural network."
         )
-        assert train_batch_size > 0, "The train_batch_size must be greater than 0."
         assert lambda_ > 0, "The lambda_ must be greater than 0."
         assert eps > 0, "The eps must be greater than 0."
         assert weight_decay >= 0, "The weight_decay must be greater equal 0."
@@ -195,8 +194,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         )  # shape: (buffer_size, n_network_input_size)
         self.register_buffer("rewards", torch.empty(0, device=self.device))  # shape: (buffer_size,)
 
-        # Enable Lightning's automatic optimization. Necessary because we are inheriting from LinearBandit.
-        self.automatic_optimization = True
+        # Disable Lightning's automatic optimization. Has to be kept in sync with should_train_network.
+        self.automatic_optimization = False
 
     def _predict_action(
         self, contextualized_actions: ActionInputType, **kwargs: Any
@@ -360,17 +359,39 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         """Lightning hook. Log a warning if a custom data loader was passed to `trainer.fit`."""
         super().on_train_start()
 
-        if self.custom_data_loader_passed:
+        assert self.trainer.train_dataloader is not None, "train_dataloader must be set before training starts."
+        if self._custom_data_loader_passed:
             logger.warning(
-                "You passed a custom data loader to the NeuralLinearBandit. This will always"
-                "train the neural network (with an retraining of the linear head). Note that"
-                "data from the data buffer will be ignored. Only the data passed in the"
-                "train_data_loader is used. The data is still added to the data buffer for"
-                "future training runs."
+                "You passed a train_dataloader to trainer.fit(). Data from the data buffer will be ignored. "
+                "Only the data passed in the train_data_loader is used for training. The data is still added to "
+                "the data buffer for future training runs."
             )
 
-        if self.should_train_network:
-            self._helper_network.reset_linear_head()
+            num_samples = len(self.trainer.train_dataloader.dataset)
+            required_samples = self.hparams["min_samples_required_for_training"]
+            if num_samples <= required_samples and not self.is_initial_training_stage():
+                logger.warning(
+                    f"The train_dataloader passed to trainer.fit() contains {num_samples}"
+                    f"which is less than min_samples_required_for_training={required_samples}."
+                    f"Even though the initial training stage is over and not enough data samples were passed, "
+                    "the network will still be trained, only on this data (no data from buffer). "
+                    "Consider passing more data or decreasing min_samples_required_for_training."
+                )
+
+            self.should_train_network = True
+
+        # TODO: If not warm_start: reset the linear head and the network before training
+        # if self.should_train_network:
+        # self.helper_network.reset()
+        # self._helper_network.reset_linear_head()
+
+    def is_initial_training_stage(self) -> bool:
+        """Check if the bandit is in the initial training stage.
+
+        Returns:
+            True if the total seen samples is smaller or equal to initial_strain_Steps, False otherwise.
+        """
+        return self._total_samples_count <= cast(int, self.hparams["initial_train_steps"])
 
     def _update(
         self,
@@ -506,7 +527,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             self.update_embeddings()
             self.retrain_head()
 
-        self.should_train_network = True
+        if not self._training_skipped:
+            self.should_train_network = False
 
     def update_embeddings(self) -> None:
         """Update all of the embeddings stored in the replay buffer."""
@@ -589,9 +611,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             batch_size=self.hparams["train_batch_size"],
             shuffle=False,  # no need to shuffle because the update algorithm is assosicative
         )
-        for z, y in train_loader:
-            # z shape: (num_samples, 1, n_embedding_size)
-            z_batch = z.to(self.device)  # type: ignore
-            # y shape: (num_samples, 1)
-            y_batch = y.to(self.device)  # type: ignore
-            super()._perform_update(z_batch, y_batch)
+        for z_batch, y_batch in train_loader:
+            super()._perform_update(
+                z_batch.to(self.device),  # shape: (num_samples, 1, n_embedding_size)
+                y_batch.to(self.device),  # shape: (num_samples, 1)
+            )

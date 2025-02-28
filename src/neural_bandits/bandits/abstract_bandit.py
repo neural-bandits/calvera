@@ -22,9 +22,10 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
     """Defines the interface for all Bandit algorithms by implementing pytorch Lightning Module methods."""
 
     buffer: AbstractBanditDataBuffer[ActionInputType, Any]
-    custom_data_loader_passed = (
+    _custom_data_loader_passed = (
         True  # If no train_dataloader is passed on trainer.fit(bandit), then this will be set to False.
     )
+    _training_skipped = False  # Was training was skipped before starting because of not enough data?
     _new_samples_count = 0  # tracks the number of new samples added to the buffer in the current epoch.
     _total_samples_count = 0  # tracks the total number of samples seen by the bandit.
 
@@ -42,6 +43,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
         """
         assert n_features > 0, "The number of features must be greater than 0."
+        assert train_batch_size > 0, "The batch_size for training must be greater than 0."
 
         super().__init__()
 
@@ -95,7 +97,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 f"but got shape {contextualized_actions.shape}"
             )
             batch_size, n_chosen_actions, _ = contextualized_actions.shape
-        elif isinstance(contextualized_actions, tuple) or isinstance(contextualized_actions, list):
+        elif isinstance(contextualized_actions, (tuple, list)):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert contextualized_actions[0].ndim == 3, (
                 "Chosen actions must have shape (batch_size, num_actions, n_features) "
@@ -217,7 +219,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 ActionInputType,
                 contextualized_actions.reshape(-1, contextualized_actions.shape[-1]),
             )
-        elif isinstance(contextualized_actions, tuple) or isinstance(contextualized_actions, list):
+        elif isinstance(contextualized_actions, (tuple, list)):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert (
                 contextualized_actions[0].ndim == 3 and contextualized_actions[0].shape[0] == realized_rewards.shape[0]
@@ -255,7 +257,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
     def train_dataloader(self) -> DataLoader[BufferDataFormat[ActionInputType]]:
         """Dataloader used by PyTorch Lightning if none is passed via `trainer.fit(..., dataloader)`."""
         if len(self.buffer) > 0:
-            self.custom_data_loader_passed = False
+            self._custom_data_loader_passed = False
             return DataLoader(
                 self.buffer,
                 self.hparams["train_batch_size"],
@@ -274,6 +276,11 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             logger.warning(
                 "The trainer will run for more than one epoch. This is not recommended for bandit algorithms."
             )
+
+    def _skip_training(self) -> None:
+        """Skip training if there is not enough data."""
+        self._training_skipped = True
+        self.trainer.should_stop = True
 
     def training_step(self, batch: BufferDataFormat[ActionInputType], batch_idx: int) -> torch.Tensor:
         """Perform a single update step.
@@ -313,7 +320,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         contextualized_actions = batch[0]  # shape: (batch_size, n_chosen_arms, n_features)
 
-        if self.custom_data_loader_passed:
+        if self._custom_data_loader_passed:
             self.record_chosen_action_feedback(contextualized_actions, realized_rewards)
 
         if isinstance(contextualized_actions, torch.Tensor):
@@ -328,9 +335,9 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             assert contextualized_actions.shape[0] == batch_size and contextualized_actions.shape[1] == n_chosen_arms, (
                 "Chosen contextualized actions must have shape (batch_size, n_chosen_arms, n_features) "
                 f"same as reward. Expected shape ({(batch_size, n_chosen_arms)}, n_features) "
-                f"but got shape {contextualized_actions[0].shape}"
+                f"but got shape {contextualized_actions.shape}"
             )
-        elif isinstance(contextualized_actions, tuple) or isinstance(contextualized_actions, list):
+        elif isinstance(contextualized_actions, (tuple, list)):
             assert all(
                 action.device == self.device for action in contextualized_actions
             ), "Contextualized actions must be on the same device as the model."
@@ -414,8 +421,11 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
     def on_train_end(self) -> None:
         """Hook called by PyTorch Lightning."""
         super().on_train_end()
-        self.custom_data_loader_passed = True
-        self._new_samples_count = 0
+        if not self._training_skipped:
+            self._new_samples_count = 0
+
+        self._custom_data_loader_passed = True
+        self._training_skipped = False
 
     def on_validation_start(self) -> None:
         """Hook called by PyTorch Lightning."""

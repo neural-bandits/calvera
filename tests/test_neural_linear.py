@@ -169,7 +169,7 @@ def test_neural_linear_bandit_training_step(
     ],
 ) -> None:
     """Test that a training step runs without error on a small dataset and updates the replay buffer."""
-    actions, rewards, _ = small_context_reward_batch
+    actions, rewards, dataset = small_context_reward_batch
     n_features = actions.shape[2]
     n_embedding_size = 4
 
@@ -205,12 +205,14 @@ def test_neural_linear_bandit_training_step(
     # Run training step
     trainer = pl.Trainer(fast_dev_run=True)
     bandit.record_chosen_action_feedback(actions, rewards)
-    trainer.fit(bandit)
-
-    # After training step, buffer should have newly appended rows
+    # buffer should have newly appended rows
     assert buffer.contextualized_actions.shape[0] == actions.shape[0]
     assert buffer.embedded_actions.shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == actions.shape[0]
+
+    assert not bandit.should_train_network, "Not enough data to train yet."
+
+    trainer.fit(bandit)
 
     # The head should have been updated
     assert not torch.allclose(bandit.theta, theta_1)
@@ -223,6 +225,7 @@ def test_neural_linear_bandit_training_step(
     assert torch.all(vals > 0), "Precision matrix must be positive definite, but eigenvalues are not all positive."
 
     # But the network should not have been updated
+    assert network is bandit.network, "Network reference should not have been changed."
     assert torch.allclose(nn_weights_before, network[0].weight)
 
     # Store the updated values
@@ -232,13 +235,16 @@ def test_neural_linear_bandit_training_step(
 
     # Now run another training step
     trainer = pl.Trainer(fast_dev_run=True)
-    bandit.record_chosen_action_feedback(actions, rewards)
-    trainer.fit(bandit)
 
+    bandit.record_chosen_action_feedback(actions, rewards)
     # The buffer should have grown
     assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.embedded_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * actions.shape[0]
+
+    assert bandit.should_train_network, "Should train the network."
+
+    trainer.fit(bandit)
 
     # The head should have been updated again
     assert not torch.allclose(bandit.theta, theta_2)
@@ -256,6 +262,95 @@ def test_neural_linear_bandit_training_step(
 
     # Also test that the helper network has been updated. Necessary for correct future updates.
     assert not torch.allclose(cast(nn.Sequential, bandit._helper_network.network)[0].weight, nn_weights_before)
+
+    # Store the updated values
+    theta_3 = bandit.theta.clone()
+    precision_matrix_3 = bandit.precision_matrix.clone()
+    b_3 = bandit.b.clone()
+
+    nn_weights_before = network[0].weight.clone()
+
+    # Set the should_train_network to True manually
+    trainer = pl.Trainer(fast_dev_run=True)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert not bandit.should_train_network, "Not enough data to train yet."
+    bandit.should_train_network = True
+    assert bandit.should_train_network, "Just set it."
+    assert bandit.automatic_optimization, "Required to train the network."
+    trainer.fit(bandit)
+
+    # The head should have been updated again
+    assert not torch.allclose(bandit.theta, theta_3)
+    assert not torch.allclose(bandit.precision_matrix, precision_matrix_3)
+    assert not torch.allclose(bandit.b, b_3)
+
+    # Check that the precision matrix is symmetric and positive definite
+    assert torch.allclose(bandit.precision_matrix, bandit.precision_matrix.T)
+    vals, _ = torch.linalg.eigh(bandit.precision_matrix)
+    assert torch.all(vals > 0), "Precision matrix must be positive definite, but eigenvalues are not all positive."
+
+    # And the network should have been updated
+    assert not torch.allclose(network[0].weight, nn_weights_before)
+
+    # Now try the same with setting should_train_network to False
+    theta_4 = bandit.theta.clone()
+    precision_matrix_4 = bandit.precision_matrix.clone()
+    b_4 = bandit.b.clone()
+
+    nn_weights_before = network[0].weight.clone()
+
+    trainer = pl.Trainer(fast_dev_run=True)
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert not bandit.should_train_network, "Not enough data to train yet."
+    # Add a second batch!
+    bandit.record_chosen_action_feedback(actions, rewards)
+    assert bandit.should_train_network, "Has enough data now."
+    bandit.should_train_network = False
+    assert not bandit.should_train_network, "Just set it."
+    assert not bandit.automatic_optimization, "Required to train the head without error."
+
+    trainer.fit(bandit)
+
+    assert not torch.allclose(bandit.theta, theta_4)
+    assert not torch.allclose(bandit.precision_matrix, precision_matrix_4)
+    assert not torch.allclose(bandit.b, b_4)
+
+    # Check that the precision matrix is symmetric and positive definite
+    assert torch.allclose(bandit.precision_matrix, bandit.precision_matrix.T)
+    vals, _ = torch.linalg.eigh(bandit.precision_matrix)
+    assert torch.all(vals > 0), "Precision matrix must be positive definite, but eigenvalues are not all positive."
+
+    # And the network should NOT have been updated
+    assert torch.allclose(network[0].weight, nn_weights_before)
+
+    # Try training with a custom data loader
+    theta_5 = bandit.theta.clone()
+    precision_matrix_5 = bandit.precision_matrix.clone()
+    b_5 = bandit.b.clone()
+
+    nn_weights_before = network[0].weight.clone()
+
+    assert not bandit.should_train_network, "Not enough data to train yet."
+    trainer = pl.Trainer(fast_dev_run=True)
+    trainer.fit(bandit, torch.utils.data.DataLoader(dataset, batch_size=2))
+
+    # The buffer should have grown
+    assert buffer.contextualized_actions.shape[0] == 6 * actions.shape[0]
+    assert buffer.embedded_actions.shape[0] == 6 * actions.shape[0]
+    assert buffer.rewards.shape[0] == 6 * actions.shape[0]
+
+    # The head should have been updated again
+    assert not torch.allclose(bandit.theta, theta_5)
+    assert not torch.allclose(bandit.precision_matrix, precision_matrix_5)
+    assert not torch.allclose(bandit.b, b_5)
+
+    # Check that the precision matrix is symmetric and positive definite
+    assert torch.allclose(bandit.precision_matrix, bandit.precision_matrix.T)
+    vals, _ = torch.linalg.eigh(bandit.precision_matrix)
+    assert torch.all(vals > 0), "Precision matrix must be positive definite, but eigenvalues are not all positive."
+
+    # And the network should have been updated
+    assert not torch.allclose(network[0].weight, nn_weights_before)
 
 
 def test_neural_linear_sliding_window(

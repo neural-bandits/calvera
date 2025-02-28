@@ -265,7 +265,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
             ), "Number of contextualized actions must match number of rewards"
 
             contextualized_actions_tensor = contextualized_actions.unsqueeze(1)  # shape: (batch_size, 1, n_features)
-        elif isinstance(contextualized_actions, tuple):
+        elif isinstance(contextualized_actions, (tuple, list)):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert contextualized_actions[0].ndim == 2 and contextualized_actions[0].shape[0] == rewards.shape[0], (
                 f"Chosen actions must have shape (batch_size, n_features)"

@@ -87,7 +87,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         if isinstance(contextualized_actions, torch.Tensor):
             batch_size, num_actions, _ = contextualized_actions.shape
             contextualized_actions = cast(ActionInputType, contextualized_actions.to(device=self.device))
-        elif isinstance(contextualized_actions, tuple):
+        elif isinstance(contextualized_actions, (tuple, list)):
             contextualized_actions = cast(
                 ActionInputType,
                 tuple(action_tensor.to(device=self.device) for action_tensor in contextualized_actions),
@@ -224,7 +224,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
                     self._last_contextualized_actions.size(-1),
                 ),
             )  # shape (n, m, k)
-        elif isinstance(self._last_contextualized_actions, tuple):
+        elif isinstance(self._last_contextualized_actions, (tuple, list)):
             first_tensor = self._last_contextualized_actions[0]
             expanded_mask = mask.unsqueeze(-1).expand_as(first_tensor)
             return cast(

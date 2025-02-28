@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import lightning as pl
 import torch
@@ -35,7 +35,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
     Z_t: torch.Tensor
 
-    _should_train_network: bool = True
+    _should_train_network = False
 
     def __init__(
         self,
@@ -86,9 +86,10 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
                 Defaults to 1024. Must be greater equal 0.
         """
-        assert weight_decay > 0, "Regularization parameter must be greater than 0."
+        assert weight_decay >= 0, "Regularization parameter must be greater equal 0."
         assert exploration_rate > 0, "Exploration rate must be greater than 0."
         assert learning_rate > 0, "Learning rate must be greater than 0."
+        assert learning_rate_decay >= 0, "The learning rate decay must be greater equal 0."
         assert learning_rate_scheduler_step_size > 0, "Learning rate must be greater than 0."
         assert (
             min_samples_required_for_training is None or min_samples_required_for_training > 0
@@ -217,12 +218,20 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         super().record_chosen_action_feedback(contextualized_actions, rewards)
 
         if (
-            self._total_samples_count <= self.hparams["initial_train_steps"]
+            self.is_initial_training_stage()
             or self._new_samples_count >= self.hparams["min_samples_required_for_training"]
         ):
             self.should_train_network = True
         else:
             self.should_train_network = False
+
+    def is_initial_training_stage(self) -> bool:
+        """Check if the bandit is in the initial training stage.
+
+        Returns:
+            True if the total seen samples is smaller or equal to initial_strain_Steps, False otherwise.
+        """
+        return self._total_samples_count <= cast(int, self.hparams["initial_train_steps"])
 
     @property
     def should_train_network(self) -> bool:
@@ -245,13 +254,37 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
     def on_train_start(self) -> None:
         """Check if enough samples have been recorded to train the network."""
         super().on_train_start()
-        if not self.should_train_network:
+
+        assert self.trainer.train_dataloader is not None, "train_dataloader must be set before training starts."
+        if self._custom_data_loader_passed:
             logger.warning(
-                "Started training but not enough samples have been recorded to train the network. "
-                "Consider decreasing `min_samples_required_for_training` or manually overwriting "
-                "`should_train_network`."
+                "You passed a train_dataloader to trainer.fit(). Data from the data buffer will be ignored. "
+                "Only the data passed in the train_data_loader is used for training. The data is still added to "
+                "the data buffer for future training runs."
             )
-            self.trainer.should_stop = True
+
+            num_samples = len(self.trainer.train_dataloader.dataset)
+            required_samples = self.hparams["min_samples_required_for_training"]
+            if num_samples <= required_samples and not self.is_initial_training_stage():
+                logger.warning(
+                    f"The train_dataloader passed to trainer.fit() contains {num_samples}"
+                    f"which is less than min_samples_required_for_training={required_samples}."
+                    f"Even though the initial training stage is over and not enough data samples were passed, "
+                    "the network will still be trained."
+                    "Consider passing more data or decreasing min_samples_required_for_training."
+                )
+
+            self.should_train_network = True
+        elif not self.should_train_network:
+            logger.warning(
+                "Called trainer.fit but not enough samples have been recorded to train the network. "
+                "Therefore, training was cancelled. Consider passing more data, decreasing "
+                "min_samples_required_for_training or manually overwriting should_train_network."
+            )
+
+            self._skip_training()
+
+        # TODO: warm_start. If should_train_network and not warm_start, reset the network.
 
     def _update(
         self,
@@ -335,3 +368,9 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             "optimizer": opt,
             "lr_scheduler": scheduler,
         }
+
+    def on_train_end(self) -> None:
+        """Reset the training state."""
+        super().on_train_end()
+        if not self._training_skipped:
+            self.should_train_network = False
