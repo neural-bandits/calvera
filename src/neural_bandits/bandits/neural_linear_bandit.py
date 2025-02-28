@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Optional, cast
 
-import lightning as pl
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
@@ -11,6 +10,7 @@ from neural_bandits.utils.data_storage import AbstractBanditDataBuffer, BufferDa
 from neural_bandits.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
+
 
 class HelperNetwork(torch.nn.Module):
     """A helper network that is used to train the neural network of the NeuralLinearBandit.
@@ -319,6 +319,15 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             self.should_train_network = True
         else:
             self.should_train_network = False
+
+        if (
+            self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
+            and self._total_samples_count - contextualized_actions.size(0) <= self.hparams["initial_train_steps"]
+        ):
+            logger.info(
+                "\nInitial training stage is over. "
+                "The network will now be called only once min_samples_required_for_training samples are recorded."
+            )
 
     @property
     def should_train_network(self) -> bool:

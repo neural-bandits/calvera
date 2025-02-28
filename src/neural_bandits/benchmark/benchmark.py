@@ -10,13 +10,7 @@ import pandas as pd
 import torch
 from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
-
-try:
-    from transformers import BertModel
-except Exception as e:
-    logging.warning("Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly.")
-    logging.warning(e)
-    pass
+from tqdm import tqdm
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
 from neural_bandits.bandits.action_input_type import ActionInputType
@@ -52,6 +46,13 @@ from neural_bandits.utils.selectors import (
     EpsilonGreedySelector,
     TopKSelector,
 )
+
+try:
+    from transformers import BertModel
+except Exception as e:
+    logging.warning("Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly.")
+    logging.warning(e)
+    pass
 
 bandits: dict[str, type[AbstractBandit[Any]]] = {
     "lin_ucb": LinearUCBBandit,
@@ -277,7 +278,8 @@ class BanditBenchmark(Generic[ActionInputType]):
 
         train_batch_size = self.training_params.get("train_batch_size", 1)
         # Iterate over one epoch (or limited iterations) from the environment.
-        for contextualized_actions in self.environment:
+        progress_bar = tqdm(self.environment, total_samples=len(self.environment))
+        for contextualized_actions in progress_bar:
             chosen_actions = self._predict_actions(contextualized_actions)
             # Optional: compute and log regret.
             # if self.logger is not None:

@@ -225,6 +225,15 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         else:
             self.should_train_network = False
 
+        if (
+            self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
+            and self._total_samples_count - contextualized_actions.size(0) <= self.hparams["initial_train_steps"]
+        ):
+            logger.info(
+                "\nInitial training stage is over. "
+                "The network will now be called only once min_samples_required_for_training samples are recorded."
+            )
+
     def is_initial_training_stage(self) -> bool:
         """Check if the bandit is in the initial training stage.
 
