@@ -10,7 +10,6 @@ class NeuralUCBBandit(NeuralBandit):
     exploration.
 
     Attributes:
-        automatic_optimization: Boolean indicating if Lightning should handle optimization.
         bandit: The underlying NeuralUCBBandit instance.
     """
 

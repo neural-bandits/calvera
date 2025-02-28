@@ -195,8 +195,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         )  # shape: (buffer_size, n_network_input_size)
         self.register_buffer("rewards", torch.empty(0, device=self.device))  # shape: (buffer_size,)
 
-        # Toggle for whether or not to train the neural network during the next `training_epoch`
-        self._should_train = True
+        # Enable Lightning's automatic optimization. Necessary because we are inheriting from LinearBandit.
+        self.automatic_optimization = True
 
     def _predict_action(
         self, contextualized_actions: ActionInputType, **kwargs: Any
@@ -348,7 +348,12 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         If called after `record_action_data`, this property will overwrite the behavior of
         the `min_samples_required_for_training` parameter.
+
+        Also sets lightning `automatic_optimization` to `should_train_network`.
+        This is necessary to allow for correct updates of the neural network.
+        It also needs to be False when we only train the head.
         """
+        self.automatic_optimization = value
         self._should_train_network = value
 
     def on_train_start(self) -> None:
@@ -391,6 +396,13 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         assert realized_rewards.shape[1] == 1, (
             "The neural linear bandit can only choose one action at a time."
             "Combinatorial Neural Linear is not supported."
+        )
+
+        assert self.automatic_optimization == self.should_train_network, (
+            "Automatic optimization needs to be True if the neural network should be trained."
+            "Automatic optimization needs to be False if only the head should be trained."
+            f"Currently, automatic_optimization={self.automatic_optimization} and"
+            f"should_train_network={self.should_train_network}."
         )
 
         if self.should_train_network:
