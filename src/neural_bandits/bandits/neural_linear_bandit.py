@@ -12,18 +12,6 @@ from neural_bandits.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
 
-
-def get_neural_linear_trainer(**kwargs: Any) -> pl.Trainer:
-    """Instantiates a preconfigured PyTorch Lightning Trainer for Neural Linear.
-
-    The gradient clipping value is set to 20.0.
-
-    Args:
-        **kwargs: Additional keyword arguments to pass to the Trainer.
-    """
-    return pl.Trainer(gradient_clip_val=20.0, **kwargs)
-
-
 class HelperNetwork(torch.nn.Module):
     """A helper network that is used to train the neural network of the NeuralLinearBandit.
 
