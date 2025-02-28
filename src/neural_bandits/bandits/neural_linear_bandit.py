@@ -88,7 +88,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         network: torch.nn.Module,
         buffer: Optional[AbstractBanditDataBuffer[ActionInputType, Any]],
         n_embedding_size: int,
-        min_samples_required_for_training: Optional[int] = 32,
+        min_samples_required_for_training: Optional[int] = 1024,
         selector: Optional[AbstractSelector] = None,
         train_batch_size: int = 32,
         lazy_uncertainty_update: bool = False,
@@ -99,7 +99,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         learning_rate_decay: float = 1.0,
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: Optional[float] = 1e-3,
-        initial_train_steps: int = 1000,
+        initial_train_steps: int = 1024,
     ) -> None:
         """Initializes the NeuralLinearBanditModule.
 
@@ -111,7 +111,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             train_batch_size: The batch size for the neural network update. Default is 32. Must be greater than 0.
             min_samples_required_for_training: The interval (in steps) at which the neural network is updated.
-                Default is 32.
+                Default is 1024.
                 None means the neural network is never updated. If not None, it must be greater than 0.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step. Default is False.
@@ -134,7 +134,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             early_stop_threshold: Loss threshold for early stopping. None to disable.
                 Defaults to 1e-3. Must be greater equal 0.
             initial_train_steps: Number of initial training steps (in samples).
-                Defaults to 1000. Must be greater equal 0.
+                Defaults to 1024. Must be greater equal 0.
         """
         assert n_embedding_size > 0, "The embedding size must be greater than 0."
         assert min_samples_required_for_training is None or min_samples_required_for_training > 0, (
@@ -593,5 +593,5 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             # z shape: (num_samples, 1, n_embedding_size)
             z_batch = z.to(self.device)  # type: ignore
             # y shape: (num_samples, 1)
-            y_batch = y.to(self.device)  # type: ignore shape: (num_samples, 1)
+            y_batch = y.to(self.device)  # type: ignore
             super()._perform_update(z_batch, y_batch)
