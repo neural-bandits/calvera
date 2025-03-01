@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from neural_bandits.benchmark.datasets.synthetic import (
+    SyntheticDataset,
     CubicSyntheticDataset,
     LinearCombinationSyntheticDataset,
     LinearSyntheticDataset,
@@ -24,7 +25,7 @@ from neural_bandits.benchmark.datasets.synthetic import (
         (LinearCombinationSyntheticDataset, 6),
     ],
 )
-def test_phi(DatasetClass, expected_phi_dim):
+def test_phi(DatasetClass: type[SyntheticDataset], expected_phi_dim: int) -> None:
     # Use a fixed n_features and small num_samples for testing
     n_features = 2
     num_samples = 10
@@ -47,7 +48,7 @@ def test_phi(DatasetClass, expected_phi_dim):
         LinearCombinationSyntheticDataset,
     ],
 )
-def test_initialization(DatasetClass):
+def test_initialization(DatasetClass: type[SyntheticDataset]) -> None:
     # Use n_features=3 and a small dataset; note: num_actions is fixed to 2 in SyntheticDataset
     n_features = 3
     num_samples = 20
@@ -78,7 +79,7 @@ def test_initialization(DatasetClass):
         LinearCombinationSyntheticDataset,
     ],
 )
-def test_getitem_returns_expected_shapes(DatasetClass):
+def test_getitem_returns_expected_shapes(DatasetClass: type[SyntheticDataset]) -> None:
     # Use n_features=3 and a small dataset; note: num_actions is fixed to 2 in SyntheticDataset
     n_features = 3
     num_samples = 20
@@ -103,7 +104,7 @@ def test_getitem_returns_expected_shapes(DatasetClass):
     assert rewards.dtype == torch.float32
 
 
-def test_reward_method():
+def test_reward_method() -> None:
     # Test that the reward method returns a float matching the label in self.y.
     n_features = 2
     num_samples = 5

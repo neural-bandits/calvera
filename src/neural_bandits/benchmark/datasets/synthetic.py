@@ -5,7 +5,7 @@ import torch
 from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
-class SyntheticDataset(AbstractDataset):
+class SyntheticDataset(AbstractDataset[torch.Tensor]):
     """A binary classification synthetic dataset for bandit algorithms.
 
     Subclasses should implement the `phi` method to define the feature mapping.
