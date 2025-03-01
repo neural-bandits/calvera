@@ -50,6 +50,7 @@ class LinearUCBBandit(LinearBandit[torch.Tensor]):
             eps=eps,
             lambda_=lambda_,
             lazy_uncertainty_update=lazy_uncertainty_update,
+            clear_buffer_after_train=clear_buffer_after_train,
         )
 
         self.save_hyperparameters({"exploration_rate": exploration_rate})
