@@ -186,6 +186,8 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             embedded_actions: The embedded actions that were chosen by the bandit.
                 Size: (batch_size, n_actions, n_features). Optional because not every model uses embedded actions.
         """
+        assert realized_rewards.ndim == 2, "Realized rewards must have shape (batch_size, n_chosen_actions)."
+
         batch_size = realized_rewards.shape[0]
 
         assert (
