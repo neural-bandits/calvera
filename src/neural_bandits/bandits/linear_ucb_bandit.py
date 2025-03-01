@@ -7,8 +7,11 @@ from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class LinearUCBBandit(LinearBandit[torch.Tensor]):
-    """Linear Upper Confidence Bound Bandit."""
+class LinearUCBBandit(LinearBandit):
+    """Linear Upper Confidence Bound Bandit.
+
+    Based on: Lattimore et al. "Bandit Algorithms" https://tor-lattimore.com/downloads/book/book.pdf
+    """
 
     def __init__(
         self,

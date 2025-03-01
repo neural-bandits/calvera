@@ -57,8 +57,9 @@ class HelperNetwork(torch.nn.Module):
 class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
     """Lightning Module implementing a Neural Linear bandit.
 
-    The Neural Linear algorithm is described in the paper Riquelme et al., 2018, Deep Bayesian Bandits Showdown: An
-    Empirical Comparison of Bayesian Deep Networks for Thompson Sampling.
+    Based on: Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for
+    Thompson Sampling" https://arxiv.org/abs/1802.09127
+
     A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear
     head that is trained on the embeddings. Since updating the neural network which encodes the inputs into embeddings
     is computationally expensive, the neural network is only updated once more than `min_samples_required_for_training`
