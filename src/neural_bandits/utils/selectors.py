@@ -51,8 +51,8 @@ class EpsilonGreedySelector(AbstractSelector):
         """Initialize the epsilon-greedy selector.
 
         Args:
-            epsilon: Exploration probability. Must be between 0 and 1. Defaults to 0.1.
-            seed: Random seed for the generator. Defaults to None.
+            epsilon: Exploration probability. Must be between 0 and 1.
+            seed: Random seed for the generator. Defaults to None (explicit seed used).
         """
         assert 0 <= epsilon <= 1, "Epsilon must be between 0 and 1"
         self.epsilon = epsilon

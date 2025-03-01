@@ -41,7 +41,7 @@ class LinearUCBBandit(LinearBandit[torch.Tensor]):
             clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
                 data is not needed anymore after training once. Only set it to False if you know what you are doing.
             exploration_rate: The exploration parameter for LinUCB. In the original paper this is denoted as alpha.
-                Default is 1.0. Must be greater than 0.
+                Must be greater than 0.
         """
         super().__init__(
             n_features,

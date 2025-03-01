@@ -114,7 +114,7 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
             the current directory.
         partition: The partition of the dataset to use. Either "train" or "test".
         max_len: The maximum length of the input text. If the text is longer than this, it will be truncated. If it is
-            shorter, it will be padded. Default is 255. This is also the `context_size` of the dataset.
+            shorter, it will be padded. This is also the `context_size` of the dataset.
         tokenizer: A tokenizer from the `transformers` library. If None, the `BertTokenizer` will be used.
     """
 

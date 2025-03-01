@@ -52,39 +52,43 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         early_stop_threshold: Optional[float] = 1e-3,
         min_samples_required_for_training: Optional[int] = 64,
         initial_train_steps: int = 1024,
+        warm_restart: bool = False,
     ) -> None:
         """Initialize the NeuralUCB bandit module.
 
         Args:
             n_features: Number of input features. Must be greater 0.
             network: Neural network module for function approximation.
-            buffer: Buffer for storing bandit interaction data.
+            buffer: Buffer for storing bandit interaction data. See superclass for further information.
             selector: Action selector for the bandit. Defaults to ArgMaxSelector (if None).
             exploration_rate: Exploration parameter for UCB. Called gamma_t=nu in the original paper.
-                Defaults to 1. Must be greater 0.
-            train_batch_size: Size of mini-batches for training. Defaults to 32. Must be greater 0.
+                Must be greater 0.
+            train_batch_size: Size of mini-batches for training. Must be greater 0.
             learning_rate: The learning rate for the optimizer of the neural network.
                 Passed to `lr` of `torch.optim.Adam`.
-                Default is 1e-3. Must be greater than 0.
+                Must be greater than 0.
             weight_decay: The regularization parameter for the neural network.
                 Passed to `weight_decay` of `torch.optim.Adam`.
-                Default is 1.0. Must be greater than 0 because the NeuralUCB algorithm is based on this parameter.
+                Must be greater than 0 because the NeuralUCB algorithm is based on this parameter.
             learning_rate_decay: Multiplicative factor for learning rate decay.
                 Passed to `gamma` of `torch.optim.lr_scheduler.StepLR`.
                 Default is 1.0 (i.e. no decay). Must be greater than 0.
             learning_rate_scheduler_step_size: The step size for the learning rate decay.
                 Passed to `step_size` of `torch.optim.lr_scheduler.StepLR`.
-                Default is 1. Must be greater than 0.
+                Must be greater than 0.
             early_stop_threshold: Loss threshold for early stopping. None to disable.
-                Defaults to 1e-3. Must be greater equal 0.
+                Must be greater equal 0.
             min_samples_required_for_training: If less samples have been added via `record_feedback`
                 than this value, the network is not trained.
                 If None, the network is trained every time `trainer.fit` is called.
-                Defaults to 64. Must be greater 0.
+                Must be greater 0.
             initial_train_steps: For the first `initial_train_steps` samples, the network is always trained even if
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
-                Defaults to 1024. Must be greater equal 0.
+                Must be greater equal 0.
+            warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
+                `network.reset_parameters()` everytime a retraining of the network occurs. If `True` the network is
+                trained from the current state.
         """
         assert weight_decay >= 0, "Regularization parameter must be greater equal 0."
         assert exploration_rate > 0, "Exploration rate must be greater than 0."
