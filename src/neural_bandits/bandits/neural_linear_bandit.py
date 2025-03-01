@@ -1,13 +1,15 @@
-import math
-from typing import Any, Generic, Optional, cast
+import logging
+from typing import Any, Optional, cast
 
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
-from neural_bandits.bandits.abstract_bandit import ActionInputType
+from neural_bandits.bandits.action_input_type import ActionInputType
 from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
-from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
+from neural_bandits.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
 from neural_bandits.utils.selectors import AbstractSelector
+
+logger = logging.getLogger(__name__)
 
 
 class HelperNetwork(torch.nn.Module):
@@ -35,7 +37,8 @@ class HelperNetwork(torch.nn.Module):
         """Forward pass of the HelperNetwork.
 
         Args:
-            *x: The input data.
+            *x: The input data. Can be a single tensor or a tuple of tensors.
+                Must be of shape (batch_size, n_network_input_size).
 
         Returns:
             The output of the linear head.
@@ -51,7 +54,7 @@ class HelperNetwork(torch.nn.Module):
 # That we have to inherit from Generic[ActionInputType] again here is a little unfortunate. LinearTSBandit fixes the
 # ActionInputType to torch.Tensor but we want to keep it open here.
 # It would be cleaner to implement NeuralLinear by having a variable containing the LinearTSBandit.
-class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
+class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
     """Lightning Module implementing a Neural Linear bandit.
 
     Based on: Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for
@@ -59,63 +62,107 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
     A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear
     head that is trained on the embeddings. Since updating the neural network which encodes the inputs into embeddings
-    is computationally expensive, the neural network is only updated every `embedding_update_interval` steps.
-    On the other hand, the linear head is updated every `head_update_freq` steps which should be much lower.
+    is computationally expensive, the neural network is only updated once more than `min_samples_required_for_training`
+    samples have been collected. Otherwise, only the linear head is updated.
 
     ActionInputType:
         The type of the input data to the neural network. Can be a single tensor or a tuple of tensors.
     """
 
-    contextualized_actions: torch.Tensor  # shape: (buffer_size, n_parts, n_network_input_size)
-    embedded_actions: torch.Tensor  # shape: (buffer_size, n_network_input_size)
-    rewards: torch.Tensor  # shape: (buffer_size,)
+    _should_train_network = False
+    _samples_without_training_network = 0
 
     def __init__(
         self,
         network: torch.nn.Module,
-        buffer: AbstractBanditDataBuffer[ActionInputType, Any],
+        buffer: Optional[AbstractBanditDataBuffer[ActionInputType, Any]],
         n_embedding_size: int,
+        min_samples_required_for_training: Optional[int] = 1024,
         selector: Optional[AbstractSelector] = None,
-        network_update_freq: int = 32,
-        network_update_batch_size: int = 32,
-        head_update_freq: int = 1,
-        lr: float = 1e-3,
-        max_grad_norm: float = 5.0,
+        train_batch_size: int = 32,
+        lazy_uncertainty_update: bool = False,
+        lambda_: float = 1.0,
+        eps: float = 1e-2,
+        weight_decay: float = 0.0,
+        learning_rate: float = 1e-3,
+        learning_rate_decay: float = 1.0,
+        learning_rate_scheduler_step_size: int = 1,
+        early_stop_threshold: Optional[float] = 1e-3,
+        initial_train_steps: int = 1024,
     ) -> None:
         """Initializes the NeuralLinearBanditModule.
 
         Args:
             network: The neural network to be used to encode the input data into an embedding.
-            n_embedding_size: The size of the embedding produced by the neural network.
+            buffer: The buffer used for storing the data for continuously updating the neural network and
+                storing the embeddings for the linear head.
+            n_embedding_size: The size of the embedding produced by the neural network. Must be greater than 0.
             selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
-            buffer: The buffer used for storing the data for continuously updating the neural network.
-            network_update_freq: The interval (in steps) at which the neural network is updated. Default is 32. None
-                means the neural network is never updated.
-            network_update_batch_size: The batch size for the neural network update. Default is 32.
-            head_update_freq: The interval (in steps) at which the neural network is updated. Default is 1. None means
-                the linear head is never updated independently.
-            lr: The learning rate for the optimizer of the neural network. Default is 1e-3.
-            max_grad_norm: The maximum norm of the gradients for the neural network. Default is 5.0.
-            eta: The hyperparameter for the prior distribution sigma^2 ~ IG(eta, eta). Default is 6.0.
+            train_batch_size: The batch size for the neural network update. Default is 32. Must be greater than 0.
+            min_samples_required_for_training: The interval (in steps) at which the neural network is updated.
+                Default is 1024.
+                None means the neural network is never updated. If not None, it must be greater than 0.
+            lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
+                update step. Default is False.
+            lambda_: The regularization parameter for the linear head. Default is 1.0. Must be greater than 0.
+            eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
+                Default is 1e-2. Must be greater than 0.
+            learning_rate: The learning rate for the optimizer of the neural network.
+                Passed to `lr` of `torch.optim.Adam`.
+                Default is 1e-3. Must be greater than 0.
+            weight_decay: The regularization parameter for the neural network.
+                Passed to `weight_decay` of `torch.optim.Adam`.
+                Default is 1.0. Must be greater equal 0.
+            learning_rate_decay: Multiplicative factor for learning rate decay.
+                Passed to `gamma` of `torch.optim.lr_scheduler.StepLR`.
+                Default is 1.0 (i.e. no decay). Must be greater than 0.
+            learning_rate_scheduler_step_size: The step size for the learning rate decay.
+                Passed to `step_size` of `torch.optim.lr_scheduler.StepLR`.
+                Default is 1000. Must be greater than 0.
+                The learning rate scheduler is called every time the neural network is updated.
+            early_stop_threshold: Loss threshold for early stopping. None to disable.
+                Defaults to 1e-3. Must be greater equal 0.
+            initial_train_steps: Number of initial training steps (in samples).
+                Defaults to 1024. Must be greater equal 0.
         """
-        super().__init__(n_features=n_embedding_size, selector=selector)
-
         assert n_embedding_size > 0, "The embedding size must be greater than 0."
+        assert min_samples_required_for_training is None or min_samples_required_for_training > 0, (
+            "The min_samples_required_for_training must be greater than 0."
+            "Set it to None to never update the neural network."
+        )
+        assert lambda_ > 0, "The lambda_ must be greater than 0."
+        assert eps > 0, "The eps must be greater than 0."
+        assert weight_decay >= 0, "The weight_decay must be greater equal 0."
+        assert learning_rate > 0, "The learning rate must be greater than 0."
+        assert learning_rate_decay >= 0, "The learning rate decay must be greater equal 0."
+        assert learning_rate_scheduler_step_size > 0, "The learning rate decay step size must be greater than 0."
         assert (
-            network_update_freq is None or network_update_freq > 0
-        ), "The network_update_freq must be greater than 0. Set it to None to never update the neural network."
-        assert (
-            head_update_freq is None or head_update_freq > 0
-        ), "The head_update_freq must be greater than 0. Set it to None to never update the head independently."
+            early_stop_threshold is None or early_stop_threshold >= 0
+        ), "Early stop threshold must be greater than or equal to 0."
+        assert initial_train_steps >= 0, "Initial training steps must be greater than or equal to 0."
+
+        super().__init__(
+            n_features=n_embedding_size,
+            selector=selector,
+            buffer=buffer,
+            train_batch_size=train_batch_size,
+            eps=eps,
+            lambda_=lambda_,
+            lazy_uncertainty_update=lazy_uncertainty_update,
+            clear_buffer_after_train=False,
+        )
 
         self.save_hyperparameters(
             {
-                "n_embedding_size": n_embedding_size,  # same as n_features
-                "network_update_freq": network_update_freq,
-                "network_update_batch_size": network_update_batch_size,
-                "head_update_freq": head_update_freq,
-                "lr": lr,
-                "max_grad_norm": max_grad_norm,
+                "n_embedding_size": n_embedding_size,
+                "min_samples_required_for_training": min_samples_required_for_training,
+                "train_batch_size": train_batch_size,
+                "weight_decay": weight_decay,
+                "learning_rate": learning_rate,
+                "learning_rate_decay": learning_rate_decay,
+                "learning_rate_scheduler_step_size": learning_rate_scheduler_step_size,
+                "early_stop_threshold": early_stop_threshold,
+                "initial_train_steps": initial_train_steps,
             }
         )
 
@@ -123,8 +170,7 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder,
         # hence the single output dimension.
-        # TODO: it would be cleaner if this was a lightning module?
-        self.helper_network = HelperNetwork(
+        self._helper_network = HelperNetwork(
             self.network,
             self.hparams["n_embedding_size"],
         ).to(self.device)
@@ -136,16 +182,12 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             "embedded_actions", torch.empty(0, device=self.device)
         )  # shape: (buffer_size, n_network_input_size)
         self.register_buffer("rewards", torch.empty(0, device=self.device))  # shape: (buffer_size,)
-        self.buffer = buffer
-        self.num_samples = 0
 
-        # Disable Lightnight's automatic optimization. We handle the update in the `training_step` method.
+        # Disable Lightning's automatic optimization. Has to be kept in sync with should_train_network.
         self.automatic_optimization = False
 
-    # TODO: Here we have a big problem! Inheriting from LinearTSBandit does not work because the type of the input data
-    #   is fixed to torch.Tensor. We need to keep it open here.
     def _predict_action(
-        self, contextualized_actions: ActionInputType, **kwargs: Any  # type: ignore
+        self, contextualized_actions: ActionInputType, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Predicts the action to take for the given input data according to neural linear.
 
@@ -167,138 +209,9 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward
         # method here: because of inheriting it would call our forward and _predict_action method again.
-        result, p = super()._predict_action(embedded_actions)  # shape: (batch_size, n_arms)
-
-        assert (
-            result.shape[0] == embedded_actions.shape[0] and result.shape[1] == embedded_actions.shape[1]
-        ), f"Linear head output must have shape (batch_size, n_arms). \
-            Expected shape {(embedded_actions.shape[0], embedded_actions.shape[1])} but got shape {result.shape}"
-
-        assert (
-            p.ndim == 1 and p.shape[0] == embedded_actions.shape[0] and torch.all(p >= 0) and torch.all(p <= 1)
-        ), f"The probabilities must be between 0 and 1 and have shape ({embedded_actions.shape[0]}, ) \
-            but got shape {p.shape}"
+        result, p = super()._predict_action(embedded_actions)  # type: ignore  # shape: (batch_size, n_arms)
 
         return result, p
-
-    # TODO: Same problem here as in _predict_action
-    def _update(
-        self,
-        batch: tuple[ActionInputType, torch.Tensor],  # type: ignore
-        batch_idx: int,
-    ) -> torch.Tensor:
-        """Perform a training step on the neural linear bandit model."""
-        chosen_contextualized_actions: ActionInputType = batch[0]  # shape: (batch_size, n_chosen_arms, n_features)
-        realized_rewards: torch.Tensor = batch[1]
-
-        # Asserting shapes of the input data
-        if isinstance(chosen_contextualized_actions, torch.Tensor):
-            assert (
-                chosen_contextualized_actions.ndim == 3
-            ), f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) \
-                but got shape {chosen_contextualized_actions.shape}"
-            batch_size, n_chosen_arms, n_network_input_size = chosen_contextualized_actions.shape
-        elif isinstance(chosen_contextualized_actions, (tuple, list)):
-            assert (
-                len(chosen_contextualized_actions) > 1 and chosen_contextualized_actions[0].ndim == 3
-            ), "The tuple of contextualized_actions must contain more than one element and be of shape \
-                (batch_size, n_chosen_arms, n_features)."
-            batch_size, n_chosen_arms, n_network_input_size = chosen_contextualized_actions[0].shape
-
-        assert (
-            n_chosen_arms == 1
-        ), "The neural linear bandit can only choose one action at a time. \
-            Combinatorial Neural Linear is not supported."
-
-        assert (
-            realized_rewards.shape[0] == batch_size and realized_rewards.shape[1] == n_chosen_arms
-        ), f"Rewards must have shape (batch_size, n_chosen_arms) same as contextualized actions. \
-            Expected shape {(batch_size, n_chosen_arms)} but got shape {realized_rewards.shape}"
-
-        # Log the reward
-        self.log(
-            "reward",
-            realized_rewards.sum(),
-            on_step=True,
-            on_epoch=False,
-            prog_bar=True,
-        )
-
-        self.num_samples += batch_size
-
-        # Decide if we should update the neural network and the linear head
-        should_update_network = (
-            self.hparams["network_update_freq"] is not None
-            and self.num_samples % self.hparams["network_update_freq"] == 0
-        )
-
-        self._update_replay_buffer(
-            chosen_contextualized_actions,
-            realized_rewards,
-            should_update_network,
-        )
-
-        if should_update_network:
-            self._train_nn()
-            self._update_embeddings()
-
-        should_update_head = (
-            self.hparams["head_update_freq"] is not None and self.num_samples % self.hparams["head_update_freq"] == 0
-        )
-        if should_update_head or should_update_network:
-            self._update_head()
-            print("updated head")
-
-        return -realized_rewards.sum()
-
-    def _update_replay_buffer(
-        self,
-        chosen_contextualized_actions: ActionInputType,  # shape: (batch_size, n_chosen_arms, n_network_input_size)
-        realized_rewards: torch.Tensor,  # shape: (batch_size, n_chosen_arms)
-        should_update_network: bool,
-    ) -> None:
-        batch_size, n_chosen_arms = realized_rewards.shape
-
-        # Compute (or mock) the embeddings of the chosen actions to update the replay buffer
-        if should_update_network:
-            # To ensure consistancy in the data structures we add a dummy embedded_action of zeros.
-            # It will be overwritten in the _update_embeddings method anyways.
-            # We do this to avoid unnecessary computations of embeddings.
-            chosen_embedded_actions = torch.zeros(batch_size, n_chosen_arms, self.hparams["n_embedding_size"])
-        else:
-            # only if we don't update the network, we need to embed and store the embeddings. Otherwise they are
-            # invalid anyways because the network was updated.
-
-            # TODO: This is still inefficient because we are already embedding those actions in the forward pass.
-            #   One could store the embeddings in the forward pass and reuse them here.
-            chosen_embedded_actions = self._embed_contextualized_actions(chosen_contextualized_actions)
-
-            assert (
-                chosen_embedded_actions.shape[0] == batch_size
-                and chosen_embedded_actions.shape[1] == n_chosen_arms
-                and chosen_embedded_actions.shape[2] == self.hparams["n_embedding_size"]
-            ), f"The embeddings produced by the neural network must have the specified size \
-                (batch_size, n_chosen_arms, n_embedding_size). \
-                Expected shape {(batch_size, n_chosen_arms, self.hparams['n_embedding_size'])} \
-                but got shape {chosen_embedded_actions.shape}."
-
-        # Because we assume that only a single action was chosen we can safely squeeze the tensors
-        if isinstance(chosen_contextualized_actions, torch.Tensor):
-            chosen_contextualized_actions = cast(
-                ActionInputType, chosen_contextualized_actions.squeeze(1)
-            )  # shape: (batch_size, n_network_input_size)
-        else:
-            chosen_contextualized_actions = cast(
-                ActionInputType,
-                tuple(input_part.squeeze(1) for input_part in chosen_contextualized_actions),
-            )  # shape: (batch_size, n_network_input_size)
-
-        # Update the replay buffer
-        self.buffer.add_batch(
-            contextualized_actions=chosen_contextualized_actions,
-            embedded_actions=chosen_embedded_actions.squeeze(1),
-            rewards=realized_rewards.squeeze(1),
-        )
 
     def _embed_contextualized_actions(
         self,
@@ -315,10 +228,10 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             out: The embedded actions. Shape: (batch_size, n_arms, n_embedding_size)
         """
         if isinstance(contextualized_actions, torch.Tensor):
-            assert (
-                contextualized_actions.ndim == 3
-            ), f"Contextualized actions must have shape (batch_size, n_chosen_arms, n_network_input_size) \
-                but got shape {contextualized_actions.shape}"
+            assert contextualized_actions.ndim == 3, (
+                f"Contextualized actions must have shape (batch_size, n_chosen_arms, n_network_input_size)"
+                f"but got shape {contextualized_actions.shape}"
+            )
 
             batch_size, n_arms, n_network_input_size = contextualized_actions.shape
 
@@ -327,18 +240,16 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
                 -1, contextualized_actions.size(-1)
             )  # shape: (batch_size * n_arms, n_network_input_size)
 
-            # TODO: One could optimize by splitting this input into several parts of size forward_batch_size
-            #   (or the given batch_size) and passing them to the network separately
             # TODO: We should probably pass the kwargs here but then we would need to pass them in the update method.
             embedded_actions: torch.Tensor = self.network.forward(
                 flattened_actions,
             )  # shape: (batch_size * n_arms, n_embedding_size)
         elif isinstance(contextualized_actions, (tuple, list)):
             # assert shape of all tensors
-            assert (
-                len(contextualized_actions) > 1 and contextualized_actions[0].ndim == 3
-            ), "The tuple of contextualized_actions must contain more than one element and be of shape \
-                (batch_size, n_chosen_arms, n_network_input_size)."
+            assert len(contextualized_actions) > 1 and contextualized_actions[0].ndim == 3, (
+                "The tuple of contextualized_actions must contain more than one element and be of shape"
+                "(batch_size, n_chosen_arms, n_network_input_size)."
+            )
 
             batch_size, n_arms, n_network_input_size = contextualized_actions[0].shape
 
@@ -349,18 +260,18 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
                     and input_part.shape[0] == batch_size
                     and input_part.shape[1] == n_arms
                     and input_part.shape[2] == n_network_input_size
-                ), f"All parts of the contextualized actions inputs must have shape \
-                    (batch_size, n_chosen_arms, n_network_input_size). \
-                    Expected shape {(batch_size, n_arms, n_network_input_size)} \
-                    but got shape {input_part.shape} for the {i}-th part."
+                ), (
+                    f"All parts of the contextualized actions inputs must have shape"
+                    f"(batch_size, n_chosen_arms, n_network_input_size)."
+                    f"Expected shape {(batch_size, n_arms, n_network_input_size)}"
+                    f"but got shape {input_part.shape} for the {i}-th part."
+                )
                 # We flatten the input because e.g. BERT expects a tensor of shape (batch_size, sequence_length)
                 # and not (batch_size, sequence_length, hidden_size)
                 flattened_actions_list.append(input_part.view(-1, n_network_input_size))
 
-            # TODO: One could optimize by splitting this input into several parts of size forward_batch_size
-            #   (or the given batch_size) and passing them to the network separately
             embedded_actions = self.network.forward(
-                *flattened_actions_list,
+                *tuple(flattened_actions_list),
             )  # shape: (batch_size * n_arms, n_embedding_size)
         else:
             raise ValueError("The contextualized_actions must be either a torch.Tensor or a tuple of torch.Tensors.")
@@ -369,9 +280,11 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             embedded_actions.ndim == 2
             and embedded_actions.shape[0] == batch_size * n_arms
             and embedded_actions.shape[1] == self.hparams["n_embedding_size"]
-        ), f"Embedded actions must have shape (batch_size * n_arms, n_embedding_size). \
-            Expected shape {(batch_size * n_arms, self.hparams['n_embedding_size'])} \
-            but got shape {embedded_actions.shape}"
+        ), (
+            f"Embedded actions must have shape (batch_size * n_arms, n_embedding_size)."
+            f"Expected shape {(batch_size * n_arms, self.hparams['n_embedding_size'])}"
+            f"but got shape {embedded_actions.shape}"
+        )
 
         embedded_actions = embedded_actions.view(
             batch_size, n_arms, -1
@@ -379,50 +292,183 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         return embedded_actions
 
-    def _train_nn(
+    def record_feedback(
         self,
+        contextualized_actions: ActionInputType,
+        rewards: torch.Tensor,
     ) -> None:
-        """Perform a full update on the network of the neural linear bandit."""
-        # TODO: How can we use a Lightning trainer here? Possibly extract into a separate BanditNeuralNetwork module?
+        """Record a pair of actions and rewards for the bandit.
 
-        # We train the neural network so that it produces embeddings that are useful for a linear head. The actual
-        # linear head is trained in a seperate step but we "mock" a linear head with the final layer of the network.
+        Args:
+            contextualized_actions: The contextualized actions that were chosen by the bandit.
+                Size: (batch_size, n_actions, n_features).
+            rewards: The rewards that were observed for the chosen actions. Size: (batch_size, n_actions).
+        """
+        embedded_actions = self._embed_contextualized_actions(
+            contextualized_actions
+        )  # shape: (batch_size, n_actions, n_embedding_size)
 
-        # Retrain on the whole buffer
-        batch_size: int = cast(int, self.hparams["network_update_batch_size"])
-        num_steps = math.ceil(self.num_samples / batch_size)
+        self._add_data_to_buffer(contextualized_actions, rewards, embedded_actions)
 
-        self.network.train()
-        self.helper_network.reset_linear_head()
-        self.helper_network.to(self.device)  # Make sure the helper network is on the correct device after resetting.
+        # _total_samples_count is managed by the AbstractBandit
+        self._samples_without_training_network += rewards.shape[0]
 
-        for _ in range(num_steps):
-            x, _, y = self.buffer.get_batch(batch_size)
-            self.optimizers().zero_grad()  # type: ignore
+        if (
+            self._total_samples_count <= self.hparams["initial_train_steps"]
+            or self._samples_without_training_network >= self.hparams["min_samples_required_for_training"]
+        ):
+            self.should_train_network = True
+        else:
+            self.should_train_network = False
 
-            # x  # shape: (batch_size, n_network_input_size)
-            # y  # shape: (batch_size,)
+        if (
+            self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
+            and self._total_samples_count - rewards.size(0) <= self.hparams["initial_train_steps"]
+        ):
+            logger.info(
+                "\nInitial training stage is over. "
+                "The network will now be called only once min_samples_required_for_training samples are recorded."
+            )
 
-            if isinstance(x, torch.Tensor):
-                y_pred: torch.Tensor = self.helper_network.forward(x.to(self.device))  # shape: (batch_size,)
-            else:
-                y_pred = self.helper_network.forward(
-                    *tuple(input_part.to(self.device) for input_part in x)
-                )  # shape: (batch_size,)
+    @property
+    def should_train_network(self) -> bool:
+        """Should the network be updated in the next training epoch?
 
-            y = y.to(self.device)
-            loss = self._compute_loss(y_pred, y)
+        If called after `record_action_data`, this property will overwrite the behavior of
+        the `min_samples_required_for_training` parameter.
+        """
+        return self._should_train_network
 
-            cost = loss.sum() / batch_size
-            cost.backward()  # type: ignore
+    @should_train_network.setter
+    def should_train_network(self, value: bool) -> None:
+        """Should the network be updated in the next training epoch?
 
-            torch.nn.utils.clip_grad_norm_(self.helper_network.parameters(), self.hparams["max_grad_norm"])
+        If called after `record_action_data`, this property will overwrite the behavior of
+        the `min_samples_required_for_training` parameter.
 
-            self.optimizers().step()  # type: ignore
+        Also sets lightning `automatic_optimization` to `should_train_network`.
+        This is necessary to allow for correct updates of the neural network.
+        It also needs to be False when we only train the head.
+        """
+        self.automatic_optimization = value
+        self._should_train_network = value
 
-            self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True)
+    def on_train_start(self) -> None:
+        """Lightning hook. Log a warning if a custom data loader was passed to `trainer.fit`."""
+        super().on_train_start()
 
-        self.lr_schedulers().step()  # type: ignore
+        assert self.trainer.train_dataloader is not None, "train_dataloader must be set before training starts."
+        if self._custom_data_loader_passed:
+            logger.warning(
+                "You passed a train_dataloader to trainer.fit(). Data from the data buffer will be ignored. "
+                "Only the data passed in the train_data_loader is used for training. The data is still added to "
+                "the data buffer for future training runs."
+            )
+
+            num_samples = len(self.trainer.train_dataloader.dataset)
+            required_samples = self.hparams["min_samples_required_for_training"]
+            if num_samples <= required_samples and not self.is_initial_training_stage():
+                logger.warning(
+                    f"The train_dataloader passed to trainer.fit() contains {num_samples}"
+                    f"which is less than min_samples_required_for_training={required_samples}."
+                    f"Even though the initial training stage is over and not enough data samples were passed, "
+                    "the network will still be trained, only on this data (no data from buffer). "
+                    "Consider passing more data or decreasing min_samples_required_for_training."
+                )
+
+            self.should_train_network = True
+
+        # TODO: If not warm_start: reset the linear head and the network before training
+        # if self.should_train_network:
+        # self.helper_network.reset()
+        # self._helper_network.reset_linear_head()
+
+    def is_initial_training_stage(self) -> bool:
+        """Check if the bandit is in the initial training stage.
+
+        Returns:
+            True if the total seen samples is smaller or equal to initial_strain_Steps, False otherwise.
+        """
+        return self._total_samples_count <= cast(int, self.hparams["initial_train_steps"])
+
+    def _update(
+        self,
+        batch: BufferDataFormat[ActionInputType],
+        batch_idx: int,
+    ) -> torch.Tensor:
+        """Perform a training step on the neural linear bandit model.
+
+        Args:
+            batch: The batch of data to train on. Contains either
+                the chosen contextualized actions (shape: batch_size, n_chosen_arms, n_features)
+                and rewards (shape: batch_size, n_chosen_arms)
+                or the embedded actions (batch_size, n_chosen_arms, n_embedding_size) and rewards
+                or all three.
+                When the head is updated, we always need all 3
+                For Neural Linear n_chosen_arms must always be 1 because combinatorial bandits are
+                not supported.
+            batch_idx: The index of the batch.
+        """
+        # Assertions are happening in AbstractBandit
+        realized_rewards: torch.Tensor = batch[-1]  # shape: (batch_size, n_chosen_arms)
+
+        assert realized_rewards.shape[1] == 1, (
+            "The neural linear bandit can only choose one action at a time."
+            "Combinatorial Neural Linear is not supported."
+        )
+
+        assert self.automatic_optimization == self.should_train_network, (
+            "Automatic optimization needs to be True if the neural network should be trained."
+            "Automatic optimization needs to be False if only the head should be trained."
+            f"Currently, automatic_optimization={self.automatic_optimization} and"
+            f"should_train_network={self.should_train_network}."
+        )
+
+        if self.should_train_network:
+            chosen_contextualized_actions: ActionInputType = batch[0]  # shape: (batch_size, n_chosen_arms, n_features)
+
+            # Asserting shapes of the input data
+            loss = self._train_network(chosen_contextualized_actions, realized_rewards)
+            self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=False)
+            return loss
+        else:  # update the head
+            assert len(batch) == 3, (
+                "For head updates, batch must be three tensors: (contextualized_actions, embedded_actions, rewards)."
+                "Either use the `record_feedback` method and do not pass a `train_dataloader`"
+                "to `trainer.fit` or make sure that enough data exists to train the network "
+                "or manually set `should_train_network` to `True`."
+            )
+
+            embedded_actions: torch.Tensor = batch[1]  # shape: (batch_size, n_chosen_arms, n_embedding_size)
+
+            self._train_head(embedded_actions, realized_rewards)
+            # Since we are not training the network, we return a dummy loss
+            return torch.tensor(0.0, device=self.device)
+
+    def _train_network(
+        self,
+        context: ActionInputType,
+        reward: torch.Tensor,
+    ) -> torch.Tensor:
+        """Train the neural network on the given data by computing the loss."""
+        if isinstance(context, torch.Tensor):
+            predicted_reward: torch.Tensor = self._helper_network.forward(
+                context.view(-1, context.size(-1)).to(self.device)
+            )  # shape: (batch_size,)
+        else:
+            predicted_reward = self._helper_network.forward(
+                *tuple(input_part.view(-1, input_part.size(-1)).to(self.device) for input_part in context)
+            )  # shape: (batch_size,)
+
+        loss = self._compute_loss(predicted_reward, reward)
+
+        # Compute the average loss
+        avg_loss = loss.mean()
+
+        if self.hparams["early_stop_threshold"] is not None and avg_loss <= self.hparams["early_stop_threshold"]:
+            self.trainer.should_stop = True
+
+        return avg_loss
 
     def _compute_loss(
         self,
@@ -438,21 +484,66 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
         Returns:
             The loss.
         """
-        # TODO: Should this be configurable?
         return torch.nn.functional.mse_loss(y_pred, y)
 
-    def _update_embeddings(self) -> None:
-        """Update the embeddings of the neural linear bandit."""
-        # TODO: possibly do lazy updates of the embeddings as computing all at once is gonna take for ever
-        contexts, _, _ = self.buffer.get_batch(self.num_samples)  # shape: (num_samples, n_network_input_size)
+    def configure_optimizers(
+        self,
+    ) -> OptimizerLRSchedulerConfig:
+        """Configure the optimizers and learning rate scheduler for the network training."""
+        opt = torch.optim.Adam(
+            self._helper_network.parameters(),
+            lr=self.hparams["learning_rate"],
+            weight_decay=self.hparams["weight_decay"],
+        )
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            opt,
+            step_size=self.hparams["learning_rate_scheduler_step_size"],
+            gamma=self.hparams["learning_rate_decay"],
+        )
+        return {
+            "optimizer": opt,
+            "lr_scheduler": scheduler,
+        }
 
-        new_embedded_actions = torch.empty(self.num_samples, self.hparams["n_embedding_size"], device=self.device)
+    def _train_head(self, z: torch.Tensor, y: torch.Tensor) -> None:
+        """Perform an update step on the head of the neural linear bandit.
+
+        Does not recompute the linear model from scratch and instead updates the existing linear model.
+
+        Args:
+            z: The embedded actions. Shape: (batch_size, n_actions, n_embedding_size)
+            y: The rewards. Shape: (batch_size, n_actions)
+        """
+        super()._perform_update(z, y)
+
+    def on_train_end(self) -> None:
+        """Lightning hook. Reset the flags after training."""
+        super().on_train_end()
+
+        if self.should_train_network:
+            self._samples_without_training_network = 0
+            self.update_embeddings()
+            self.retrain_head()
+
+        if not self._training_skipped:
+            self.should_train_network = False
+
+    def update_embeddings(self) -> None:
+        """Update all of the embeddings stored in the replay buffer."""
+        # TODO: possibly do lazy updates of the embeddings as computing all at once will take forever
+        contexts, _, _ = self.buffer.get_all_data()  # shape: (num_samples, n_network_input_size)
+
+        num_samples = contexts.shape[0] if isinstance(contexts, torch.Tensor) else contexts[0].shape[0]
+        if num_samples == 0:
+            return
+
+        new_embedded_actions = torch.empty(num_samples, self.hparams["n_embedding_size"], device=self.device)
 
         self.network.eval()
 
-        batch_size = cast(int, self.hparams["network_update_batch_size"])
+        batch_size = cast(int, self.hparams["train_batch_size"])
         with torch.no_grad():
-            for i in range(0, self.num_samples, batch_size):
+            for i in range(0, num_samples, batch_size):
                 if isinstance(contexts, torch.Tensor):
                     batch_input = cast(
                         ActionInputType,
@@ -478,37 +569,48 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
 
         self.buffer.update_embeddings(new_embedded_actions)
 
-    def _update_head(self) -> None:
-        """Perform an update step on the head of the neural linear bandit. Recomputes the linear head from scratch."""
-        # TODO: make this sequential! Then we don't need to reset the parameters on every update (+ update the method
-        #   comment).
-        # TODO: But when we recompute after training the neural network, we need to actually reset these parameters.
-        #   And we need to only load the latest data from the replay buffer.
-        # TODO: We could actually make this recompute configurable and not force a recompute but just continue using
-        #   the old head.
+    def retrain_head(self) -> None:
+        """Retrain the linear head of the neural linear bandit.
 
-        # Reset the parameters
-        self.precision_matrix.copy_(torch.eye(self.hparams["n_embedding_size"], device=self.device))
-        self.b.copy_(torch.zeros(self.hparams["n_embedding_size"], device=self.device))
-        self.theta.copy_(torch.zeros(self.hparams["n_embedding_size"], device=self.device))
+        Recomputes the linear model from scratch.
+        """
+        # Retrieve training data.
+        # We would like to retrain the head on the whole buffer.
+        # We have to min with len(self.buffer) because the buffer might have deleted some of the old samples.
+        _, z, y = self.buffer.get_all_data()
 
-        # Update the linear head
-        _, z, y = self.buffer.get_batch(self.num_samples)
-        z = z.to(self.device) if z is not None else None
-        y = y.to(self.device)
+        if y.shape[0] == 0:
+            return
 
         if z is None:
             raise ValueError("Embedded actions required for updating linear head")
 
-        super()._perform_update(z.unsqueeze(1), y.unsqueeze(1))
+        # We need to unsqueeze the tensors because the buffer might not store the action dimension
+        if z.ndim == 2 and y.ndim == 1:
+            z = z.unsqueeze(1)
+            y = y.unsqueeze(1)
 
-    def configure_optimizers(
-        self,
-    ) -> OptimizerLRSchedulerConfig:
-        """Configure the optimizers and learning rate scheduler for the network training."""
-        opt = torch.optim.Adam(self.helper_network.parameters(), lr=self.hparams["lr"])
-        scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=1, gamma=0.95)
-        return {
-            "optimizer": opt,
-            "lr_scheduler": scheduler,
-        }
+        assert z.ndim == 3 and y.ndim == 2, (
+            "The retrieved embedded actions must have shape (num_samples, n_actions, n_embedding_size "
+            "and the rewards must have shape (num_samples, n_actions)."
+        )
+        assert z.shape[0] == y.shape[0], "The number of samples in the embedded actions and rewards must be the same."
+        assert z.shape[1] == 1 and y.shape[1] == 1, "The number of actions in the embedded actions must be 1."
+        assert (
+            z.shape[2] == self.hparams["n_embedding_size"]
+        ), f"The number of features in the embedded actions must be {self.hparams['n_embedding_size']}."
+
+        # Reset the parameters
+        self._init_linear_params()
+
+        dataset = torch.utils.data.TensorDataset(z, y)
+        train_loader = torch.utils.data.DataLoader(
+            dataset,
+            batch_size=self.hparams["train_batch_size"],
+            shuffle=False,  # no need to shuffle because the update algorithm is assosicative
+        )
+        for z_batch, y_batch in train_loader:
+            super()._perform_update(
+                z_batch.to(self.device),  # shape: (num_samples, 1, n_embedding_size)
+                y_batch.to(self.device),  # shape: (num_samples, 1)
+            )

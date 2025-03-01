@@ -11,8 +11,7 @@ class OnlineBanditLoggerDecorator(Logger):
     """Uses the Decorator pattern to add online bandit functionality to a pytorch lightning logger.
 
     Will use stdout flush to only print the metrics of the current training run to the console to prevent too many
-    prints over many training runs. Allows for logging over multiple training runs and for logging batch specific
-    metrics before the batch is actually started.
+    prints over many training runs. Allows for logging over multiple training runs.
 
     Usage:
     ```python
@@ -26,9 +25,6 @@ class OnlineBanditLoggerDecorator(Logger):
 
     # allows for logging over multiple training runs
     for batch in data_loader:
-        # log batch specific metrics before the batch is actually started
-        logger.pre_training_log({"regret": 1})
-
         trainer = Trainer(logger=online_bandit_logger)
         trainer.fit(model)
 
@@ -56,7 +52,6 @@ class OnlineBanditLoggerDecorator(Logger):
         self.global_step: int = 0
         self.start_step_of_current_run: int = 0
         self.training_run: int = 0
-        self.pre_training_metrics: Optional[dict[str, torch.Tensor]] = None
 
     def __getattr__(self, name: str) -> Any:
         """Pass all unknown attributes to the wrapped logger.
@@ -105,21 +100,6 @@ class OnlineBanditLoggerDecorator(Logger):
         return self._logger_wrappee.version
 
     @rank_zero_only
-    def pre_training_log(self, metrics: dict[str, torch.Tensor]) -> None:
-        """Log a batch of metrics for an entire training run before the training run is actually started.
-
-        The metrics will be added to the according step in the next training run.
-
-        Args:
-            metrics: The metrics to log. Each entry should be a torch.Tensor with shape (n, 1) where n is the number of
-                steps in the training run.
-        """
-        for k, v in metrics.items():
-            assert isinstance(v, torch.Tensor), f"Metrics value for {k} must be a torch.Tensor."
-            assert v.ndim == 1, f"Metrics value for {k} must have shape (1,) but got {v.shape}."
-        self.pre_training_metrics = metrics
-
-    @rank_zero_only
     def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         """Records metrics. This method logs metrics as soon as it received them.
 
@@ -136,13 +116,6 @@ class OnlineBanditLoggerDecorator(Logger):
             "training_run": self.training_run,
             **metrics,
         }
-
-        if self.pre_training_metrics:
-            assert self.pre_training_metrics
-            for k, v in self.pre_training_metrics.items():
-                assert step < v.shape[0], f"Step {step} is out of bounds for pre-training metric {k}."
-                m = v[step].item()
-                updated_metrics[k] = m
 
         if self.enable_console_logging:
             sys.stdout.flush()
@@ -186,7 +159,6 @@ class OnlineBanditLoggerDecorator(Logger):
         """
         self.training_run += 1
         self.start_step_of_current_run = self.global_step + 1
-        self.pre_training_metrics = None
         self._logger_wrappee.finalize(status)
 
     def after_save_checkpoint(self, checkpoint_callback: ModelCheckpoint) -> None:
