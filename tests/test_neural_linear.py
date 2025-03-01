@@ -190,7 +190,7 @@ def test_neural_linear_bandit_training_step(
         buffer=buffer,
     )
     # If True the uncertainty will be updated in the training and not the forward step.
-    bandit.lazy_uncertainty_update = True
+    bandit.save_hyperparameters({"lazy_uncertainty_update": True})
 
     theta_1 = bandit.theta.clone()
     precision_matrix_1 = bandit.precision_matrix.clone()
@@ -386,7 +386,7 @@ def test_neural_linear_sliding_window(
         buffer=buffer,
     )
     # If True the uncertainty will be updated in the training and not the forward step.
-    bandit.lazy_uncertainty_update = True
+    bandit.save_hyperparameters({"lazy_uncertainty_update": True})
 
     theta_1 = bandit.theta.clone()
     precision_matrix_1 = bandit.precision_matrix.clone()

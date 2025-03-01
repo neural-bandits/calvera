@@ -375,6 +375,7 @@ def test_update_zero_denominator(
     chosen_actions = torch.tensor([[[2.0]]])
     realized_rewards = torch.zeros(1, 1)
 
+    bandit.save_hyperparameters({"eps": 0.0})
     bandit.precision_matrix = torch.tensor([[-0.25]])  # shape (1,1)
 
     with pytest.raises((AssertionError, Exception)):

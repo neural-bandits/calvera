@@ -55,11 +55,10 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             buffer=buffer,
             train_batch_size=train_batch_size,
         )
-        self.lazy_uncertainty_update = lazy_uncertainty_update
 
         self.save_hyperparameters(
             {
-                "lazy_uncertainty_update": True,
+                "lazy_uncertainty_update": lazy_uncertainty_update,
                 "eps": eps,
                 "lambda_": lambda_,
                 "clear_buffer_after_train": clear_buffer_after_train,
@@ -88,7 +87,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         self, contextualized_actions: ActionInputType, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
         chosen_actions, p = self._predict_action_hook(contextualized_actions, **kwargs)
-        if not self.lazy_uncertainty_update:
+        if not self.hparams["lazy_uncertainty_update"]:
             assert isinstance(contextualized_actions, torch.Tensor), "contextualized_actions must be a torch.Tensor"
             chosen_contextualized_actions = contextualized_actions[
                 torch.arange(contextualized_actions.shape[0], device=self.device),
@@ -168,7 +167,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial
         #   Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
-        if self.lazy_uncertainty_update:
+        if self.hparams["lazy_uncertainty_update"]:
             self._update_precision_matrix(chosen_actions)
 
         self.b.add_(chosen_actions.T @ realized_rewards)  # shape: (features,)
