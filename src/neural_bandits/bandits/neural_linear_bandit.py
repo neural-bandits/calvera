@@ -323,7 +323,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         if (
             self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
-            and self._total_samples_count - contextualized_actions.size(0) <= self.hparams["initial_train_steps"]
+            and self._total_samples_count - rewards.size(0) <= self.hparams["initial_train_steps"]
         ):
             logger.info(
                 "\nInitial training stage is over. "
