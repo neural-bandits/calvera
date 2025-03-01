@@ -1,7 +1,5 @@
 from unittest.mock import MagicMock
 
-import pytest
-import torch
 from lightning.pytorch.loggers.logger import Logger
 
 from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
@@ -10,9 +8,6 @@ from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorato
 def test_online_bandit_logger_decorator_basic() -> None:
     mock_logger = MagicMock(spec=Logger)
     decorator = OnlineBanditLoggerDecorator(mock_logger)
-
-    # 1. Check pre_training_log
-    batch = torch.Tensor([123.0, 53.0])
 
     # 2. Check log_metrics
     decorator.log_metrics({"loss": 0.5}, step=0)
