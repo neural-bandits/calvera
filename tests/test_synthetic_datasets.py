@@ -2,11 +2,11 @@ import pytest
 import torch
 
 from neural_bandits.benchmark.datasets.synthetic import (
-    SyntheticDataset,
     CubicSyntheticDataset,
     LinearCombinationSyntheticDataset,
     LinearSyntheticDataset,
     SinSyntheticDataset,
+    SyntheticDataset,
 )
 
 
