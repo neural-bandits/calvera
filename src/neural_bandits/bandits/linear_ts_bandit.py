@@ -1,35 +1,59 @@
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import torch
 
+from neural_bandits.bandits.action_input_type import ActionInputType
 from neural_bandits.bandits.linear_bandit import LinearBandit
+from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class LinearTSBandit(LinearBandit):
+class LinearTSBandit(LinearBandit[ActionInputType]):
     """Linear Thompson Sampling Bandit.
 
-    See https://arxiv.org/abs/1802.09127 for more details.
+    Based on: Agrawal et al. "Thompson Sampling for Contextual Bandits with Linear Payoffs" https://arxiv.org/abs/1209.3352
     """
 
     def __init__(
         self,
         n_features: int,
         selector: Optional[AbstractSelector] = None,
-        **kwargs: Any,
+        buffer: Optional[AbstractBanditDataBuffer[ActionInputType, Any]] = None,
+        train_batch_size: int = 32,
+        eps: float = 1e-2,
+        lambda_: float = 1.0,
+        lazy_uncertainty_update: bool = False,
+        clear_buffer_after_train: bool = True,
     ) -> None:
-        """Initializes the LinearTSBandit.
+        """Initializes the LinearBanditModule.
 
         Args:
             n_features: The number of features in the bandit model.
             selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
-            kwargs: Additional keyword arguments. Passed to the parent class. See `LinearBandit`.
+            buffer: The buffer used for storing the data for continuously updating the neural network.
+            train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
+            eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
+            lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
+                Sometimes also called lambda but we already use lambda for the regularization parameter
+                of the neural networks in NeuralLinear, NeuralUCB and NeuralTS.
+            lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
+                update step.
+            clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
+                data is not needed anymore after training. Only set it to False if you know what you are doing.
         """
-        super().__init__(n_features, **kwargs)
+        super().__init__(
+            n_features,
+            buffer=buffer,
+            train_batch_size=train_batch_size,
+            eps=eps,
+            lambda_=lambda_,
+            lazy_uncertainty_update=lazy_uncertainty_update,
+            clear_buffer_after_train=clear_buffer_after_train,
+        )
         self.selector = selector if selector is not None else ArgMaxSelector()
 
     def _predict_action_hook(
-        self, contextualized_actions: torch.Tensor, **kwargs: Any
+        self, contextualized_actions: ActionInputType, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Given contextualized actions, predicts the best action using LinTS.
 
@@ -44,8 +68,9 @@ class LinearTSBandit(LinearBandit):
             - p: The probability of the chosen actions. For now we always return 1 but we might return the actual
                 probability in the future. Shape: (batch_size, ).
         """
+        assert isinstance(contextualized_actions, torch.Tensor), "contextualized_actions must be a torch.Tensor"
         assert (
-            contextualized_actions.shape[2] == self.n_features
+            contextualized_actions.shape[2] == self.hparams["n_features"]
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
         batch_size = contextualized_actions.shape[0]
 
@@ -75,7 +100,7 @@ class LinearTSBandit(LinearBandit):
         return torch.ones(contextualized_actions.shape[0], device=contextualized_actions.device)
 
 
-class DiagonalPrecApproxLinearTSBandit(LinearTSBandit):
+class DiagonalPrecApproxLinearTSBandit(LinearTSBandit[torch.Tensor]):
     """LinearUCB but the precision matrix is updated using a diagonal approximation.
 
     Instead of doing a full update,
@@ -97,6 +122,6 @@ class DiagonalPrecApproxLinearTSBandit(LinearTSBandit):
         prec_diagonal = chosen_actions.pow(2).sum(dim=0)
 
         # Update the precision matrix using the diagonal approximation.
-        self.precision_matrix.add_(torch.diag_embed(prec_diagonal) + self.eps)
+        self.precision_matrix.add_(torch.diag_embed(prec_diagonal) + cast(float, self.hparams["eps"]))
 
         return self.precision_matrix
