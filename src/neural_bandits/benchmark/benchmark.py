@@ -430,7 +430,7 @@ class BenchmarkAnalyzer:
         else:
             return None
 
-    def plot_accumulated_metric(self, metric_name: str) -> None:
+    def plot_accumulated_metric(self, metric_name: str | list[str]) -> None:
         """Plots the accumulated metric over training steps.
 
         Args:
@@ -439,22 +439,27 @@ class BenchmarkAnalyzer:
         if self.df is None:
             return
 
-        if metric_name not in self.df.columns:
-            print(f"\nNo {metric_name} data found in logs.")
-            return
-
-        accumulated_metric = self.df[metric_name].fillna(0).cumsum()
+        if isinstance(metric_name, str):
+            metric_name = [metric_name]
 
         plt.figure(figsize=(10, 5))
-        plt.plot(accumulated_metric)
+        for metric in metric_name:
+            if metric not in self.df.columns:
+                print(f"\nNo {metric} data found in logs.")
+                continue
+
+            accumulated_metric = self.df[metric].fillna(0).cumsum()
+
+            plt.plot(accumulated_metric, label=metric)
+
         plt.xlabel("Step")
-        plt.ylabel(metric_name)
-        plt.title(f"Accumulated {metric_name} over training steps")
+        plt.legend()
+        plt.title(f"Accumulated {', '.join(metric_name)} over training steps")
 
         if not self.suppress_plots:
             plt.show()
 
-    def plot_average_metric(self, metric_name: str) -> None:
+    def plot_average_metric(self, metric_name: str | list[str]) -> None:
         """Plots the average metric over training steps.
 
         Args:
@@ -463,21 +468,26 @@ class BenchmarkAnalyzer:
         if self.df is None:
             return
 
-        if metric_name not in self.df.columns:
-            print(f"\nNo {metric_name} data found in logs.")
-            return
+        if isinstance(metric_name, str):
+            metric_name = [metric_name]
 
-        # Print average metrics
-        valid_idx = self.df[metric_name].dropna().index
-        accumulated_metric = self.df.loc[valid_idx, metric_name].cumsum()
-        steps = self.df.loc[valid_idx, "step"]
-
-        # Plot how average changes over time
         plt.figure(figsize=(10, 5))
-        plt.plot(accumulated_metric / steps)
+        for metric in metric_name:
+            if metric not in self.df.columns:
+                print(f"\nNo {metric} data found in logs.")
+                continue
+
+            # Print average metrics
+            valid_idx = self.df[metric_name].dropna().index
+            accumulated_metric = self.df.loc[valid_idx, metric_name].cumsum()
+            steps = self.df.loc[valid_idx, "step"]
+
+            # Plot how average changes over time
+            plt.plot(accumulated_metric / steps, label=metric_name)
+
         plt.xlabel("Step")
-        plt.ylabel(metric_name)
-        plt.title(f"Average {metric_name} over training steps")
+        plt.legend()
+        plt.title(f"Average {', '.join(metric_name)} over training steps")
 
         if not self.suppress_plots:
             plt.show()
@@ -524,10 +534,8 @@ def run(
     benchmark.run()
 
     analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv", "env_metrics.csv", suppress_plots)
-    analyzer.plot_accumulated_metric("reward")
-    analyzer.plot_accumulated_metric("regret")
-    analyzer.plot_average_metric("reward")
-    analyzer.plot_average_metric("regret")
+    analyzer.plot_accumulated_metric(["reward", "regret"])
+    analyzer.plot_average_metric(["reward", "regret"])
     analyzer.plot_loss()
 
 
