@@ -1,25 +1,29 @@
-import torch
 import pytest
+import torch
 
 from neural_bandits.benchmark.datasets.synthetic import (
-    LinearSyntheticDataset,
     CubicSyntheticDataset,
-    SinSyntheticDataset,
     LinearCombinationSyntheticDataset,
+    LinearSyntheticDataset,
+    SinSyntheticDataset,
 )
 
-@pytest.mark.parametrize("DatasetClass, expected_phi_dim", [
-    # For a dataset with n_features=2:
-    # LinearSyntheticDataset: bias + x → 1 + 2 = 3
-    (LinearSyntheticDataset, 3),
-    # CubicSyntheticDataset: bias + x + x^2 + x^3 → 1 + 2 + 2 + 2 = 7
-    (CubicSyntheticDataset, 7),
-    # SinSyntheticDataset: bias + x + sin(x) → 1 + 2 + 2 = 5
-    (SinSyntheticDataset, 5),
-    # LinearCombinationSyntheticDataset: bias + x + upper triangle of outer product
-    # For n_features=2, the upper triangle (including diagonal) has 3 elements → total = 1 + 2 + 3 = 6
-    (LinearCombinationSyntheticDataset, 6),
-])
+
+@pytest.mark.parametrize(
+    "DatasetClass, expected_phi_dim",
+    [
+        # For a dataset with n_features=2:
+        # LinearSyntheticDataset: bias + x → 1 + 2 = 3
+        (LinearSyntheticDataset, 3),
+        # CubicSyntheticDataset: bias + x + x^2 + x^3 → 1 + 2 + 2 + 2 = 7
+        (CubicSyntheticDataset, 7),
+        # SinSyntheticDataset: bias + x + sin(x) → 1 + 2 + 2 = 5
+        (SinSyntheticDataset, 5),
+        # LinearCombinationSyntheticDataset: bias + x + upper triangle of outer product
+        # For n_features=2, the upper triangle (including diagonal) has 3 elements → total = 1 + 2 + 3 = 6
+        (LinearCombinationSyntheticDataset, 6),
+    ],
+)
 def test_phi(DatasetClass, expected_phi_dim):
     # Use a fixed n_features and small num_samples for testing
     n_features = 2
@@ -28,16 +32,21 @@ def test_phi(DatasetClass, expected_phi_dim):
     # Create a dummy input; here we test on a batch of 10 samples
     x = torch.randn(num_samples, n_features)
     phi_out = ds.phi(x)
-    assert phi_out.shape == (num_samples, expected_phi_dim), (
-        f"Expected phi shape {(num_samples, expected_phi_dim)} but got {phi_out.shape}"
-    )
+    assert phi_out.shape == (
+        num_samples,
+        expected_phi_dim,
+    ), f"Expected phi shape {(num_samples, expected_phi_dim)} but got {phi_out.shape}"
 
-@pytest.mark.parametrize("DatasetClass", [
-    LinearSyntheticDataset,
-    CubicSyntheticDataset,
-    SinSyntheticDataset,
-    LinearCombinationSyntheticDataset,
-])
+
+@pytest.mark.parametrize(
+    "DatasetClass",
+    [
+        LinearSyntheticDataset,
+        CubicSyntheticDataset,
+        SinSyntheticDataset,
+        LinearCombinationSyntheticDataset,
+    ],
+)
 def test_initialization(DatasetClass):
     # Use n_features=3 and a small dataset; note: num_actions is fixed to 2 in SyntheticDataset
     n_features = 3
@@ -45,41 +54,30 @@ def test_initialization(DatasetClass):
     num_actions = 2
     ds = DatasetClass(n_features=n_features, num_samples=num_samples, noise_std=0.0)
 
-    assert ds.num_actions == num_actions, (
-        f"Expected num_actions {num_actions} but got {ds.num_actions}"
-    )
-    
-    assert ds.n_features == n_features, (
-        f"Expected n_features {n_features} but got {ds.n_features}"
-    )
-    
-    assert len(ds) == num_samples, (
-        f"Expected len(ds) {num_samples} but got {len(ds)}"
-    )
+    assert ds.num_actions == num_actions, f"Expected num_actions {num_actions} but got {ds.num_actions}"
 
-    assert ds.X.shape == (num_samples, n_features), (
-        f"Expected X shape {(num_samples, n_features)} but got {ds.X.shape}"
-    )
-    
-    assert ds.Phi.shape[0] == num_samples, (
-        f"Expected Phi shape ({num_samples}, phi_features) but got {ds.Phi.shape}"
-    )
-    
-    assert ds.Phi.shape[1] >= n_features, (
-        f"Expected Phi shape ({num_samples}, phi_features) but got {ds.Phi.shape}"
-    )
-    
-    assert ds.y.ndim == 1 and ds.y.shape[0] == num_samples, (
-        f"Expected y shape {num_samples} but got {ds.y.shape}"
-    )
+    assert ds.n_features == n_features, f"Expected n_features {n_features} but got {ds.n_features}"
+
+    assert len(ds) == num_samples, f"Expected len(ds) {num_samples} but got {len(ds)}"
+
+    assert ds.X.shape == (num_samples, n_features), f"Expected X shape {(num_samples, n_features)} but got {ds.X.shape}"
+
+    assert ds.Phi.shape[0] == num_samples, f"Expected Phi shape ({num_samples}, phi_features) but got {ds.Phi.shape}"
+
+    assert ds.Phi.shape[1] >= n_features, f"Expected Phi shape ({num_samples}, phi_features) but got {ds.Phi.shape}"
+
+    assert ds.y.ndim == 1 and ds.y.shape[0] == num_samples, f"Expected y shape {num_samples} but got {ds.y.shape}"
 
 
-@pytest.mark.parametrize("DatasetClass", [
-    LinearSyntheticDataset,
-    CubicSyntheticDataset,
-    SinSyntheticDataset,
-    LinearCombinationSyntheticDataset,
-])
+@pytest.mark.parametrize(
+    "DatasetClass",
+    [
+        LinearSyntheticDataset,
+        CubicSyntheticDataset,
+        SinSyntheticDataset,
+        LinearCombinationSyntheticDataset,
+    ],
+)
 def test_getitem_returns_expected_shapes(DatasetClass):
     # Use n_features=3 and a small dataset; note: num_actions is fixed to 2 in SyntheticDataset
     n_features = 3
@@ -91,20 +89,19 @@ def test_getitem_returns_expected_shapes(DatasetClass):
     contextualized_actions, rewards = ds[0]
     # In SyntheticDataset, context_size is computed as n_features * num_actions.
     expected_context_size = n_features * num_actions  # for num_actions=2, expect 6
-    assert contextualized_actions.shape[0] == num_actions, (
-        f"Expected num_actions {num_actions} but got {contextualized_actions.shape[0]}"
-    )
-    assert contextualized_actions.shape[1] == expected_context_size, (
-        f"Expected contextualized actions length {expected_context_size} but got {contextualized_actions.shape[0]}"
-    )
+    assert (
+        contextualized_actions.shape[0] == num_actions
+    ), f"Expected num_actions {num_actions} but got {contextualized_actions.shape[0]}"
+    assert (
+        contextualized_actions.shape[1] == expected_context_size
+    ), f"Expected contextualized actions length {expected_context_size} but got {contextualized_actions.shape[0]}"
 
     # Rewards should have shape (num_actions,)
-    assert rewards.shape[0] == num_actions, (
-        f"Expected rewards shape {(num_actions,)} but got {rewards.shape}"
-    )
+    assert rewards.shape[0] == num_actions, f"Expected rewards shape {(num_actions,)} but got {rewards.shape}"
 
     # Ensure rewards are float32
     assert rewards.dtype == torch.float32
+
 
 def test_reward_method():
     # Test that the reward method returns a float matching the label in self.y.
