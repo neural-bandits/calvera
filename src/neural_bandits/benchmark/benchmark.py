@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Generic, Optional
 
 import lightning as pl
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import torch
 from lightning.pytorch.loggers import CSVLogger, Logger
@@ -237,13 +238,16 @@ class BanditBenchmark(Generic[ActionInputType]):
         pl.seed_everything(training_params["seed"])
 
         self.logger: Optional[OnlineBanditLoggerDecorator] = (
-            OnlineBanditLoggerDecorator(logger) if logger is not None else None
+            OnlineBanditLoggerDecorator(logger, enable_console_logging=False) if logger is not None else None
         )
 
         self.dataset = dataset
         self.dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = self._initialize_dataloader(dataset)
         # Wrap the dataloader in an environment to simulate delayed feedback.
         self.environment = BanditBenchmarkEnvironment(self.dataloader)
+
+        self.regrets = np.array([])
+        self.rewards = np.array([])
 
     def _initialize_dataloader(
         self, dataset: AbstractDataset[ActionInputType]
@@ -276,18 +280,27 @@ class BanditBenchmark(Generic[ActionInputType]):
         """
         logging.getLogger("lightning.pytorch.utilities.rank_zero").setLevel(logging.FATAL)
 
+        self.regrets = np.array([])
+        self.rewards = np.array([])
+
         train_batch_size = self.training_params.get("train_batch_size", 1)
         # Iterate over one epoch (or limited iterations) from the environment.
-        progress_bar = tqdm(self.environment, total_samples=len(self.environment))
+        progress_bar = tqdm(iter(self.environment), total=len(self.environment))
         for contextualized_actions in progress_bar:
             chosen_actions = self._predict_actions(contextualized_actions)
-            # Optional: compute and log regret.
-            # if self.logger is not None:
-            # regret = self.environment.compute_regret(chosen_actions)
-            # TODO: log regret
 
             # Get feedback dataset for the chosen actions.
             chosen_contextualized_actions, realized_rewards = self.environment.get_feedback(chosen_actions)
+
+            regrets = self.environment.compute_regret(chosen_actions)
+            self.regrets = np.append(self.regrets, regrets)
+            self.rewards = np.append(self.rewards, realized_rewards)
+            progress_bar.set_postfix(
+                regret=regrets.mean().item(),
+                reward=realized_rewards.mean().item(),
+                avg_regret=self.regrets.mean(),
+            )
+
             assert train_batch_size <= chosen_actions.size(
                 0
             ), "train_batch_size must be lower than or equal to the data loaders batch_size (feedback_delay)."
@@ -305,6 +318,15 @@ class BanditBenchmark(Generic[ActionInputType]):
             self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards)
             # Train the bandit on the current feedback.
             trainer.fit(self.bandit)
+
+        df = pd.DataFrame(
+            {
+                "step": np.arange(len(self.regrets)),
+                "regret": self.regrets,
+                "reward": self.rewards,
+            }
+        )
+        df.to_csv(os.path.join(self.logger.log_dir, "env_metrics.csv"), index=False)
 
     def _predict_actions(self, contextualized_actions: ActionInputType) -> torch.Tensor:
         """Predicts actions for the given contextualized_actions.
@@ -358,7 +380,8 @@ class BenchmarkAnalyzer:
     def __init__(
         self,
         log_path: str,
-        metrics_file: str = "metrics.csv",
+        bandit_logs_file: str = "metrics.csv",
+        metrics_file: str = "env_metrics.csv",
         suppress_plots: bool = False,
     ) -> None:
         """Initializes the BenchmarkAnalyzer.
@@ -367,15 +390,18 @@ class BenchmarkAnalyzer:
             log_path: Path to the log data.
                 Will also be output directory for plots.
                 Most likely the log_dir where metrics.csv from your CSV logger is located.
-            metrics_file: Name of the metrics file. Default is "metrics.csv".
+            bandit_logs_file: Name of the metrics file of the CSV Logger. Default is "metrics.csv".
+            metrics_file: Name of the metrics file. Default is "env_metrics.csv".
+
             suppress_plots: If True, plots will not be automatically shown. Default is False.
         """
         self.log_path = log_path
+        self.bandit_logs_file = bandit_logs_file
         self.metrics_file = metrics_file
         self.suppress_plots = suppress_plots
-        self.df = self.load_logs()
+        self.df = self.load_metrics()
 
-    def load_logs(self) -> Optional[pd.DataFrame]:
+    def load_metrics(self) -> Optional[pd.DataFrame]:
         """Loads the logs from the log path.
 
         Returns:
@@ -383,9 +409,24 @@ class BenchmarkAnalyzer:
         """
         # Load CSV data (e.g., using pandas)
         try:
-            return pd.read_csv(os.path.join(self.log_path, self.metrics_file))
+            bandits_df = pd.read_csv(os.path.join(self.log_path, self.bandit_logs_file))
+        except FileNotFoundError:
+            logging.warning(f"Could not find metrics file {self.bandit_logs_file} in {self.log_path}.")
+            bandits_df = None
+
+        try:
+            metrics_df = pd.read_csv(os.path.join(self.log_path, self.metrics_file))
         except FileNotFoundError:
             logging.warning(f"Could not find metrics file {self.metrics_file} in {self.log_path}.")
+            metrics_df = None
+
+        if bandits_df is not None and metrics_df is not None:
+            return pd.merge(bandits_df, metrics_df, on="step")
+        elif bandits_df is not None:
+            return bandits_df
+        elif metrics_df is not None:
+            return metrics_df
+        else:
             return None
 
     def plot_accumulated_metric(self, metric_name: str) -> None:
@@ -481,7 +522,7 @@ def run(
     )
     benchmark.run()
 
-    analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv", suppress_plots)
+    analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv", "env_metrics.csv", suppress_plots)
     analyzer.plot_accumulated_metric("reward")
     analyzer.plot_accumulated_metric("regret")
     analyzer.plot_average_metric("reward")
