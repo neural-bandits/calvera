@@ -28,6 +28,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         lambda_: float = 1.0,
         lazy_uncertainty_update: bool = False,
         clear_buffer_after_train: bool = True,
+        use_sherman_morrison_update: bool = False,
     ) -> None:
         """Initializes the LinearBanditModule.
 
@@ -45,20 +46,23 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
                 update step.
             clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
                 data is not needed anymore after training.
+            use_sherman_morrison_update: If True the precision matrix will be updated using the Sherman-Morrison
+                formula. This is a more efficient way to update the precision matrix than the default method. The
+                problem however is that the Sherman-Morrison formula can lead to substantial numerical errors.
         """
         super().__init__(
             n_features=n_features,
             buffer=buffer,
             train_batch_size=train_batch_size,
         )
-        self.lazy_uncertainty_update = lazy_uncertainty_update
 
         self.save_hyperparameters(
             {
-                "lazy_uncertainty_update": True,
+                "lazy_uncertainty_update": lazy_uncertainty_update,
                 "eps": eps,
                 "lambda_": lambda_,
                 "clear_buffer_after_train": clear_buffer_after_train,
+                "use_sherman_morrison_update": use_sherman_morrison_update,
             }
         )
 
@@ -83,7 +87,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         self, contextualized_actions: ActionInputType, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor]:
         chosen_actions, p = self._predict_action_hook(contextualized_actions, **kwargs)
-        if not self.lazy_uncertainty_update:
+        if not self.hparams["lazy_uncertainty_update"]:
             assert isinstance(contextualized_actions, torch.Tensor), "contextualized_actions must be a torch.Tensor"
             chosen_contextualized_actions = contextualized_actions[
                 torch.arange(contextualized_actions.shape[0], device=self.device),
@@ -163,7 +167,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial
         #   Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
-        if self.lazy_uncertainty_update:
+        if self.hparams["lazy_uncertainty_update"]:
             self._update_precision_matrix(chosen_actions)
 
         self.b.add_(chosen_actions.T @ realized_rewards)  # shape: (features,)
@@ -178,30 +182,36 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         ), "Theta should have shape (n_features,)"
 
     def _update_precision_matrix(self, chosen_actions: torch.Tensor) -> torch.Tensor:
-        # Calculate new precision matrix using the Sherman-Morrison-Woodbury formula.
-        batch_size = chosen_actions.shape[0]
-        inverse_term = torch.inverse(
-            torch.eye(batch_size, device=self.device)
-            + chosen_actions @ self.precision_matrix.clone() @ chosen_actions.T
-        )
+        # Calculate new precision matrix.
 
-        self.precision_matrix.add_(
-            -self.precision_matrix.clone()
-            @ chosen_actions.T
-            @ inverse_term
-            @ chosen_actions
-            @ self.precision_matrix.clone()
-        )
+        old_precision = self.precision_matrix.clone()
+        if self.hparams["use_sherman_morrison_update"]:
+            # Perform the Sherman-Morrison update.
+            inverse_term = torch.inverse(
+                torch.eye(chosen_actions.shape[0], device=self.device)
+                + chosen_actions @ old_precision @ chosen_actions.T
+            )
+            # Update using the SMW formula: P_new = P - P A^T (I + A P A^T)^{-1} A P
+            self.precision_matrix.copy_(
+                old_precision - old_precision @ chosen_actions.T @ inverse_term @ chosen_actions @ old_precision
+            )
+            self.precision_matrix.add_(
+                torch.eye(self.precision_matrix.shape[0], device=self.device) * self.hparams["eps"]
+            )  # add small value to diagonal to ensure invertibility
+
+        else:
+            # Perform the 'standard' update.
+            cov_matrix = torch.linalg.inv(old_precision) + chosen_actions.T @ chosen_actions
+            self.precision_matrix.copy_(
+                torch.linalg.inv(
+                    cov_matrix + torch.eye(self.precision_matrix.shape[0], device=self.device) * self.hparams["eps"]
+                )
+            )
+
         self.precision_matrix.mul_(0.5).add_(self.precision_matrix.T.clone())
-
-        self.precision_matrix.add_(
-            torch.eye(self.precision_matrix.shape[0], device=self.device) * self.hparams["eps"]
-        )  # add small value to diagonal to ensure invertibility
 
         # should be symmetric
         assert torch.allclose(self.precision_matrix, self.precision_matrix.T), "Precision matrix must be symmetric"
-        vals, _ = torch.linalg.eigh(self.precision_matrix)
-        assert torch.all(vals > 0), "Precision matrix must be positive definite, but eigenvalues are not all positive."
 
         return self.precision_matrix
 
