@@ -86,7 +86,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
                 Must be greater equal 0.
-            warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
+            warm_restart: If `False` the parameters of the network are reset in order to be retrained from scratch using
                 `network.reset_parameters()` everytime a retraining of the network occurs. If `True` the network is
                 trained from the current state.
         """
@@ -120,6 +120,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 "min_samples_required_for_training": min_samples_required_for_training,
                 "early_stop_threshold": early_stop_threshold,
                 "initial_train_steps": initial_train_steps,
+                "warm_restart": warm_restart,
             }
         )
 
@@ -297,7 +298,14 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
             self._skip_training()
 
-        # TODO: warm_start. If should_train_network and not warm_start, reset the network.
+        if self.hparams["warm_restart"] and self.should_train_network:
+
+            def weight_reset(m: nn.Module) -> None:
+                reset_parameters = getattr(m, "reset_parameters", None)
+                if callable(reset_parameters):
+                    m.reset_parameters()  # type: ignore
+
+            self.theta_t.apply(weight_reset)
 
     def _update(
         self,
