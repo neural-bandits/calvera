@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import torch
 
@@ -25,7 +25,7 @@ class LinearUCBBandit(LinearBandit):
             kwargs: Additional keyword arguments. Passed to the parent class. See `LinearBandit`.
         """
         super().__init__(n_features, alpha=alpha, **kwargs)
-        self.selector = selector if selector is not None else ArgMaxSelector()
+        self.selector = selector if selector is not None else ArgMaxSelector()  # type: ignore
 
     def _predict_action_hook(
         self, contextualized_actions: torch.Tensor, **kwargs: Any
@@ -83,3 +83,8 @@ class DiagonalPrecApproxLinearUCBBandit(LinearUCBBandit):
         self.precision_matrix = torch.diag_embed(torch.diag(self.precision_matrix) + prec_diagonal + self.eps)
 
         return self.precision_matrix
+
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        """Handle saving custom LinearUCBBandit state with diagonal precision approximation flag."""
+        super().on_save_checkpoint(checkpoint)
+        checkpoint["diagonal_precision_approx"] = True

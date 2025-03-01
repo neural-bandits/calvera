@@ -1,5 +1,5 @@
 import math
-from typing import Any, Generic, Optional, cast
+from typing import Any, Dict, Generic, Optional, cast
 
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
@@ -511,3 +511,51 @@ class NeuralLinearBandit(LinearTSBandit, Generic[ActionInputType]):
             "optimizer": opt,
             "lr_scheduler": scheduler,
         }
+
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        """Handle saving custom NeuralLinearBandit state.
+
+        First calls the parent implementation for LinearTSBandit state,
+        then adds neural network state and buffer state.
+        """
+        super().on_save_checkpoint(checkpoint)
+
+        checkpoint["network_state"] = self.network.state_dict()
+        checkpoint["helper_network_state"] = self.helper_network.state_dict()
+
+        checkpoint["buffer_state"] = self.buffer.state_dict()
+
+        checkpoint["contextualized_actions"] = self.contextualized_actions
+        checkpoint["embedded_actions"] = self.embedded_actions
+        checkpoint["rewards"] = self.rewards
+
+        checkpoint["num_samples"] = self.num_samples
+
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        """Handle loading custom NeuralLinearBandit state.
+
+        First calls the parent implementation for LinearTSBandit state,
+        then restores neural network state and buffer state.
+        """
+        super().on_load_checkpoint(checkpoint)
+
+        if "network_state" in checkpoint:
+            self.network.load_state_dict(checkpoint["network_state"])
+
+        if "helper_network_state" in checkpoint:
+            self.helper_network.load_state_dict(checkpoint["helper_network_state"])
+
+        if checkpoint.get("buffer_state"):
+            self.buffer.load_state_dict(checkpoint["buffer_state"])
+
+        if "contextualized_actions" in checkpoint:
+            self.register_buffer("contextualized_actions", checkpoint["contextualized_actions"])
+
+        if "embedded_actions" in checkpoint:
+            self.register_buffer("embedded_actions", checkpoint["embedded_actions"])
+
+        if "rewards" in checkpoint:
+            self.register_buffer("rewards", checkpoint["rewards"])
+
+        if "num_samples" in checkpoint:
+            self.num_samples = checkpoint["num_samples"]

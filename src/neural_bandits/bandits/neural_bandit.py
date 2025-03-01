@@ -278,10 +278,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         self._trained_once = False
 
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        """Handle saving custom NeuralBandit state.
-
-        This ensures all components are properly serialized during checkpoint saving.
-        """
+        """Handle saving custom NeuralBandit state."""
         checkpoint["buffer_state"] = self.buffer.state_dict()
 
         checkpoint["Z_t"] = self.Z_t
@@ -298,10 +295,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         checkpoint["_trained_once"] = self._trained_once
 
     def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        """Handle loading custom state.
-
-        This ensures all components are properly restored during checkpoint loading.
-        """
+        """Handle loading custom NeuralBandit state."""
         if checkpoint.get("buffer_state"):
             self.buffer.load_state_dict(checkpoint["buffer_state"])
 

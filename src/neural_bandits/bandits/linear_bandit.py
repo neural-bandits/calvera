@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict
 
 import torch
 
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
+from neural_bandits.utils.selectors import ArgMaxSelector, EpsilonGreedySelector, TopKSelector
 
 
 class LinearBandit(AbstractBandit[torch.Tensor], ABC):
@@ -189,3 +190,38 @@ class LinearBandit(AbstractBandit[torch.Tensor], ABC):
         # should be symmetric
         assert torch.allclose(self.precision_matrix, self.precision_matrix.T), "Precision matrix must be symmetric"
         return self.precision_matrix
+
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        """Handle saving custom LinearBandit state."""
+        checkpoint["precision_matrix"] = self.precision_matrix
+        checkpoint["b"] = self.b
+        checkpoint["theta"] = self.theta
+
+        if hasattr(self, "selector"):
+            checkpoint["selector_type"] = self.selector.__class__.__name__
+            if isinstance(self.selector, EpsilonGreedySelector):
+                checkpoint["selector_epsilon"] = self.selector.epsilon
+                checkpoint["selector_generator_state"] = self.selector.generator.get_state()
+            elif isinstance(self.selector, TopKSelector):
+                checkpoint["selector_k"] = self.selector.k
+
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        """Handle loading custom LinearBandit state."""
+        if "precision_matrix" in checkpoint:
+            self.register_buffer("precision_matrix", checkpoint["precision_matrix"])
+
+        if "b" in checkpoint:
+            self.register_buffer("b", checkpoint["b"])
+
+        if "theta" in checkpoint:
+            self.register_buffer("theta", checkpoint["theta"])
+
+        if "selector_type" in checkpoint and hasattr(self, "selector"):
+            if checkpoint["selector_type"] == "EpsilonGreedySelector":
+                self.selector = EpsilonGreedySelector(epsilon=checkpoint["selector_epsilon"])
+                if "selector_generator_state" in checkpoint:
+                    self.selector.generator.set_state(checkpoint["selector_generator_state"])
+            elif checkpoint["selector_type"] == "TopKSelector":
+                self.selector = TopKSelector(k=checkpoint["selector_k"])  # type: ignore
+            else:
+                self.selector = ArgMaxSelector()  # type: ignore
