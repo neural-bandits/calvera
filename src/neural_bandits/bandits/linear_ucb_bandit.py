@@ -1,30 +1,62 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional, cast
 
 import torch
 
 from neural_bandits.bandits.linear_bandit import LinearBandit
+from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class LinearUCBBandit(LinearBandit):
-    """Linear Upper Confidence Bound Bandit."""
+class LinearUCBBandit(LinearBandit[torch.Tensor]):
+    """Linear Upper Confidence Bound Bandit.
+
+    Based on: Lattimore et al. "Bandit Algorithms" https://tor-lattimore.com/downloads/book/book.pdf
+    """
 
     def __init__(
         self,
         n_features: int,
         selector: Optional[AbstractSelector] = None,
-        alpha: float = 1.0,
-        **kwargs: Any,
+        buffer: Optional[AbstractBanditDataBuffer[torch.Tensor, Any]] = None,
+        train_batch_size: int = 32,
+        eps: float = 1e-2,
+        lambda_: float = 1.0,
+        lazy_uncertainty_update: bool = False,
+        clear_buffer_after_train: bool = True,
+        exploration_rate: float = 1.0,
     ) -> None:
-        """Initializes the LinearUCBBandit.
+        """Initializes the LinearBanditModule.
 
         Args:
             n_features: The number of features in the bandit model.
             selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
-            alpha: The exploration parameter for LinUCB.
-            kwargs: Additional keyword arguments. Passed to the parent class. See `LinearBandit`.
+            buffer: The buffer used for storing the data for continuously updating the neural network.
+            train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
+            eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
+            lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
+                Sometimes also called lambda but we already use lambda for the regularization parameter
+                of the neural networks in NeuralLinear, NeuralUCB and NeuralTS.
+            lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
+                update step.
+            clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
+                data is not needed anymore after training once. Only set it to False if you know what you are doing.
+            exploration_rate: The exploration parameter for LinUCB. In the original paper this is denoted as alpha.
+                Default is 1.0. Must be greater than 0.
         """
-        super().__init__(n_features, alpha=alpha, **kwargs)
+        super().__init__(
+            n_features,
+            buffer=buffer,
+            train_batch_size=train_batch_size,
+            eps=eps,
+            lambda_=lambda_,
+            lazy_uncertainty_update=lazy_uncertainty_update,
+            clear_buffer_after_train=clear_buffer_after_train,
+        )
+
+        self.save_hyperparameters({"exploration_rate": exploration_rate})
+
+        assert exploration_rate > 0, "exploration_rate must be greater than 0"
+
         self.selector = selector if selector is not None else ArgMaxSelector()  # type: ignore
 
     def _predict_action_hook(
@@ -47,7 +79,9 @@ class LinearUCBBandit(LinearBandit):
             contextualized_actions.shape[2] == self.hparams["n_features"]
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
 
-        result = torch.einsum("ijk,k->ij", contextualized_actions, self.theta) + self.hparams["alpha"] * torch.sqrt(
+        result = torch.einsum("ijk,k->ij", contextualized_actions, self.theta) + self.hparams[
+            "exploration_rate"
+        ] * torch.sqrt(
             torch.einsum(
                 "ijk,kl,ijl->ij",
                 contextualized_actions,
@@ -80,11 +114,13 @@ class DiagonalPrecApproxLinearUCBBandit(LinearUCBBandit):
         prec_diagonal = chosen_actions.pow(2).sum(dim=0)
 
         # Update the precision matrix using the diagonal approximation.
-        self.precision_matrix = torch.diag_embed(torch.diag(self.precision_matrix) + prec_diagonal + self.eps)
+        self.precision_matrix = torch.diag_embed(
+            torch.diag(self.precision_matrix) + prec_diagonal + cast(float, self.hparams["eps"])
+        )
 
         return self.precision_matrix
 
-    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         """Handle saving custom LinearUCBBandit state with diagonal precision approximation flag."""
         super().on_save_checkpoint(checkpoint)
         checkpoint["diagonal_precision_approx"] = True

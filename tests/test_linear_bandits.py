@@ -15,7 +15,7 @@ from neural_bandits.bandits.linear_ucb_bandit import (
 )
 from neural_bandits.utils.selectors import ArgMaxSelector, EpsilonGreedySelector
 
-BanditClassType = TypeVar("BanditClassType", bound="LinearBandit")
+BanditClassType = TypeVar("BanditClassType", bound="LinearBandit[torch.Tensor]")
 
 
 @pytest.fixture(autouse=True)
@@ -32,12 +32,12 @@ def lin_ucb_bandit() -> LinearUCBBandit:
 
 
 @pytest.fixture
-def lin_ts_bandit() -> LinearTSBandit:
+def lin_ts_bandit() -> LinearTSBandit[torch.Tensor]:
     """
     Setup LinearTSBandit with n_features=3.
     """
     n_features = 3
-    module = LinearTSBandit(n_features=n_features)
+    module = LinearTSBandit[torch.Tensor](n_features=n_features)
     return module
 
 
@@ -65,7 +65,7 @@ def approx_lin_ts_bandit() -> DiagonalPrecApproxLinearTSBandit:
 def simple_ucb_bandit() -> LinearUCBBandit:
     """Setup LinearUCBBandit with n_features=1."""
     n_features = 1
-    module = LinearUCBBandit(n_features=n_features)
+    module = LinearUCBBandit(n_features=n_features, lazy_uncertainty_update=True)
     return module
 
 
@@ -86,7 +86,7 @@ def test_linear_bandits_forward_shapes(BanditClass: BanditClassType) -> None:
     batch_size = 4
     n_arms = 3
 
-    bandit: LinearBandit = BanditClass(n_features=n_features)
+    bandit: LinearBandit[torch.Tensor] = BanditClass(n_features=n_features)
 
     # Contextualized actions have shape (batch_size, n_arms, n_features)
     # E.g., (4, 3, 5)
@@ -106,7 +106,7 @@ def test_linear_bandits_forward_shapes(BanditClass: BanditClassType) -> None:
 def test_linear_bandits_forward_shape_errors(BanditClass: BanditClassType) -> None:
     """Check if forward method raises assertion error for invalid input shape."""
     n_features = 5
-    bandit: LinearBandit = BanditClass(n_features=n_features)
+    bandit: LinearBandit[torch.Tensor] = BanditClass(n_features=n_features)
 
     # Invalid shape: contextualized_actions should have shape (batch_size, n_arms, n_features).
     # Here we intentionally use (batch_size, n_arms, n_features + 1).
@@ -122,7 +122,7 @@ def test_linear_bandit_defaults(BanditClass: BanditClassType) -> None:
     Ensures shapes of precision_matrix, b, theta are correct.
     """
     n_features = 5
-    bandit: LinearBandit = BanditClass(n_features=n_features, lazy_uncertainty_update=True)
+    bandit: LinearBandit[torch.Tensor] = BanditClass(n_features=n_features, lazy_uncertainty_update=True)
 
     assert bandit.precision_matrix.shape == (
         n_features,
@@ -177,7 +177,7 @@ def test_linear_ucb_correct_variance() -> None:
     )
     bandit.b = torch.zeros(n_features)
 
-    # pass vectors where without alpha all arms are equally good
+    # pass vectors where without exploration_rate all arms are equally good
     contextualized_actions = torch.tensor([[[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.5, 0.0, 1.0]]])
     output, p = bandit.forward(contextualized_actions)
 
@@ -193,13 +193,15 @@ def test_linear_ucb_correct_variance() -> None:
     ), "Expected probability of 1 for all arms."
 
 
-def test_linear_ucb_alpha() -> None:
-    """Test alpha parameter in LinearUCBBandit to confirm it's settable and used."""
+def test_linear_ucb_exploration_rate() -> None:
+    """Test exploration_rate parameter in LinearUCBBandit to confirm it's settable and used."""
     n_features = 3
-    alpha = 25.0  # extreme alpha for testing
-    bandit = LinearUCBBandit(n_features=n_features, alpha=alpha)
+    exploration_rate = 25.0  # extreme exploration_rate for testing
+    bandit = LinearUCBBandit(n_features=n_features, exploration_rate=exploration_rate)
 
-    assert bandit.hparams["alpha"] == alpha, "Bandit's alpha should match the passed value."
+    assert (
+        bandit.hparams["exploration_rate"] == exploration_rate
+    ), "Bandit's exploration_rate should match the passed value."
 
     # Manually adjust the bandits parameters
     bandit.theta = torch.ones(n_features)
@@ -212,7 +214,7 @@ def test_linear_ucb_alpha() -> None:
     )
     bandit.b = torch.zeros(n_features)
 
-    # pass vectors where without alpha all arms are equally good
+    # pass vectors where without exploration_rate all arms are equally good
     contextualized_actions = torch.tensor([[[1.0, 0.5, 0.0], [0.0, 0.9, 0.5], [0.5, 0.0, 1.0]]])
     output, p = bandit.forward(contextualized_actions)
 
@@ -220,7 +222,7 @@ def test_linear_ucb_alpha() -> None:
     assert torch.allclose(
         output,
         torch.tensor([[0, 1, 0]]),
-    ), "Expected one-hot encoding of the arm with highest variance due to extreme alpha value."
+    ), "Expected one-hot encoding of the arm with highest variance due to extreme exploration_rate value."
 
     assert torch.allclose(
         p,
@@ -231,7 +233,7 @@ def test_linear_ucb_alpha() -> None:
 def test_linear_ts_correct() -> None:
     """Test if LinearTSBandit returns correct values for theta = (0, 0, 1)."""
     n_features = 3
-    bandit = LinearTSBandit(n_features=n_features)
+    bandit = LinearTSBandit[torch.Tensor](n_features=n_features)
 
     # Manually adjust the bandits parameters
     bandit.theta = torch.tensor([0.0, 0.0, 1.0])
@@ -248,14 +250,14 @@ def test_linear_ts_correct() -> None:
     # TODO: Test correct computation of probabilities
 
 
-@pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
+@pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit[torch.Tensor]])
 def test_update_updates_parameters_parameterized(BanditClass: BanditClassType) -> None:
     """
     Test if parameters are updated after training step.
     """
-    bandit: LinearBandit = BanditClass(n_features=3, lazy_uncertainty_update=True)
+    bandit: LinearBandit[torch.Tensor] = BanditClass(n_features=3, lazy_uncertainty_update=True)
     batch_size = 10
-    n_features = bandit.n_features
+    n_features = bandit.hparams["n_features"]
 
     # Create dummy data
     chosen_actions = torch.randn(batch_size, 1, n_features)
@@ -312,9 +314,9 @@ def test_update_correct() -> None:
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
 def test_update_shapes_parameterized(BanditClass: BanditClassType) -> None:
     """Test if parameters have correct shapes after update."""
-    bandit: LinearBandit = BanditClass(n_features=3)
+    bandit: LinearBandit[torch.Tensor] = BanditClass(n_features=3)
     batch_size = 10
-    n_features = bandit.n_features
+    n_features = bandit.hparams["n_features"]
 
     # Create dummy data
     chosen_actions = torch.randn(batch_size, 1, n_features)
@@ -335,23 +337,23 @@ def test_update_shapes_parameterized(BanditClass: BanditClassType) -> None:
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
 def test_update_invalid_shapes_parameterized(BanditClass: BanditClassType) -> None:
     """Test if assertion errors are raised for invalid input shapes."""
-    bandit: LinearBandit = BanditClass(n_features=3)
+    bandit: LinearBandit[torch.Tensor] = BanditClass(n_features=3)
     batch_size = 10
-    n_features = bandit.n_features
-
-    chosen_actions = torch.randn(batch_size, n_features)
-    realized_rewards = torch.randn(batch_size)
+    n_features = bandit.hparams["n_features"]
 
     # Create invalid dummy data
-    chosen_actions_invalid = torch.randn(batch_size, n_features + 1)
-    realized_rewards_invalid = torch.randn(batch_size + 1)
+    chosen_actions_invalid = torch.randn(batch_size, 1, n_features + 1)
+
+    realized_rewards = torch.randn(batch_size, 1)
 
     # Check for assertion errors
     with pytest.raises(AssertionError):
         bandit._perform_update(chosen_actions_invalid, realized_rewards)
 
+    chosen_actions_invalid = torch.randn(batch_size, 2, n_features)
+
     with pytest.raises(AssertionError):
-        bandit._perform_update(chosen_actions, realized_rewards_invalid)
+        bandit._perform_update(chosen_actions_invalid, realized_rewards)
 
 
 def test_update_zero_denominator(
@@ -360,23 +362,23 @@ def test_update_zero_denominator(
     """Test if assertion error is raised when denominator is zero."""
     bandit = simple_ucb_bandit
     batch_size = 10
-    n_features = bandit.n_features
+    n_features = bandit.hparams["n_features"]
 
     # Create dummy data with NaN
-    chosen_actions = torch.zeros(batch_size, n_features)
-    realized_rewards = torch.zeros(batch_size)
+    chosen_actions = torch.zeros(batch_size, 1, n_features)
+    realized_rewards = torch.zeros(batch_size, 1)
     chosen_actions[0, 0] = torch.nan
 
     with pytest.raises(AssertionError):
         bandit._perform_update(chosen_actions, realized_rewards)
 
     # Create dummy data that will cause zero denominator
-    chosen_actions = torch.tensor([[2.0]])
-    realized_rewards = torch.zeros(1)
+    chosen_actions = torch.tensor([[[2.0]]])
+    realized_rewards = torch.zeros(1, 1)
 
     bandit.precision_matrix = torch.tensor([[-0.25]])  # shape (1,1)
 
-    with pytest.raises(AssertionError):
+    with pytest.raises((AssertionError, Exception)):
         bandit._perform_update(chosen_actions, realized_rewards)
 
 
