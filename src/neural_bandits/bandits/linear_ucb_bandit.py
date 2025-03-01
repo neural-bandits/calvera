@@ -7,7 +7,7 @@ from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
 from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
-class LinearUCBBandit(LinearBandit):
+class LinearUCBBandit(LinearBandit[torch.Tensor]):
     """Linear Upper Confidence Bound Bandit.
 
     Based on: Lattimore et al. "Bandit Algorithms" https://tor-lattimore.com/downloads/book/book.pdf

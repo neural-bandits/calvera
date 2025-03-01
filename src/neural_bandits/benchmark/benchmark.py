@@ -240,6 +240,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         self.logger: Optional[OnlineBanditLoggerDecorator] = (
             OnlineBanditLoggerDecorator(logger, enable_console_logging=False) if logger is not None else None
         )
+        self.log_dir = self.logger.log_dir if self.logger is not None and self.logger.log_dir else "logs"
 
         self.dataset = dataset
         self.dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = self._initialize_dataloader(dataset)
@@ -326,7 +327,7 @@ class BanditBenchmark(Generic[ActionInputType]):
                 "reward": self.rewards,
             }
         )
-        df.to_csv(os.path.join(self.logger.log_dir, "env_metrics.csv"), index=False)
+        df.to_csv(os.path.join(self.log_dir, "env_metrics.csv"), index=False)
 
     def _predict_actions(self, contextualized_actions: ActionInputType) -> torch.Tensor:
         """Predicts actions for the given contextualized_actions.
