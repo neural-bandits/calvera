@@ -13,7 +13,7 @@ class SyntheticDataset(AbstractDataset[torch.Tensor]):
 
     num_actions = 2
 
-    def __init__(self, n_features=2, num_samples=10000, noise_std=0.1) -> None:
+    def __init__(self, n_features: int = 2, num_samples: int = 10000, noise_std: float = 0.1) -> None:
         """Initialize the synthetic dataset.
 
         Args:
