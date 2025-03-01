@@ -284,7 +284,7 @@ def test_update_correct() -> None:
       - chosen_actions = [[2.0]]
       - realized_rewards = [1.0]
 
-    The manual update for M should yield:
+    The manual update for the precision_matrix should yield:
       M_new = [[0.2]]
       b_new = [2.0]
       theta_new = [0.4]
