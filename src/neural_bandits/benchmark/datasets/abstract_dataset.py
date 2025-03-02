@@ -4,7 +4,7 @@ from typing import Any, Callable, Generic, Tuple
 import torch
 from torch.utils.data import Dataset
 
-from neural_bandits.bandits.abstract_bandit import ActionInputType
+from neural_bandits.bandits.action_input_type import ActionInputType
 from neural_bandits.benchmark.multiclass import MultiClassContextualizer
 
 
