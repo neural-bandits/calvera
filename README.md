@@ -1,7 +1,3 @@
-Below are two markdown files—a polished README and a brief CONTRIBUTING guide—for your Calvera library.
-
-README.md
-
 # Calvera
 
 Calvera is a Python library offering a collection of multi-armed bandit algorithms, designed to integrate seamlessly with PyTorch and PyTorch Lightning. Whether you're exploring contextual bandits or developing new strategies, Calvera provides a flexible, easy-to-use interface.
@@ -61,9 +57,9 @@ trainer.fit(bandit)
 # (6. Repeat the process as needed)
 ```
 
-For more detailed examples, see the examples page in the documentation.
+For more detailed examples, see the examples page in [the documentation](http://neural-bandits.github.io/calvera/).
 
-## Documentation
+## [Documentation](http://neural-bandits.github.io/calvera/)
 
 - Bandits: Each bandit is implemented as a PyTorch Lightning Module with `forward()` for inference and `training_step()` for training.
 
@@ -79,11 +75,11 @@ Detailed benchmarks, datasets, and experimental results are available in the ext
 
 Contributions are welcome! For guidelines on how to contribute, please refer to our CONTRIBUTING.md.
 
-License
+## License
 
 Calvera is licensed under the MIT License. See the LICENSE file for details.
 
-Contact
+## Contact
 
 For questions or feedback, please reach out to one of the authors:
 	•	Philipp Kolbe

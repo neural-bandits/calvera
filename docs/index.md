@@ -1,6 +1,6 @@
 # Welcome to the documentation of the Calvera library
 
-Calvera is a Python library for offering a small collection of multi-armed bandit algorithms.
+Calvera is a Python library offering a small collection of multi-armed bandit algorithms.
 Currently the following algorithms are implemented:
 
 - Linear Thompson Sampling
@@ -14,6 +14,7 @@ Currently the following algorithms are implemented:
 - Neural UCB
 
 We plan to add the following algorithms in the future:
+
 - Bootstrapped Bandit (See [this paper](https://arxiv.org/abs/2302.07459))
 
 
@@ -135,7 +136,7 @@ A selector should subclass the `AbstractSelector` class and implement the respec
 - `EpsilonGreedySelector`: Selects the arm with the highest score with probability `1-epsilon` or a random arm with probability `epsilon`.
 - `TopKSelector`: Selects the top `k` arms with the highest scores.
 
-The documentation of the selectors can be found [here](./selectors.md).
+The documentation of the selectors can be found [here](./utils/).
 
 ## Benchmarks
 
@@ -148,7 +149,7 @@ The documentation of the selectors can be found [here](./selectors.md).
 
 
 ## Contributing
-Contributions are always welcome! Please refer to the [contribution guidelines](CONTRIBUTING.md) for more information.
+Contributions are always welcome! Please refer to the [contribution guidelines](https://github.com/neural-bandits/calvera/blob/main/CONTRIBUTING.md) for more information.
 
 As of 26th February 2025, the library is under active development. Current contributors are:
 

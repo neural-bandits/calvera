@@ -42,9 +42,6 @@ Thank you for your interest in contributing to Calvera! Your contributions help 
 
 Thank you for helping to make Calvera better!
 
-## Documentation
-
-
 
 ## Timeplan
 - have MVP ready by 1st of February 2025
