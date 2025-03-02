@@ -6,6 +6,7 @@ from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from neural_bandits.benchmark.datasets.mnist import MNISTDataset
 from neural_bandits.benchmark.datasets.movie_lens import MovieLensDataset
 from neural_bandits.benchmark.datasets.statlog import StatlogDataset
+from neural_bandits.benchmark.datasets.tiny_imagenet import TinyImageNetDataset
 from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
 
 
@@ -153,3 +154,23 @@ class TestMovieLensDataset:
         for i in range(10):
             reward = dataset.reward(i, 0)
             assert reward == dataset.F[i, 0]
+
+
+class TestTinyImageNetDataset:
+    @pytest.fixture
+    def dataset(self) -> TinyImageNetDataset:
+        return TinyImageNetDataset()
+
+    def test_len(self, dataset: TinyImageNetDataset) -> None:
+        assert len(dataset) == 100000
+
+    def test_getitem(self, dataset: TinyImageNetDataset) -> None:
+        for _ in range(10):
+            X, rewards = dataset[0]
+            assert X.shape == (200, 200 * 3 * 64 * 64)
+            assert rewards.shape == (200,)
+
+    def test_reward(self, dataset: TinyImageNetDataset) -> None:
+        for i in range(10):
+            reward = dataset.reward(i, 1)
+            assert reward == (dataset.y[i] == 1)
