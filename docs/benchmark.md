@@ -3,8 +3,6 @@ The benchmark is a collection of scripts that can be used to evaluate the perfor
 ## **Datasets**
 A dataset implements the `AbstractDataset` class. There are currently 6 datasets for the benchmark:
 
-- `BanditFeedbackDataset`: A dataset that contains contextualized actions and rewards.
-
 - `CovertypeDataset` - classification of forest cover types
 
 - `ImdbMovieReviews` - sentiment classification of movie reviews
