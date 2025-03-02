@@ -437,8 +437,7 @@ def test_bandit_state_checkpoint(BanditClass: BanditClassType) -> None:
     assert checkpoint["selector_state"]["type"] == "ArgMaxSelector"
 
     # Verify diagonal precision approximation flag for relevant classes
-    is_diagonal_approx = "DiagonalPrecApprox" in BanditClass.__name__
-    if is_diagonal_approx:
+    if BanditClass in [DiagonalPrecApproxLinearUCBBandit, DiagonalPrecApproxLinearTSBandit]:  # type: ignore
         assert checkpoint.get("diagonal_precision_approx") is True
 
 
@@ -476,7 +475,7 @@ def test_bandit_hyperparameters_checkpoint(BanditClass: BanditClassType) -> None
     exploration_rate = 2.0
     lazy_update = True
 
-    if "UCB" in BanditClass.__name__:
+    if BanditClass in [LinearUCBBandit, DiagonalPrecApproxLinearUCBBandit]:
         original_bandit = BanditClass(
             n_features=n_features,
             eps=eps,
@@ -498,7 +497,7 @@ def test_bandit_hyperparameters_checkpoint(BanditClass: BanditClassType) -> None
     assert original_bandit.hparams["lambda_"] == lambda_
     assert original_bandit.hparams["lazy_uncertainty_update"] == lazy_update
 
-    if "UCB" in BanditClass.__name__:
+    if BanditClass in [LinearUCBBandit, DiagonalPrecApproxLinearUCBBandit]:
         assert original_bandit.hparams["exploration_rate"] == exploration_rate
 
 
@@ -526,7 +525,7 @@ def test_bandit_end_to_end_checkpoint(BanditClass: BanditClassType) -> None:
     loaded_bandit = BanditClass(n_features=n_features, lazy_uncertainty_update=True)
     loaded_bandit.on_load_checkpoint(checkpoint)
 
-    if "UCB" in BanditClass.__name__:
+    if BanditClass in [LinearUCBBandit, DiagonalPrecApproxLinearUCBBandit]:
         # UCB bandits should be deterministic with same parameters
         orig_action, _ = original_bandit.forward(test_context)
         loaded_action, _ = loaded_bandit.forward(test_context)
