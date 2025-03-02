@@ -618,27 +618,31 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
     def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         """Handle saving custom NeuralLinearBandit state.
 
-        First calls the parent implementation for LinearTSBandit state,
-        then adds neural network state and buffer state.
+        Args:
+            checkpoint: Dictionary to save the state into.
         """
         super().on_save_checkpoint(checkpoint)
 
         checkpoint["network_state"] = self.network.state_dict()
-        checkpoint["helper_network_state"] = self.helper_network.state_dict()
+        checkpoint["helper_network_state"] = self._helper_network.state_dict()
 
-        checkpoint["buffer_state"] = self.buffer.state_dict()
+        checkpoint["_should_train_network"] = self._should_train_network
+        checkpoint["_samples_without_training_network"] = self._samples_without_training_network
 
-        checkpoint["contextualized_actions"] = self.contextualized_actions
-        checkpoint["embedded_actions"] = self.embedded_actions
-        checkpoint["rewards"] = self.rewards
+        if hasattr(self, "contextualized_actions") and self.contextualized_actions.numel() > 0:
+            checkpoint["contextualized_actions"] = self.contextualized_actions
 
-        checkpoint["num_samples"] = self.num_samples
+        if hasattr(self, "embedded_actions") and self.embedded_actions.numel() > 0:
+            checkpoint["embedded_actions"] = self.embedded_actions
+
+        if hasattr(self, "rewards") and self.rewards.numel() > 0:
+            checkpoint["rewards"] = self.rewards
 
     def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         """Handle loading custom NeuralLinearBandit state.
 
-        First calls the parent implementation for LinearTSBandit state,
-        then restores neural network state and buffer state.
+        Args:
+            checkpoint: Dictionary containing the state to load.
         """
         super().on_load_checkpoint(checkpoint)
 
@@ -646,19 +650,20 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             self.network.load_state_dict(checkpoint["network_state"])
 
         if "helper_network_state" in checkpoint:
-            self.helper_network.load_state_dict(checkpoint["helper_network_state"])
+            self._helper_network.load_state_dict(checkpoint["helper_network_state"])
 
-        if checkpoint.get("buffer_state"):
-            self.buffer.load_state_dict(checkpoint["buffer_state"])
+        if "_should_train_network" in checkpoint:
+            self._should_train_network = checkpoint["_should_train_network"]
+            self.automatic_optimization = self._should_train_network
 
-        if "contextualized_actions" in checkpoint:
+        if "_samples_without_training_network" in checkpoint:
+            self._samples_without_training_network = checkpoint["_samples_without_training_network"]
+
+        if "contextualized_actions" in checkpoint and checkpoint["contextualized_actions"].numel() > 0:
             self.register_buffer("contextualized_actions", checkpoint["contextualized_actions"])
 
-        if "embedded_actions" in checkpoint:
+        if "embedded_actions" in checkpoint and checkpoint["embedded_actions"].numel() > 0:
             self.register_buffer("embedded_actions", checkpoint["embedded_actions"])
 
-        if "rewards" in checkpoint:
+        if "rewards" in checkpoint and checkpoint["rewards"].numel() > 0:
             self.register_buffer("rewards", checkpoint["rewards"])
-
-        if "num_samples" in checkpoint:
-            self.num_samples = checkpoint["num_samples"]

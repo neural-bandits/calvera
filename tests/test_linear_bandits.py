@@ -1,4 +1,4 @@
-from typing import Any, Dict, TypeVar
+from typing import Any, TypeVar
 
 import pytest
 import pytorch_lightning as pl
@@ -420,7 +420,7 @@ def test_bandit_state_checkpoint(BanditClass: BanditClassType) -> None:
     original_bandit.b = torch.tensor([0.5, 1.5, 2.5, 3.5])
     original_bandit.theta = torch.tensor([0.25, 0.75, 1.25, 1.75])
 
-    checkpoint: Dict[str, Any] = {}
+    checkpoint: dict[str, Any] = {}
     original_bandit.on_save_checkpoint(checkpoint)
 
     loaded_bandit = BanditClass(n_features=n_features)
@@ -433,10 +433,11 @@ def test_bandit_state_checkpoint(BanditClass: BanditClassType) -> None:
 
     # Verify selector was properly restored
     assert isinstance(loaded_bandit.selector, ArgMaxSelector)
-    assert checkpoint["selector_type"] == "ArgMaxSelector"
+    assert checkpoint["selector_state"]["type"] == "ArgMaxSelector"
 
     # Verify diagonal precision approximation flag for relevant classes
-    if BanditClass in [DiagonalPrecApproxLinearUCBBandit, DiagonalPrecApproxLinearTSBandit]:  # type: ignore
+    is_diagonal_approx = "DiagonalPrecApprox" in BanditClass.__name__
+    if is_diagonal_approx:
         assert checkpoint.get("diagonal_precision_approx") is True
 
 
@@ -449,7 +450,7 @@ def test_bandit_selector_checkpoint_epsilon_greedy(BanditClass: BanditClassType)
 
     original_bandit.selector.generator.get_state()
 
-    checkpoint: Dict[str, Any] = {}
+    checkpoint: dict[str, Any] = {}
     original_bandit.on_save_checkpoint(checkpoint)
 
     loaded_bandit = BanditClass(n_features=n_features)
@@ -458,11 +459,11 @@ def test_bandit_selector_checkpoint_epsilon_greedy(BanditClass: BanditClassType)
     # Verify selector was properly restored
     assert isinstance(loaded_bandit.selector, EpsilonGreedySelector)
     assert loaded_bandit.selector.epsilon == epsilon
-    assert checkpoint["selector_type"] == "EpsilonGreedySelector"
-    assert checkpoint["selector_epsilon"] == epsilon
+    assert checkpoint["selector_state"]["type"] == "EpsilonGreedySelector"
+    assert checkpoint["selector_state"]["epsilon"] == epsilon
 
     # Verify random generator state was saved
-    assert "selector_generator_state" in checkpoint
+    assert "generator_state" in checkpoint["selector_state"]
 
 
 @pytest.mark.parametrize("BanditClass", LinearBanditTypes)
@@ -470,24 +471,34 @@ def test_bandit_hyperparameters_checkpoint(BanditClass: BanditClassType) -> None
     """Test that model hyperparameters are properly preserved during checkpointing."""
     n_features = 5
     eps = 1e-3
-    alpha = 2.0
+    lambda_ = 2.0
+    exploration_rate = 2.0
     lazy_update = True
 
-    if BanditClass in [LinearUCBBandit, DiagonalPrecApproxLinearUCBBandit]:
-        original_bandit = BanditClass(n_features=n_features, eps=eps, alpha=alpha, lazy_uncertainty_update=lazy_update)
+    if "UCB" in BanditClass.__name__:
+        original_bandit = BanditClass(
+            n_features=n_features,
+            eps=eps,
+            lambda_=lambda_,
+            exploration_rate=exploration_rate,
+            lazy_uncertainty_update=lazy_update,
+        )
     else:
-        original_bandit = BanditClass(n_features=n_features, eps=eps, lazy_uncertainty_update=lazy_update)
+        original_bandit = BanditClass(
+            n_features=n_features, eps=eps, lambda_=lambda_, lazy_uncertainty_update=lazy_update
+        )
 
-    checkpoint: Dict[str, Any] = {}
+    checkpoint: dict[str, Any] = {}
     original_bandit.on_save_checkpoint(checkpoint)
 
     # Verify hyperparameters are maintained by lightning's hyperparameter saving
     assert original_bandit.hparams["n_features"] == n_features
     assert original_bandit.hparams["eps"] == eps
+    assert original_bandit.hparams["lambda_"] == lambda_
     assert original_bandit.hparams["lazy_uncertainty_update"] == lazy_update
 
-    if BanditClass in [LinearUCBBandit, DiagonalPrecApproxLinearUCBBandit]:
-        assert original_bandit.hparams["alpha"] == alpha
+    if "UCB" in BanditClass.__name__:
+        assert original_bandit.hparams["exploration_rate"] == exploration_rate
 
 
 @pytest.mark.parametrize("BanditClass", LinearBanditTypes)
@@ -508,7 +519,7 @@ def test_bandit_end_to_end_checkpoint(BanditClass: BanditClassType) -> None:
     initial_b = original_bandit.b.clone()
     initial_precision = original_bandit.precision_matrix.clone()
 
-    checkpoint: Dict[str, Any] = {}
+    checkpoint: dict[str, Any] = {}
     original_bandit.on_save_checkpoint(checkpoint)
 
     loaded_bandit = BanditClass(n_features=n_features, lazy_uncertainty_update=True)

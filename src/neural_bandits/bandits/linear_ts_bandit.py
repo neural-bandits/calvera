@@ -5,7 +5,7 @@ import torch
 from neural_bandits.bandits.action_input_type import ActionInputType
 from neural_bandits.bandits.linear_bandit import LinearBandit
 from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
-from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
+from neural_bandits.utils.selectors import AbstractSelector
 
 
 class LinearTSBandit(LinearBandit[ActionInputType]):
@@ -49,8 +49,8 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
             lambda_=lambda_,
             lazy_uncertainty_update=lazy_uncertainty_update,
             clear_buffer_after_train=clear_buffer_after_train,
+            selector=selector,
         )
-        self.selector = selector if selector is not None else ArgMaxSelector()  # type: ignore
 
     def _predict_action_hook(
         self, contextualized_actions: ActionInputType, **kwargs: Any
@@ -127,6 +127,10 @@ class DiagonalPrecApproxLinearTSBandit(LinearTSBandit[torch.Tensor]):
         return self.precision_matrix
 
     def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        """Handle saving custom LinearTSBandit state with diagonal precision approximation flag."""
+        """Handle saving custom DiagonalPrecApproxLinearTSBandit state.
+
+        Args:
+            checkpoint: Dictionary to save the state into.
+        """
         super().on_save_checkpoint(checkpoint)
         checkpoint["diagonal_precision_approx"] = True

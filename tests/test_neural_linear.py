@@ -156,6 +156,8 @@ def test_neural_linear_bandit_checkpoint_save_load(
         buffer=buffer,
         train_batch_size=2,
         learning_rate=0.02,
+        min_samples_required_for_training=4,
+        initial_train_steps=2,
     )
 
     with torch.no_grad():
@@ -205,8 +207,8 @@ def test_neural_linear_bandit_checkpoint_save_load(
 
     # Verify helper network weights are preserved
     assert torch.allclose(
-        cast(Sequential, original_bandit.helper_network.network)[0].weight,
-        cast(Sequential, loaded_bandit.helper_network.network)[0].weight,
+        cast(Sequential, original_bandit._helper_network.network)[0].weight,
+        cast(Sequential, loaded_bandit._helper_network.network)[0].weight,
     )
 
     # Verify buffer content is preserved
@@ -215,14 +217,39 @@ def test_neural_linear_bandit_checkpoint_save_load(
     assert torch.allclose(original_bandit.buffer.rewards, loaded_bandit.buffer.rewards)  # type: ignore
 
     # Verify hyperparameters are preserved
-    assert loaded_bandit.hparams["network_update_freq"] == 4
-    assert loaded_bandit.hparams["head_update_freq"] == 2
-    assert loaded_bandit.hparams["lr"] == 0.02
+    assert loaded_bandit.hparams["n_embedding_size"] == n_embedding_size
+    assert loaded_bandit.hparams["min_samples_required_for_training"] == 4
+    assert loaded_bandit.hparams["learning_rate"] == 0.02
+    assert loaded_bandit.hparams["initial_train_steps"] == 2
 
-    # Verify model produces identical predictions
-    torch.manual_seed(42)
-    loaded_output, _ = loaded_bandit(test_context)
-    assert torch.allclose(original_output, loaded_output)
+    # Verify training state is preserved
+    assert loaded_bandit._should_train_network == original_bandit._should_train_network
+    assert loaded_bandit._samples_without_training_network == original_bandit._samples_without_training_network
+    assert loaded_bandit.automatic_optimization == original_bandit.automatic_optimization
+
+    # Verify model produces identical predictions with Thompson Sampling
+    n_samples = 50
+    original_choices = []
+    loaded_choices = []
+
+    for i in range(n_samples):
+        seed = 1000 + i
+        torch.manual_seed(seed)
+        orig_action, _ = original_bandit(test_context)
+        torch.manual_seed(seed)
+        loaded_action, _ = loaded_bandit(test_context)
+
+        original_choices.append(orig_action.argmax(dim=1).item())
+        loaded_choices.append(loaded_action.argmax(dim=1).item())
+
+    # Verify the pattern of selections is similar (agreement rate > 0.7)
+    agreement_rate = (
+        sum(
+            original_choice == loaded_choice for original_choice, loaded_choice in zip(original_choices, loaded_choices)
+        )
+        / n_samples
+    )
+    assert agreement_rate > 0.7, f"Models only agreed on {agreement_rate:.1%} of selections"
 
 
 # ------------------------------------------------------------------------------

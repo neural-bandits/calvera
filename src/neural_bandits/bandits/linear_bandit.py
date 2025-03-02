@@ -6,7 +6,7 @@ import torch
 from neural_bandits.bandits.abstract_bandit import AbstractBandit
 from neural_bandits.bandits.action_input_type import ActionInputType
 from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
-from neural_bandits.utils.selectors import ArgMaxSelector, EpsilonGreedySelector, TopKSelector
+from neural_bandits.utils.selectors import AbstractSelector
 
 
 class LinearBandit(AbstractBandit[ActionInputType], ABC):
@@ -24,6 +24,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         self,
         n_features: int,
         buffer: Optional[AbstractBanditDataBuffer[Any, Any]] = None,
+        selector: Optional[AbstractSelector] = None,
         train_batch_size: int = 32,
         eps: float = 1e-2,
         lambda_: float = 1.0,
@@ -37,6 +38,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             buffer: The buffer used for storing the data for continuously updating the neural network.
                 For the linear bandit, it should always be an InMemoryDataBuffer with an AllDataBufferStrategy
                 because the buffer is cleared after each update.
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
             lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
@@ -51,6 +53,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             n_features=n_features,
             buffer=buffer,
             train_batch_size=train_batch_size,
+            selector=selector,
         )
         self.lazy_uncertainty_update = lazy_uncertainty_update
 
@@ -206,22 +209,32 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
 
         return self.precision_matrix
 
+    def on_train_end(self) -> None:
+        """Clear the buffer after training because the past data is not needed anymore."""
+        super().on_train_end()
+        if self.hparams["clear_buffer_after_train"]:
+            self.buffer.clear()
+
     def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        """Handle saving custom LinearBandit state."""
+        """Handle saving custom LinearBandit state.
+
+        Args:
+            checkpoint: Dictionary to save the state into.
+        """
+        super().on_save_checkpoint(checkpoint)
+
         checkpoint["precision_matrix"] = self.precision_matrix
         checkpoint["b"] = self.b
         checkpoint["theta"] = self.theta
 
-        if hasattr(self, "selector"):
-            checkpoint["selector_type"] = self.selector.__class__.__name__
-            if isinstance(self.selector, EpsilonGreedySelector):
-                checkpoint["selector_epsilon"] = self.selector.epsilon
-                checkpoint["selector_generator_state"] = self.selector.generator.get_state()
-            elif isinstance(self.selector, TopKSelector):
-                checkpoint["selector_k"] = self.selector.k
-
     def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        """Handle loading custom LinearBandit state."""
+        """Handle loading custom LinearBandit state.
+
+        Args:
+            checkpoint: Dictionary containing the state to load.
+        """
+        super().on_load_checkpoint(checkpoint)
+
         if "precision_matrix" in checkpoint:
             self.register_buffer("precision_matrix", checkpoint["precision_matrix"])
 
@@ -230,19 +243,3 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
 
         if "theta" in checkpoint:
             self.register_buffer("theta", checkpoint["theta"])
-
-        if "selector_type" in checkpoint and hasattr(self, "selector"):
-            if checkpoint["selector_type"] == "EpsilonGreedySelector":
-                self.selector = EpsilonGreedySelector(epsilon=checkpoint["selector_epsilon"])
-                if "selector_generator_state" in checkpoint:
-                    self.selector.generator.set_state(checkpoint["selector_generator_state"])
-            elif checkpoint["selector_type"] == "TopKSelector":
-                self.selector = TopKSelector(k=checkpoint["selector_k"])  # type: ignore
-            else:
-                self.selector = ArgMaxSelector()  # type: ignore
-
-    def on_train_end(self) -> None:
-        """Clear the buffer after training because the past data is not needed anymore."""
-        super().on_train_end()
-        if self.hparams["clear_buffer_after_train"]:
-            self.buffer.clear()

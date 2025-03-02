@@ -561,7 +561,6 @@ def test_neural_bandit_save_load_checkpoint(
 ) -> None:
     """
     Test saving and loading a Neural bandit model checkpoint.
-    Supports both UCB and TS variants.
     Verifies that the loaded model preserves state and produces identical predictions.
     """
     n_features, network, buffer = network_and_buffer
@@ -572,11 +571,11 @@ def test_neural_bandit_save_load_checkpoint(
             n_features=n_features,
             network=network,
             buffer=buffer,
-            lambda_=0.05,
-            nu=0.1,
+            weight_decay=0.05,
+            exploration_rate=0.1,
             learning_rate=0.02,
             train_batch_size=1,
-            train_interval=2,
+            min_samples_required_for_training=2,
             initial_train_steps=1,
         )
     else:
@@ -584,11 +583,11 @@ def test_neural_bandit_save_load_checkpoint(
             n_features=n_features,
             network=network,
             buffer=buffer,
-            lambda_=0.05,
-            nu=0.1,
+            weight_decay=0.05,
+            exploration_rate=0.1,
             learning_rate=0.02,
             train_batch_size=1,
-            train_interval=2,
+            min_samples_required_for_training=2,
             initial_train_steps=1,
         )
 
@@ -618,8 +617,8 @@ def test_neural_bandit_save_load_checkpoint(
     )
 
     # Verify hyperparameters are preserved
-    assert loaded_bandit.hparams["lambda_"] == original_bandit.hparams["lambda_"]
-    assert loaded_bandit.hparams["nu"] == original_bandit.hparams["nu"]
+    assert loaded_bandit.hparams["weight_decay"] == original_bandit.hparams["weight_decay"]
+    assert loaded_bandit.hparams["exploration_rate"] == original_bandit.hparams["exploration_rate"]
     assert loaded_bandit.hparams["learning_rate"] == original_bandit.hparams["learning_rate"]
 
     # Verify Z_t tensor is preserved
@@ -633,10 +632,8 @@ def test_neural_bandit_save_load_checkpoint(
         assert torch.allclose(orig_param, loaded_param)
 
     # Verify the model produces identical predictions after loading
-    loaded_predictions, _ = loaded_bandit(test_context)
-
     if bandit_type == "ucb":
-        assert torch.allclose(original_bandit(test_context)[0], loaded_bandit(test_context)[0])
+        assert torch.equal(original_bandit(test_context)[0], loaded_bandit(test_context)[0])
     else:
         n_samples = 50
         original_choices = []
@@ -679,7 +676,7 @@ def test_neural_bandit_save_load_with_epsilon_greedy(
     Ensures the selector type and state are preserved.
     """
     n_features, network, buffer = network_and_buffer
-    actions, rewards, dataset = small_context_reward_batch
+    _, _, dataset = small_context_reward_batch
 
     epsilon = 0.15
 
@@ -727,6 +724,17 @@ def test_neural_bandit_save_load_with_epsilon_greedy(
     assert isinstance(loaded_bandit.selector, EpsilonGreedySelector)
     assert loaded_bandit.selector.epsilon == epsilon
 
+    # Verify selector produces the same outputs with the same seeds
+    scores = torch.tensor([[0.9, 0.8, 0.7]])
+
+    original_bandit.selector.generator.manual_seed(123)  # type: ignore
+    loaded_bandit.selector.generator.manual_seed(123)
+
+    original_selection = original_bandit.selector(scores)
+    loaded_selection = loaded_bandit.selector(scores)
+
+    assert torch.equal(original_selection, loaded_selection), "Selector states don't match after loading"
+
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_buffer_state_preserved(
@@ -750,7 +758,7 @@ def test_neural_bandit_buffer_state_preserved(
             n_features=n_features,
             network=network,
             buffer=buffer,
-            train_interval=2,
+            min_samples_required_for_training=2,
             train_batch_size=2,
             initial_train_steps=2,
         )
@@ -759,7 +767,7 @@ def test_neural_bandit_buffer_state_preserved(
             n_features=n_features,
             network=network,
             buffer=buffer,
-            train_interval=2,
+            min_samples_required_for_training=2,
             train_batch_size=2,
             initial_train_steps=2,
         )
@@ -789,6 +797,11 @@ def test_neural_bandit_buffer_state_preserved(
 
     assert torch.equal(actions, loaded_bandit.buffer.contextualized_actions)  # type: ignore
     assert torch.equal(rewards.squeeze(1), loaded_bandit.buffer.rewards)  # type: ignore
+
+    # Verify counters were properly saved/loaded
+    assert loaded_bandit._new_samples_count == original_bandit._new_samples_count
+    assert loaded_bandit._total_samples_count == original_bandit._total_samples_count
+    assert loaded_bandit._should_train_network == original_bandit._should_train_network
 
 
 # ------------------------------------------------------------------------------
