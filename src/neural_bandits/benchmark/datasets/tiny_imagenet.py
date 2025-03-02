@@ -2,9 +2,8 @@ import logging
 import os
 import urllib.request
 import zipfile
-from typing import Callable, Literal, Optional, Tuple
+from typing import Literal, Tuple, cast
 
-import numpy as np
 import torch
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
@@ -86,18 +85,16 @@ def _restructure_test_folder(dataset_folder: str) -> None:
 def _setup_tinyimagenet(
     dest_path: str = "./data",
     split: str = "train",
-    transform: Optional[Callable] = None,
-) -> Tuple[ImageFolder, np.ndarray]:
+) -> Tuple[ImageFolder, torch.Tensor]:
     """Download, extract, and set up the TinyImageNet dataset.
 
     Args:
         dest_path: The directory where the dataset will be stored.
         split: Which split to use ('train', 'val', or 'test')
-        transform: Optional transforms to apply to the images
 
     Returns:
         image_dataset: The ImageFolder dataset for the specified split
-        labels: Array of labels corresponding to the dataset
+        labels: Tensor of labels corresponding to the dataset
     """
     dataset_folder = os.path.join(dest_path, "tiny-imagenet-200")
 
@@ -108,10 +105,9 @@ def _setup_tinyimagenet(
     if split == "val":
         _restructure_val_folder(dataset_folder)
 
-    if transform is None:
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))]
-        )
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))]
+    )
 
     if split == "train":
         folder_path = os.path.join(dataset_folder, "train")
@@ -130,7 +126,7 @@ def _setup_tinyimagenet(
             f"Make sure the dataset is downloaded and correctly structured."
         ) from e
 
-    labels = np.array([label for _, label in image_dataset.samples], dtype=np.int64)
+    labels = torch.tensor([label for _, label in image_dataset.samples], dtype=torch.int64)
 
     return image_dataset, labels
 
@@ -152,7 +148,6 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
         self,
         dest_path: str = "./data",
         split: Literal["train", "val", "test"] = "train",
-        transform: Optional[Callable] = None,
         needs_disjoint_contextualization: bool = True,
     ) -> None:
         """Initialize the Tiny ImageNet dataset.
@@ -160,7 +155,6 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
         Args:
             dest_path: The directory where the dataset will be stored.
             split: Which split to use ('train', 'val', or 'test')
-            transform: Optional transforms to apply to the images
             needs_disjoint_contextualization: Whether the dataset needs disjoint contextualization
         """
         super().__init__(needs_disjoint_contextualization=needs_disjoint_contextualization)
@@ -171,28 +165,27 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
         self.image_dataset, self.y = _setup_tinyimagenet(
             dest_path=dest_path,
             split=split,
-            transform=transform,
         )
 
         self.idx_to_class = {v: k for k, v in self.image_dataset.class_to_idx.items()}
 
         self.X = None
 
-    def _lazy_load_X(self) -> np.ndarray:
-        """Lazily load the images into a numpy array.
+    def _lazy_load_X(self) -> torch.Tensor:
+        """Lazily load the images into a tensor.
 
         Returns:
-            The flattened image array with shape (num_samples, 3*64*64)
+            The flattened image tensor with shape (num_samples, 3*64*64)
         """
         if self.X is None:
             logger.info("Loading all images into memory...")
-            X = []
+            X_list = []
             for idx in range(len(self.image_dataset)):
                 img, _ = self.image_dataset[idx]
-                img_flat = img.view(-1).numpy()
-                X.append(img_flat)
-            self.X = np.array(X, dtype=np.float32)
-        return self.X
+                img_flat = img.view(-1)
+                X_list.append(img_flat)
+            self.X = torch.stack(X_list)  # type: ignore
+        return cast(torch.Tensor, self.X)
 
     def __len__(self) -> int:
         """Return the number of contexts/samples in this dataset."""
