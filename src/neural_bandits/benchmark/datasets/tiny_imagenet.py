@@ -5,8 +5,7 @@ import zipfile
 from typing import Literal, Tuple, cast
 
 import torch
-from torchvision.datasets.folder import ImageFolder
-from torchvision.transforms import Compose, Normalize, ToTensor
+import torchvision
 
 from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
@@ -85,7 +84,7 @@ def _restructure_test_folder(dataset_folder: str) -> None:
 def _setup_tinyimagenet(
     dest_path: str = "./data",
     split: str = "train",
-) -> Tuple[ImageFolder, torch.Tensor]:
+) -> Tuple[torchvision.datasets.folder.ImageFolder, torch.Tensor]:
     """Download, extract, and set up the TinyImageNet dataset.
 
     Args:
@@ -105,7 +104,12 @@ def _setup_tinyimagenet(
     if split == "val":
         _restructure_val_folder(dataset_folder)
 
-    transform = Compose([ToTensor(), Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+    transform = torchvision.transforms.Compose(
+        [
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ]
+    )
 
     if split == "train":
         folder_path = os.path.join(dataset_folder, "train")
@@ -117,7 +121,7 @@ def _setup_tinyimagenet(
             _restructure_test_folder(dataset_folder)
 
     try:
-        image_dataset = ImageFolder(folder_path, transform=transform)
+        image_dataset = torchvision.datasets.folder.ImageFolder(folder_path, transform=transform)
     except (RuntimeError, FileNotFoundError) as e:
         raise RuntimeError(
             f"Error loading dataset from {folder_path}: {e}. "
