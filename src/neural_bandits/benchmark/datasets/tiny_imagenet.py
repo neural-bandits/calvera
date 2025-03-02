@@ -5,8 +5,8 @@ import zipfile
 from typing import Literal, Tuple, cast
 
 import torch
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
+from torchvision.datasets.folder import ImageFolder
+from torchvision.transforms import Compose, Normalize, ToTensor
 
 from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
 
@@ -105,9 +105,7 @@ def _setup_tinyimagenet(
     if split == "val":
         _restructure_val_folder(dataset_folder)
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))]
-    )
+    transform = Compose([ToTensor(), Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
 
     if split == "train":
         folder_path = os.path.join(dataset_folder, "train")
