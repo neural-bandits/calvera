@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional, cast
+from typing import Any, Mapping, Optional, cast
 
 import lightning as pl
 import torch
@@ -128,6 +128,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         # Model parameters: Initialize θ_t
         self.theta_t = network.to(self.device)
+        self.theta_t_init = self.theta_t.state_dict().copy() if self.hparams["warm_restart"] else None
+
         self.total_params = sum(p.numel() for p in self.theta_t.parameters() if p.requires_grad)
 
         # Initialize Z_0 = λI
@@ -299,13 +301,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             self._skip_training()
 
         if self.hparams["warm_restart"] and self.should_train_network:
-
-            def weight_reset(m: nn.Module) -> None:
-                reset_parameters = getattr(m, "reset_parameters", None)
-                if callable(reset_parameters):
-                    m.reset_parameters()  # type: ignore
-
-            self.theta_t.apply(weight_reset)
+            self.theta_t.load_state_dict(cast(Mapping[str, Any], self.theta_t_init))
 
     def _update(
         self,

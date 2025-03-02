@@ -3,7 +3,6 @@ from typing import Any, Optional, cast
 
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
-from torch import nn
 
 from neural_bandits.bandits.action_input_type import ActionInputType
 from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
@@ -190,6 +189,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         # Disable Lightning's automatic optimization. Has to be kept in sync with should_train_network.
         self.automatic_optimization = False
+        self._helper_network_init = self._helper_network.state_dict().copy() if self.hparams["warm_restart"] else None
 
     def _predict_action(
         self, contextualized_actions: ActionInputType, **kwargs: Any
@@ -383,14 +383,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
             self.should_train_network = True
 
-        if self.hparams["warm_restart"] and self.should_train_network:
-
-            def weight_reset(m: nn.Module) -> None:
-                reset_parameters = getattr(m, "reset_parameters", None)
-                if callable(reset_parameters):
-                    m.reset_parameters()  # type: ignore
-
-            self._helper_network.apply(weight_reset)
+        if self.hparams["warm_restart"] and self.should_train_network and self._helper_network_init is not None:
+            self._helper_network.load_state_dict(self._helper_network_init)
 
     def is_initial_training_stage(self) -> bool:
         """Check if the bandit is in the initial training stage.
