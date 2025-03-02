@@ -451,13 +451,26 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         reward: torch.Tensor,
     ) -> torch.Tensor:
         """Train the neural network on the given data by computing the loss."""
+        assert self.automatic_optimization, "Automatic optimization must be enabled for training the network."
+
+        assert reward.size(1) == 1, (
+            "The neural linear bandit can only choose one action at a time."
+            "Combinatorial Neural Linear is not supported."
+        )
         if isinstance(context, torch.Tensor):
+            assert context.size(1) == 1, (
+                "The neural linear bandit can only choose one action at a time."
+                "Combinatorial Neural Linear is not supported."
+            )
             predicted_reward: torch.Tensor = self._helper_network.forward(
-                context.view(-1, context.size(-1)).to(self.device)
+                context.squeeze(1).to(self.device)
             )  # shape: (batch_size,)
         else:
+            assert all(
+                input_part.size(1) == 1 for input_part in context
+            ), "The neural linear bandit can only choose one action at a time."
             predicted_reward = self._helper_network.forward(
-                *tuple(input_part.view(-1, input_part.size(-1)).to(self.device) for input_part in context)
+                *tuple(input_part.squeeze(1).to(self.device) for input_part in context)
             )  # shape: (batch_size,)
 
         loss = self._compute_loss(predicted_reward, reward)

@@ -285,7 +285,7 @@ def test_update_correct() -> None:
       - chosen_actions = [[2.0]]
       - realized_rewards = [1.0]
 
-    The manual Sherman-Morrison update for M should yield:
+    The manual update for the precision_matrix should yield:
       M_new = [[0.2]]
       b_new = [2.0]
       theta_new = [0.4]
@@ -376,6 +376,7 @@ def test_update_zero_denominator(
     chosen_actions = torch.tensor([[[2.0]]])
     realized_rewards = torch.zeros(1, 1)
 
+    bandit.save_hyperparameters({"eps": 0.0})
     bandit.precision_matrix = torch.tensor([[-0.25]])  # shape (1,1)
 
     with pytest.raises((AssertionError, Exception)):

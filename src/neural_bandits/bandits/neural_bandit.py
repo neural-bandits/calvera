@@ -334,7 +334,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         """Train the neural network on the given data by computing the loss."""
         # Compute f(x_i,a_i; θ)
         f_theta = self.theta_t(context)
-        L_theta = self._compute_loss(f_theta, reward)
+        predicted_reward = f_theta.squeeze(-1)
+        L_theta = self._compute_loss(predicted_reward, reward)
 
         # Compute the average loss
         avg_loss = L_theta.mean()
