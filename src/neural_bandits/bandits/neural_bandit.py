@@ -52,7 +52,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         early_stop_threshold: Optional[float] = 1e-3,
         min_samples_required_for_training: Optional[int] = 64,
         initial_train_steps: int = 1024,
-        warm_restart: bool = False,
+        warm_restart: bool = True,
     ) -> None:
         """Initialize the NeuralUCB bandit module.
 
@@ -300,7 +300,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
             self._skip_training()
 
-        if self.hparams["warm_restart"] and self.should_train_network:
+        if not self.hparams["warm_restart"] and self.should_train_network:
             self.theta_t.load_state_dict(cast(Mapping[str, Any], self.theta_t_init))
 
     def _update(

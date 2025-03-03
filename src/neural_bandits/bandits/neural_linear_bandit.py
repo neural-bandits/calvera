@@ -89,7 +89,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: Optional[float] = 1e-3,
         initial_train_steps: int = 1024,
-        warm_restart: bool = False,
+        warm_restart: bool = True,
     ) -> None:
         """Initializes the NeuralLinearBanditModule.
 
@@ -189,7 +189,9 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         # Disable Lightning's automatic optimization. Has to be kept in sync with should_train_network.
         self.automatic_optimization = False
-        self._helper_network_init = self._helper_network.state_dict().copy() if self.hparams["warm_restart"] else None
+        self._helper_network_init = (
+            self._helper_network.state_dict().copy() if not self.hparams["warm_restart"] else None
+        )
 
     def _predict_action(
         self, contextualized_actions: ActionInputType, **kwargs: Any
