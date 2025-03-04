@@ -26,11 +26,22 @@ Calvera is available on [PyPI](https://pypi.org/). Install it via pip:
 
 ```bash
 pip install calvera
+```
+This installs the necessary dependencies for the base library. If you want to use parts of the benchmark subpackage we recommend installing the optional dependencies as well:
 
-Quick Start
+```bash
+pip install calvera[benchmark]
+```
+For development you can install the development dependencies via:
+
+```bash
+pip install calvera[dev]
+```
+
+## Quick Start
 
 Below is a simple example using a Linear Thompson Sampling bandit:
-
+```python
 import torch
 from calvera.bandits.linear_ts_bandit import LinearTSBandit, get_linear_ts_trainer
 
@@ -73,18 +84,21 @@ Detailed benchmarks, datasets, and experimental results are available in the ext
 
 ## Contributing
 
-Contributions are welcome! For guidelines on how to contribute, please refer to our CONTRIBUTING.md.
+Contributions are welcome! For guidelines on how to contribute, please refer to our [CONTRIBUTING.md](https://github.com/neural-bandits/calvera/blob/main/CONTRIBUTING.md).
 
 ## License
 
-Calvera is licensed under the MIT License. See the LICENSE file for details.
+Calvera is licensed under the MIT License. See the [LICENSE file](https://github.com/neural-bandits/calvera/blob/main/LICENSE) for details.
 
 ## Contact
 
 For questions or feedback, please reach out to one of the authors:
-	•	Philipp Kolbe
-	•	Robert Weeke
-	•	Parisa Shahabinejad
+
+- Philipp Kolbe
+
+- Robert Weeke
+
+- Parisa Shahabinejad
 
 ---
 
