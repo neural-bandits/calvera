@@ -723,7 +723,7 @@ def run_from_yaml(
     log_dir = os.path.dirname(config_path)
 
     # Load the configuration from the passed yaml file
-    with open(args.config) as file:
+    with open(config_path) as file:
         config = yaml.safe_load(file)
 
     assert "bandit" in config, "Configuration must contain a 'bandit' key."
