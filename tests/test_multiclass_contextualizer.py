@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from neural_bandits.benchmark.multiclass import MultiClassContextualizer
+from calvera.benchmark.multiclass import MultiClassContextualizer
 
 
 class TestMultiClasscontextualizer:
