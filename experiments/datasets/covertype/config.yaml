@@ -1,15 +1,15 @@
 dataset: covertype
 
 bandit:
-  - approx_lin_ts
   - approx_lin_ucb
   - lin_ts
   - lin_ucb
+  - approx_lin_ts
   - neural_linear
   - neural_ts
   - neural_ucb
 
-max_samples: 50
+max_samples: 20480
 
 selector: argmax
 
@@ -31,10 +31,10 @@ data_strategy: all
 # Bandit arguments
 bandit_hparams:
   exploration_rate: 0.1
-  lr: 1e-4
+  lr: 0.0001
   weight_decay: 0.00001
   min_samples_required_for_training: 128
   initial_train_steps: 1024
   n_embedding_size: 64
 
-seed: 42
+seed: 52
