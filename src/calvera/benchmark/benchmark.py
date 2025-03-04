@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import yaml
 from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
@@ -35,6 +36,12 @@ from calvera.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from calvera.benchmark.datasets.mnist import MNISTDataset
 from calvera.benchmark.datasets.movie_lens import MovieLensDataset
 from calvera.benchmark.datasets.statlog import StatlogDataset
+from calvera.benchmark.datasets.synthetic import (
+    CubicSyntheticDataset,
+    LinearCombinationSyntheticDataset,
+    LinearSyntheticDataset,
+    SinSyntheticDataset,
+)
 from calvera.benchmark.datasets.wheel import WheelBanditDataset
 from calvera.benchmark.environment import BanditBenchmarkEnvironment
 from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
@@ -76,6 +83,10 @@ datasets: dict[str, type[AbstractDataset[Any]]] = {
     "mnist": MNISTDataset,
     "statlog": StatlogDataset,
     "wheel": WheelBanditDataset,
+    "synthetic_linear": LinearSyntheticDataset,
+    "synthetic_cubic": CubicSyntheticDataset,
+    "synthetic_sin": SinSyntheticDataset,
+    "synthetic_linear_comb": LinearCombinationSyntheticDataset,
     "imdb": ImdbMovieReviews,
     "movielens": MovieLensDataset,
 }
@@ -189,7 +200,8 @@ class BanditBenchmark(Generic[ActionInputType]):
             An instantiated BanditBenchmark instance.
         """
         bandit_name = config["bandit"]
-        dataset = datasets[config["dataset"]]()
+        DatasetClass = datasets[config["dataset"]]
+        dataset = DatasetClass(**filter_kwargs(DatasetClass, config.get("dataset_hparams", {})))
 
         training_params = config
         bandit_hparams: dict[str, Any] = config.get("bandit_hparams", {})

@@ -1,4 +1,4 @@
-dataset: synthetic_sin
+dataset: synthetic_cubic
 dataset_hparams:
   n_features: 40
   num_samples: 20480
