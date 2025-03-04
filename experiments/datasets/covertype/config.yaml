@@ -1,0 +1,40 @@
+dataset: covertype
+
+bandit:
+  - approx_lin_ts
+  - approx_lin_ucb
+  - lin_ts
+  - lin_ucb
+  - neural_linear
+  - neural_ts
+  - neural_ucb
+
+max_samples: 50
+
+selector: argmax
+
+# Setting
+feedback_delay: 1
+forward_batch_size: 1
+
+# Trainer arguments
+max_steps: 1024
+train_batch_size: 32  # this is actually passed to the bandit but it needs to be here
+gradient_clip_val: 20.0
+
+# Network
+network: small_mlp  # 1 hidden layer with 64 units
+
+# Buffer
+data_strategy: all
+
+# Bandit arguments
+bandit_hparams:
+  exploration_rate: 0.1
+  lr: 1e-4
+  weight_decay: 0.00001
+  min_samples_required_for_training: 128
+  initial_train_steps: 1024
+  n_embedding_size: 64
+
+seed: 42

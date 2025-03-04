@@ -51,11 +51,14 @@ from neural_bandits.utils.selectors import (
     TopKSelector,
 )
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 try:
     from transformers import BertModel
 except Exception as e:
-    logging.warning("Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly.")
-    logging.warning(e)
+    logger.warning("Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly.")
+    logger.warning(e)
     pass
 
 bandits: dict[str, type[AbstractBandit[Any]]] = {
@@ -235,10 +238,13 @@ class BanditBenchmark(Generic[ActionInputType]):
             logger: Optional Lightning logger to record metrics.
         """
         self.bandit = bandit
+        self.device = training_params.get("device", "cpu")
+        bandit.to(self.device)
+        print(f"Bandit moved to device: {self.device}")
 
         self.training_params = training_params
-        self.training_params["seed"] = training_params.get("seed", 42)
-        pl.seed_everything(training_params["seed"])
+        self.training_params["seed"] = self.training_params.get("seed", 42)
+        pl.seed_everything(self.training_params["seed"])
 
         self.logger: Optional[OnlineBanditLoggerDecorator] = (
             OnlineBanditLoggerDecorator(logger, enable_console_logging=False) if logger is not None else None
@@ -287,7 +293,6 @@ class BanditBenchmark(Generic[ActionInputType]):
         self.regrets = np.array([])
         self.rewards = np.array([])
 
-        train_batch_size = self.training_params.get("train_batch_size", 1)
         # Iterate over one epoch (or limited iterations) from the environment.
         progress_bar = tqdm(iter(self.environment), total=len(self.environment))
         for contextualized_actions in progress_bar:
@@ -321,12 +326,18 @@ class BanditBenchmark(Generic[ActionInputType]):
                 enable_checkpointing=False,
                 enable_model_summary=False,
                 log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
+                accelerator=self.device,
                 **optional_kwargs,
             )
 
             self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards)
             # Train the bandit on the current feedback.
             trainer.fit(self.bandit)
+            trainer.save_checkpoint(os.path.join(self.log_dir, "checkpoint.ckpt"))
+
+            # Unfortunately, after each training run the model is moved to the CPU by lightning.
+            # We need to move it back to the device.
+            self.bandit = self.bandit.to(self.device)
 
         df = pd.DataFrame(
             {
@@ -388,31 +399,44 @@ class BenchmarkAnalyzer:
 
     def __init__(
         self,
+        log_dir: str = "logs",
+        results_dir: str = "results",
         bandit_logs_file: str = "metrics.csv",
         metrics_file: str = "env_metrics.csv",
+        save_plots: bool = False,
         suppress_plots: bool = False,
     ) -> None:
         """Initializes the BenchmarkAnalyzer.
 
         Args:
+            log_dir: Directory where the logs are stored/outputted to. Default is "logs".
+            results_dir: Subdirectory of log_dir where the results are outputted to. Default is "results".
             bandit_logs_file: Name of the metrics file of the CSV Logger. Default is "metrics.csv".
             metrics_file: Name of the metrics file. Default is "env_metrics.csv".
-
+            save_plots: If True, plots will be saved to the results directory. Default is False.
             suppress_plots: If True, plots will not be automatically shown. Default is False.
         """
+        assert save_plots or not suppress_plots, "Cannot suppress plots and not save them."
+
+        self.log_dir = log_dir
+        self.results_dir = os.path.join(log_dir, results_dir)
         self.bandit_logs_file = bandit_logs_file
         self.env_metrics_file = metrics_file
         self.suppress_plots = suppress_plots
+        self.save_plots = save_plots
+
         self.env_metrics_df = pd.DataFrame()
         self.bandit_logs_df = pd.DataFrame()
 
-    def load_metrics(self, log_path: str, bandit: str = "bandit") -> None:
+    def load_metrics(self, log_path: Optional[str] = None, bandit: str = "bandit") -> None:
         """Loads the logs from the log path.
 
         Args:
             log_path: Path to the log data.
             bandit: A name of the bandit. Default is "bandit".
         """
+        if log_path is None:
+            log_path = self.log_dir
         new_metrics_df = self._load_df(log_path, self.env_metrics_file)
 
         if new_metrics_df is not None:
@@ -439,11 +463,14 @@ class BenchmarkAnalyzer:
         try:
             return pd.read_csv(os.path.join(log_path, file_name))
         except FileNotFoundError:
-            logging.warning(f"Could not find metrics file {file_name} in {log_path}.")
+            logger.warning(f"Could not find metrics file {file_name} in {log_path}.")
             return None
 
     def plot_accumulated_metric(self, metric_name: str | list[str]) -> None:
         """Plots the accumulated metric over training steps.
+
+        If several metrics are passed they are all plotted in the same plot.
+        If the analyzer has seen data from several bandits they are plotted in the same plot.
 
         Args:
             metric_name: The name(s) of the metric(s) to plot.
@@ -455,28 +482,31 @@ class BenchmarkAnalyzer:
             raise ValueError("Cannot plot multiple metrics for multiple bandits.")
 
         if any(name not in self.env_metrics_df.columns for name in metric_name):
-            print(f"\nNo {metric_name} data found in logs.")
+            logger.warning(f"\One of {','.join(metric_name)} data not found in logs.")
             return
 
         plt.figure(figsize=(10, 5))
         if self.env_metrics_df["bandit"].nunique() > 1:
-            for _, bandit_df in self.env_metrics_df.groupby("bandit"):
-                accumulated_metric = bandit_df[metric_name].fillna(0).cumsum()
-                plt.plot(accumulated_metric, label=bandit_df["bandit"].iloc[0])
+            for bandit_name, bandit_df in self.env_metrics_df.groupby("bandit"):
+                accumulated_metric = bandit_df[metric_name[0]].fillna(0).cumsum()
+                plt.plot(bandit_df["step"], accumulated_metric, label=bandit_name)
+                plt.ylabel(f"Accumulated {metric_name[0]}")
         else:
-            accumulated_metric = self.env_metrics_df[metric_name].fillna(0).cumsum()
-
             for metric in metric_name:
                 accumulated_metric = self.env_metrics_df[metric].fillna(0).cumsum()
-                plt.plot(accumulated_metric, label=metric)
+                plt.plot(self.env_metrics_df["step"], accumulated_metric, label=metric)
 
         plt.xlabel("Step")
         plt.legend()
         plt.title(f"Accumulated {', '.join(metric_name)} over training steps")
 
+        if self.save_plots:
+            path = os.path.join(self.results_dir, f"acc_{'_'.join(metric_name)}.png")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            plt.savefig(path)
+
         if not self.suppress_plots:
             plt.show()
-            plt.savefig(f"acc_{metric_name}.png")
 
     def plot_average_metric(self, metric_name: str) -> None:
         """Plots the average metric over training steps.
@@ -485,58 +515,59 @@ class BenchmarkAnalyzer:
             metric_name: The name of the metric to plot.
         """
         if metric_name not in self.env_metrics_df.columns:
-            print(f"\nNo {metric_name} data found in logs.")
+            logger.warning(f"\nNo {metric_name} data found in logs.")
             return
-
-        # Print average metrics
-        valid_idx = self.env_metrics_df[metric_name].dropna().index
-        accumulated_metric = self.env_metrics_df.loc[valid_idx, metric_name].cumsum()
-        steps = self.env_metrics_df.loc[valid_idx, "step"]
 
         # Plot how average changes over time
         plt.figure(figsize=(10, 5))
-        for metric in metric_name:
-            if metric not in self.env_metrics_df.columns:
-                print(f"\nNo {metric} data found in logs.")
-                continue
 
-            # Print average metrics
-            valid_idx = self.env_metrics_df[metric_name].dropna().index
-            accumulated_metric = self.env_metrics_df.loc[valid_idx, metric_name].cumsum()
-            steps = self.env_metrics_df.loc[valid_idx, "step"]
+        for bandit_name, bandit_df in self.env_metrics_df.groupby("bandit"):
+            valid_idx = bandit_df[metric_name].dropna().index
+            accumulated_metric = bandit_df.loc[valid_idx, metric_name].cumsum()
+            steps = bandit_df.loc[valid_idx, "step"]
 
             # Plot how average changes over time
-            plt.plot(accumulated_metric / steps, label=metric_name)
+            plt.plot(steps, accumulated_metric / (steps + 1), label=bandit_name)
 
+        plt.ylabel(f"Average {metric_name}")
         plt.xlabel("Step")
         plt.legend()
-        plt.title(f"Average {', '.join(metric_name)} over training steps")
+        plt.title(f"Average {metric_name} over training steps")
+
+        if self.save_plots:
+            path = os.path.join(self.results_dir, f"avg_{metric_name}.png")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            plt.savefig(path)
 
         if not self.suppress_plots:
             plt.show()
-            plt.savefig(f"avg_{metric_name}.png")
 
     def plot_loss(self) -> None:
         """Plots the loss over training steps."""
         # Generate a plot for the loss
         if "loss" not in self.bandit_logs_df.columns:
-            print("\nNo loss data found in logs.")
+            logger.warning("\nNo loss data found in logs.")
             return
 
         plt.figure(figsize=(10, 5))
         for bandit_name, bandit_df in self.bandit_logs_df.groupby("bandit"):
             loss = bandit_df["loss"].dropna()
             if loss.empty:
-                print(f"No loss data found in logs for {bandit_name}")
+                logger.warning(f"No loss data found in logs for {bandit_name}")
                 continue
-            plt.plot(loss, label=bandit_name)
+            plt.plot(bandit_df["step"], loss, label=bandit_name)
         plt.xlabel("Step")
         plt.ylabel("Loss")
+        plt.legend()
         plt.title("Loss over training steps")
+
+        if self.save_plots:
+            path = os.path.join(self.results_dir, "loss.png")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            plt.savefig(path)
 
         if not self.suppress_plots:
             plt.show()
-            plt.savefig("loss.png")
 
     def log_metrics(self, bandit: str = "bandit") -> None:
         """Logs the metrics of the bandits run to the console.
@@ -549,41 +580,58 @@ class BenchmarkAnalyzer:
         if bandit_df.empty:
             raise ValueError(f"No metrics found for {bandit}.")
 
-        logging.info(f"Metrics of {bandit}:")
-        logging.info(f"Avg Regret: {bandit_df['regret'].mean()}")
-        logging.info(f"Avg Reward: {bandit_df['reward'].mean()}")
-        logging.info(f"Accumulated Regret: {bandit_df['regret'].sum()}")
-        logging.info(f"Accumulated Reward: {bandit_df['reward'].sum()}")
+        str = f"Metrics of {bandit}:\n"
+        str += f"Avg Regret: {bandit_df['regret'].mean()}\n"
+        str += f"Avg Reward: {bandit_df['reward'].mean()}\n"
+        str += f"Accumulated Regret: {bandit_df['regret'].sum()}\n"
+        str += f"Accumulated Reward: {bandit_df['reward'].sum()}\n"
 
         # log avg_regret from first 10, 100, 1000, 10000, ... steps
+        i = 1
         while True:
-            steps = 10 ** len(str(bandit_df["step"].max()))
-            avg_regret = bandit_df[bandit_df["step"] < steps]["regret"].mean()
-            logging.info(f"Avg Regret (first {steps} steps): {avg_regret}")
-
+            steps = 10**i
             if steps >= bandit_df["step"].max():
                 break
+
+            avg_regret = bandit_df[bandit_df["step"] < steps]["regret"].mean()
+            str += f"Avg Regret (first {steps} steps): {avg_regret}\n"
+
+            i += 1
 
         # log from last steps
+        i = 1
         while True:
-            steps = 10 ** len(str(bandit_df["step"].max()))
-            avg_regret = bandit_df[bandit_df["step"] > bandit_df["step"].max() - steps]["regret"].mean()
-            logging.info(f"Avg Regret (last {steps} steps): {avg_regret}")
-
+            steps = 10**i
             if steps >= bandit_df["step"].max():
                 break
+
+            avg_regret = bandit_df[bandit_df["step"] > bandit_df["step"].max() - steps]["regret"].mean()
+            str += f"Avg Regret (last {steps} steps): {avg_regret}\n"
+
+            i += 1
+
+        print(str)
+
+        # Write to file
+        if self.save_plots:
+            path = os.path.join(self.log_dir, bandit, "metrics.txt")
+            with open(path, "w+") as f:
+                f.write(str)
 
 
 def run(
     config: dict[str, Any],
+    log_dir: str = "logs",
+    save_plots: bool = False,
     suppress_plots: bool = False,
-    log_dir="./logs",
 ) -> None:
     """Runs the benchmark training on a single given bandit.
 
     Args:
         config: Contains the `bandit`, `dataset`, `bandit_hparams`
             and other parameters necessary for setting up the benchmark and bandit.
+        log_dir: Directory where the logs are stored/outputted to. Default is "logs".
+        save_plots: If True, plots be saved on disk. Default is False.
         suppress_plots: If True, plots will not be automatically shown. Default is False.
     """
     logger = CSVLogger(log_dir)
@@ -591,14 +639,15 @@ def run(
     print(f"Running benchmark for {config['bandit']} on {config['dataset']} dataset.")
     print(f"Config: {config}")
     print(
-        f"Dataset {config['dataset']}:"
-        f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
+        f"Dataset {config['dataset']}: \n"
+        f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features "
         f"and {benchmark.dataset.num_actions} actions."
     )
     benchmark.run()
 
-    analyzer = BenchmarkAnalyzer("metrics.csv", "env_metrics.csv", suppress_plots)
-    analyzer.load_metrics(logger.log_dir)
+    analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
+    analyzer.load_metrics()
+    analyzer.log_metrics()
     analyzer.plot_accumulated_metric(["reward", "regret"])
     analyzer.plot_average_metric("reward")
     analyzer.plot_average_metric("regret")
@@ -607,8 +656,9 @@ def run(
 
 def run_comparison(
     config: dict[str, Any],
+    log_dir: str = "logs",
+    save_plots: bool = False,
     suppress_plots: bool = False,
-    log_dir="./logs",
 ):
     """Runs the benchmark training on multiple bandits.
 
@@ -616,11 +666,13 @@ def run_comparison(
         config: Contains the `bandit`, `dataset`, `bandit_hparams`
             and other parameters necessary for setting up the benchmark and bandit.
             The `bandit` must be a list of bandits to compare.
+        log_dir: Directory where the logs are stored/outputted to. Default is "logs".
+        save_plots: If True, plots be saved on disk. Default is False.
         suppress_plots: If True, plots will not be automatically shown. Default is False.
     """
     assert isinstance(config["bandit"], list), "Bandit must be a list of bandits to compare."
 
-    analyzer = BenchmarkAnalyzer("metrics.csv", "env_metrics.csv", suppress_plots)
+    analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
 
     for bandit in config["bandit"]:
         print("==============================================")
@@ -628,8 +680,8 @@ def run_comparison(
         bandit_config = copy.deepcopy(config)
         bandit_config["bandit"] = bandit
 
-        logger = CSVLogger(os.path.join(log_dir, bandit))
-        benchmark = BanditBenchmark.from_config(bandit_config, logger)
+        csv_logger = CSVLogger(os.path.join(log_dir, bandit), version=0)
+        benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
         print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
         print(f"Config: {bandit_config}")
         print(
@@ -639,7 +691,8 @@ def run_comparison(
         )
         benchmark.run()
 
-        analyzer.load_metrics(logger.log_dir, bandit)
+        analyzer.load_metrics(csv_logger.log_dir, bandit)
+        analyzer.log_metrics(bandit)
 
     analyzer.plot_accumulated_metric("reward")
     analyzer.plot_accumulated_metric("regret")
@@ -647,7 +700,49 @@ def run_comparison(
     analyzer.plot_average_metric("regret")
     analyzer.plot_loss()
 
+    if suppress_plots:
+        print("Plots were suppressed. Set suppress_plots to False to show plots.")
+    if save_plots:
+        print(f"Plots were saved to {analyzer.results_dir}. Set save_plots to False to suppress saving.")
+    else:
+        print("Plots were not saved. Set save_plots to True to save plots.")
 
+
+def run_from_yaml(
+    config_path: str,
+    save_plots: bool = False,
+    suppress_plots: bool = False,
+) -> None:
+    """Runs the benchmark training from a yaml file.
+
+    Args:
+        config_path: Path to the configuration file.
+        save_plots: If True, plots will be saved to the results directory. Default is False.
+        suppress_plots: If True, plots will not be automatically shown. Default is False.
+    """
+    log_dir = os.path.dirname(config_path)
+
+    # Load the configuration from the passed yaml file
+    with open(args.config) as file:
+        config = yaml.safe_load(file)
+
+    assert "bandit" in config, "Configuration must contain a 'bandit' key."
+    if isinstance(config["bandit"], list):
+        run_comparison(config, log_dir, save_plots, suppress_plots)
+    elif isinstance(config["bandit"], str):
+        run(config, log_dir, save_plots, suppress_plots)
+    else:
+        raise ValueError("Bandit must be a string or a list of strings.")
+
+
+"""Runs the benchmark training from the command line.
+    
+    Args:
+        config: Path to the configuration file.
+
+    Usage:
+        ``python src/neural_bandits/benchmark/benchmark.py experiments/datasets/covertype.yaml``
+"""
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run a bandit benchmark.")
@@ -655,16 +750,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Load the configuration from the passed yaml file
-    with open(args.config, "r") as file:
-        config = yaml.safe_load(file)
-
-    log_dir = os.path.dirname(args.config)
-
-    assert "bandit" in config, "Configuration must contain a 'bandit' key."
-    if isinstance(config["bandit"], list):
-        run_comparison(config, log_dir)
-    elif isinstance(config["bandit"], str):
-        run(config, log_dir)
-    else:
-        raise ValueError("Bandit must be a string or a list of strings.")
+    run_from_yaml(args.config, save_plots=True, suppress_plots=True)

@@ -329,12 +329,13 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
     def _train_network(
         self,
-        context: torch.Tensor,
-        reward: torch.Tensor,
+        context: torch.Tensor,  # shape: (batch_size, n_arms, n_features)
+        reward: torch.Tensor,  # shape: (batch_size, n_arms)
     ) -> torch.Tensor:
         """Train the neural network on the given data by computing the loss."""
         # Compute f(x_i,a_i; θ)
-        f_theta = self.theta_t(context)
+        f_theta = self.theta_t(context)  # shape: (batch_size, n_arms, 1)
+        f_theta = f_theta.squeeze(2)  # shape: (batch_size, n_arms)
         L_theta = self._compute_loss(f_theta, reward)
 
         # Compute the average loss

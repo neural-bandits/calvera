@@ -369,8 +369,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             required_samples = self.hparams["min_samples_required_for_training"]
             if num_samples <= required_samples and not self.is_initial_training_stage():
                 logger.warning(
-                    f"The train_dataloader passed to trainer.fit() contains {num_samples}"
-                    f"which is less than min_samples_required_for_training={required_samples}."
+                    f"The train_dataloader passed to trainer.fit() contains {num_samples} "
+                    f"which is less than min_samples_required_for_training={required_samples}. "
                     f"Even though the initial training stage is over and not enough data samples were passed, "
                     "the network will still be trained, only on this data (no data from buffer). "
                     "Consider passing more data or decreasing min_samples_required_for_training."
