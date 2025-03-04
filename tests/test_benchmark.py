@@ -1,4 +1,4 @@
-from neural_bandits.benchmark.benchmark import filter_kwargs, run
+from neural_bandits.benchmark.benchmark import filter_kwargs, run, run_comparison
 
 
 def test_lin_ucb_benchmark() -> None:
@@ -51,6 +51,25 @@ def test_neural_linear_benchmark() -> None:
             "forward_batch_size": 1,
             "data_strategy": "sliding_window",
             "sliding_window_size": 1,
+            "bandit_hparams": {
+                "n_embedding_size": 128,
+            },
+        },
+        suppress_plots=True,
+    )
+
+
+def test_run_comparison() -> None:
+    run_comparison(
+        {
+            "bandit": ["neural_ucb", "neural_ts"],
+            "dataset": "covertype",
+            "network": "tiny_mlp",
+            "max_samples": 100,
+            "feedback_delay": 1,
+            "train_batch_size": 1,
+            "forward_batch_size": 1,
+            "data_strategy": "all",
             "bandit_hparams": {
                 "n_embedding_size": 128,
             },

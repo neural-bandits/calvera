@@ -1,8 +1,11 @@
+import argparse
+import copy
 import inspect
 import logging
 import os
 import random
 from typing import Any, Callable, Dict, Generic, Optional
+import yaml
 
 import lightning as pl
 import matplotlib.pyplot as plt
@@ -97,33 +100,33 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
     "small_mlp": lambda in_size, out_size: torch.nn.Sequential(
         torch.nn.Linear(in_size, 128),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 128),
+        torch.nn.Linear(128, 128),
         torch.nn.ReLU(),
         torch.nn.Linear(128, out_size),
     ),
     "large_mlp": lambda in_size, out_size: torch.nn.Sequential(
         torch.nn.Linear(in_size, 256),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 256),
+        torch.nn.Linear(256, 256),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 256),
+        torch.nn.Linear(256, 256),
         torch.nn.ReLU(),
         torch.nn.Linear(256, out_size),
     ),
     "deep_mlp": lambda in_size, out_size: torch.nn.Sequential(
         torch.nn.Linear(in_size, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
         torch.nn.Linear(64, out_size),
     ),
@@ -299,21 +302,26 @@ class BanditBenchmark(Generic[ActionInputType]):
             progress_bar.set_postfix(
                 regret=regrets.mean().item(),
                 reward=realized_rewards.mean().item(),
+                avg_reward=self.rewards.mean(),
                 avg_regret=self.regrets.mean(),
+                acc_regret=self.regrets.sum(),
             )
 
-            assert train_batch_size <= chosen_actions.size(
-                0
-            ), "train_batch_size must be lower than or equal to the data loaders batch_size (feedback_delay)."
+            optional_kwargs = {}
+            bandit_name = self.bandit.__class__.__name__.lower()
+            # Only NeuralUCB and NeuralTS can handle gradient clipping. Others will throw an error!
+            if "Neural" in bandit_name and "Linear" not in bandit_name:
+                optional_kwargs["gradient_clip_val"] = self.training_params.get("gradient_clip_val", None)
+
             trainer = pl.Trainer(
                 max_epochs=1,
                 max_steps=self.training_params.get("max_steps", -1),
-                gradient_clip_val=self.training_params.get("gradient_clip_val", 0.0),
                 logger=self.logger,
                 enable_progress_bar=False,
                 enable_checkpointing=False,
                 enable_model_summary=False,
                 log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
+                **optional_kwargs,
             )
 
             self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards)
@@ -380,7 +388,6 @@ class BenchmarkAnalyzer:
 
     def __init__(
         self,
-        log_path: str,
         bandit_logs_file: str = "metrics.csv",
         metrics_file: str = "env_metrics.csv",
         suppress_plots: bool = False,
@@ -388,69 +395,80 @@ class BenchmarkAnalyzer:
         """Initializes the BenchmarkAnalyzer.
 
         Args:
-            log_path: Path to the log data.
-                Will also be output directory for plots.
-                Most likely the log_dir where metrics.csv from your CSV logger is located.
             bandit_logs_file: Name of the metrics file of the CSV Logger. Default is "metrics.csv".
             metrics_file: Name of the metrics file. Default is "env_metrics.csv".
 
             suppress_plots: If True, plots will not be automatically shown. Default is False.
         """
-        self.log_path = log_path
         self.bandit_logs_file = bandit_logs_file
-        self.metrics_file = metrics_file
+        self.env_metrics_file = metrics_file
         self.suppress_plots = suppress_plots
-        self.df = self.load_metrics()
+        self.env_metrics_df = pd.DataFrame()
+        self.bandit_logs_df = pd.DataFrame()
 
-    def load_metrics(self) -> Optional[pd.DataFrame]:
+    def load_metrics(self, log_path: str, bandit: str = "bandit") -> None:
         """Loads the logs from the log path.
+
+        Args:
+            log_path: Path to the log data.
+            bandit: A name of the bandit. Default is "bandit".
+        """
+        new_metrics_df = self._load_df(log_path, self.env_metrics_file)
+
+        if new_metrics_df is not None:
+            new_metrics_df["bandit"] = bandit
+
+            self.env_metrics_df = pd.concat([self.env_metrics_df, new_metrics_df], ignore_index=True)
+
+        bandit_metrics_df = self._load_df(log_path, self.bandit_logs_file)
+        if bandit_metrics_df is not None:
+            bandit_metrics_df["bandit"] = bandit
+
+            self.bandit_logs_df = pd.concat([self.bandit_logs_df, bandit_metrics_df], ignore_index=True)
+
+    def _load_df(self, log_path: str, file_name: str) -> Optional[pd.DataFrame]:
+        """Loads the logs from the log path.
+
+        Args:
+            log_path: Path to the log data.
+            file_name: Name of the file to load.
 
         Returns:
             A pandas DataFrame containing the logs.
         """
-        # Load CSV data (e.g., using pandas)
         try:
-            bandits_df = pd.read_csv(os.path.join(self.log_path, self.bandit_logs_file))
+            return pd.read_csv(os.path.join(log_path, file_name))
         except FileNotFoundError:
-            logging.warning(f"Could not find metrics file {self.bandit_logs_file} in {self.log_path}.")
-            bandits_df = None
-
-        try:
-            metrics_df = pd.read_csv(os.path.join(self.log_path, self.metrics_file))
-        except FileNotFoundError:
-            logging.warning(f"Could not find metrics file {self.metrics_file} in {self.log_path}.")
-            metrics_df = None
-
-        if bandits_df is not None and metrics_df is not None:
-            return pd.merge(bandits_df, metrics_df, on="step")
-        elif bandits_df is not None:
-            return bandits_df
-        elif metrics_df is not None:
-            return metrics_df
-        else:
+            logging.warning(f"Could not find metrics file {file_name} in {log_path}.")
             return None
 
     def plot_accumulated_metric(self, metric_name: str | list[str]) -> None:
         """Plots the accumulated metric over training steps.
 
         Args:
-            metric_name: The name of the metric to plot.
+            metric_name: The name(s) of the metric(s) to plot.
         """
-        if self.df is None:
-            return
-
         if isinstance(metric_name, str):
             metric_name = [metric_name]
 
+        if self.env_metrics_df["bandit"].nunique() > 1 and len(metric_name) > 1:
+            raise ValueError("Cannot plot multiple metrics for multiple bandits.")
+
+        if any(name not in self.env_metrics_df.columns for name in metric_name):
+            print(f"\nNo {metric_name} data found in logs.")
+            return
+
         plt.figure(figsize=(10, 5))
-        for metric in metric_name:
-            if metric not in self.df.columns:
-                print(f"\nNo {metric} data found in logs.")
-                continue
+        if self.env_metrics_df["bandit"].nunique() > 1:
+            for _, bandit_df in self.env_metrics_df.groupby("bandit"):
+                accumulated_metric = bandit_df[metric_name].fillna(0).cumsum()
+                plt.plot(accumulated_metric, label=bandit_df["bandit"].iloc[0])
+        else:
+            accumulated_metric = self.env_metrics_df[metric_name].fillna(0).cumsum()
 
-            accumulated_metric = self.df[metric].fillna(0).cumsum()
-
-            plt.plot(accumulated_metric, label=metric)
+            for metric in metric_name:
+                accumulated_metric = self.env_metrics_df[metric].fillna(0).cumsum()
+                plt.plot(accumulated_metric, label=metric)
 
         plt.xlabel("Step")
         plt.legend()
@@ -458,29 +476,34 @@ class BenchmarkAnalyzer:
 
         if not self.suppress_plots:
             plt.show()
+            plt.savefig(f"acc_{metric_name}.png")
 
-    def plot_average_metric(self, metric_name: str | list[str]) -> None:
+    def plot_average_metric(self, metric_name: str) -> None:
         """Plots the average metric over training steps.
 
         Args:
             metric_name: The name of the metric to plot.
         """
-        if self.df is None:
+        if metric_name not in self.env_metrics_df.columns:
+            print(f"\nNo {metric_name} data found in logs.")
             return
 
-        if isinstance(metric_name, str):
-            metric_name = [metric_name]
+        # Print average metrics
+        valid_idx = self.env_metrics_df[metric_name].dropna().index
+        accumulated_metric = self.env_metrics_df.loc[valid_idx, metric_name].cumsum()
+        steps = self.env_metrics_df.loc[valid_idx, "step"]
 
+        # Plot how average changes over time
         plt.figure(figsize=(10, 5))
         for metric in metric_name:
-            if metric not in self.df.columns:
+            if metric not in self.env_metrics_df.columns:
                 print(f"\nNo {metric} data found in logs.")
                 continue
 
             # Print average metrics
-            valid_idx = self.df[metric_name].dropna().index
-            accumulated_metric = self.df.loc[valid_idx, metric_name].cumsum()
-            steps = self.df.loc[valid_idx, "step"]
+            valid_idx = self.env_metrics_df[metric_name].dropna().index
+            accumulated_metric = self.env_metrics_df.loc[valid_idx, metric_name].cumsum()
+            steps = self.env_metrics_df.loc[valid_idx, "step"]
 
             # Plot how average changes over time
             plt.plot(accumulated_metric / steps, label=metric_name)
@@ -491,29 +514,70 @@ class BenchmarkAnalyzer:
 
         if not self.suppress_plots:
             plt.show()
+            plt.savefig(f"avg_{metric_name}.png")
 
     def plot_loss(self) -> None:
         """Plots the loss over training steps."""
         # Generate a plot for the loss
-        if self.df is None:
-            return
-        if "loss" not in self.df.columns:
+        if "loss" not in self.bandit_logs_df.columns:
             print("\nNo loss data found in logs.")
             return
 
         plt.figure(figsize=(10, 5))
-        plt.plot(self.df["loss"].dropna())
+        for bandit_name, bandit_df in self.bandit_logs_df.groupby("bandit"):
+            loss = bandit_df["loss"].dropna()
+            if loss.empty:
+                print(f"No loss data found in logs for {bandit_name}")
+                continue
+            plt.plot(loss, label=bandit_name)
         plt.xlabel("Step")
         plt.ylabel("Loss")
         plt.title("Loss over training steps")
 
         if not self.suppress_plots:
             plt.show()
+            plt.savefig("loss.png")
+
+    def log_metrics(self, bandit: str = "bandit") -> None:
+        """Logs the metrics of the bandits run to the console.
+
+        Args:
+            bandit: The name of the bandit. Default is "bandit".
+        """
+        bandit_df = self.env_metrics_df[self.env_metrics_df["bandit"] == bandit]
+
+        if bandit_df.empty:
+            raise ValueError(f"No metrics found for {bandit}.")
+
+        logging.info(f"Metrics of {bandit}:")
+        logging.info(f"Avg Regret: {bandit_df['regret'].mean()}")
+        logging.info(f"Avg Reward: {bandit_df['reward'].mean()}")
+        logging.info(f"Accumulated Regret: {bandit_df['regret'].sum()}")
+        logging.info(f"Accumulated Reward: {bandit_df['reward'].sum()}")
+
+        # log avg_regret from first 10, 100, 1000, 10000, ... steps
+        while True:
+            steps = 10 ** len(str(bandit_df["step"].max()))
+            avg_regret = bandit_df[bandit_df["step"] < steps]["regret"].mean()
+            logging.info(f"Avg Regret (first {steps} steps): {avg_regret}")
+
+            if steps >= bandit_df["step"].max():
+                break
+
+        # log from last steps
+        while True:
+            steps = 10 ** len(str(bandit_df["step"].max()))
+            avg_regret = bandit_df[bandit_df["step"] > bandit_df["step"].max() - steps]["regret"].mean()
+            logging.info(f"Avg Regret (last {steps} steps): {avg_regret}")
+
+            if steps >= bandit_df["step"].max():
+                break
 
 
 def run(
     config: dict[str, Any],
     suppress_plots: bool = False,
+    log_dir="./logs",
 ) -> None:
     """Runs the benchmark training on a single given bandit.
 
@@ -522,7 +586,7 @@ def run(
             and other parameters necessary for setting up the benchmark and bandit.
         suppress_plots: If True, plots will not be automatically shown. Default is False.
     """
-    logger = CSVLogger("logs/")
+    logger = CSVLogger(log_dir)
     benchmark = BanditBenchmark.from_config(config, logger)
     print(f"Running benchmark for {config['bandit']} on {config['dataset']} dataset.")
     print(f"Config: {config}")
@@ -533,23 +597,74 @@ def run(
     )
     benchmark.run()
 
-    analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv", "env_metrics.csv", suppress_plots)
+    analyzer = BenchmarkAnalyzer("metrics.csv", "env_metrics.csv", suppress_plots)
+    analyzer.load_metrics(logger.log_dir)
     analyzer.plot_accumulated_metric(["reward", "regret"])
-    analyzer.plot_average_metric(["reward", "regret"])
+    analyzer.plot_average_metric("reward")
+    analyzer.plot_average_metric("regret")
+    analyzer.plot_loss()
+
+
+def run_comparison(
+    config: dict[str, Any],
+    suppress_plots: bool = False,
+    log_dir="./logs",
+):
+    """Runs the benchmark training on multiple bandits.
+
+    Args:
+        config: Contains the `bandit`, `dataset`, `bandit_hparams`
+            and other parameters necessary for setting up the benchmark and bandit.
+            The `bandit` must be a list of bandits to compare.
+        suppress_plots: If True, plots will not be automatically shown. Default is False.
+    """
+    assert isinstance(config["bandit"], list), "Bandit must be a list of bandits to compare."
+
+    analyzer = BenchmarkAnalyzer("metrics.csv", "env_metrics.csv", suppress_plots)
+
+    for bandit in config["bandit"]:
+        print("==============================================")
+        # deep copy the config to avoid overwriting the original
+        bandit_config = copy.deepcopy(config)
+        bandit_config["bandit"] = bandit
+
+        logger = CSVLogger(os.path.join(log_dir, bandit))
+        benchmark = BanditBenchmark.from_config(bandit_config, logger)
+        print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
+        print(f"Config: {bandit_config}")
+        print(
+            f"Dataset {bandit_config['dataset']}:"
+            f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
+            f"and {benchmark.dataset.num_actions} actions."
+        )
+        benchmark.run()
+
+        analyzer.load_metrics(logger.log_dir, bandit)
+
+    analyzer.plot_accumulated_metric("reward")
+    analyzer.plot_accumulated_metric("regret")
+    analyzer.plot_average_metric("reward")
+    analyzer.plot_average_metric("regret")
     analyzer.plot_loss()
 
 
 if __name__ == "__main__":
-    run(
-        {
-            "bandit": "lin_ucb",
-            "dataset": "covertype",
-            "max_samples": 5000,
-            "feedback_delay": 1,
-            "train_batch_size": 1,
-            "forward_batch_size": 1,
-            "bandit_hparams": {
-                "exploration_rate": 1.0,
-            },
-        }
-    )
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Run a bandit benchmark.")
+    parser.add_argument("config", type=str, help="Path to the configuration file.")
+
+    args = parser.parse_args()
+
+    # Load the configuration from the passed yaml file
+    with open(args.config, "r") as file:
+        config = yaml.safe_load(file)
+
+    log_dir = os.path.dirname(args.config)
+
+    assert "bandit" in config, "Configuration must contain a 'bandit' key."
+    if isinstance(config["bandit"], list):
+        run_comparison(config, log_dir)
+    elif isinstance(config["bandit"], str):
+        run(config, log_dir)
+    else:
+        raise ValueError("Bandit must be a string or a list of strings.")
