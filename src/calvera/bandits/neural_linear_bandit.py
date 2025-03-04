@@ -89,6 +89,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: float | None = 1e-3,
         initial_train_steps: int = 1024,
+        warm_start: bool = True,
     ) -> None:
         """Initializes the NeuralLinearBanditModule.
 
@@ -98,32 +99,34 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 storing the embeddings for the linear head.
             n_embedding_size: The size of the embedding produced by the neural network. Must be greater than 0.
             selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
-            train_batch_size: The batch size for the neural network update. Default is 32. Must be greater than 0.
+            train_batch_size: The batch size for the neural network update. Must be greater than 0.
             min_samples_required_for_training: The interval (in steps) at which the neural network is updated.
-                Default is 1024.
                 None means the neural network is never updated. If not None, it must be greater than 0.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
-                update step. Default is False.
-            lambda_: The regularization parameter for the linear head. Default is 1.0. Must be greater than 0.
+                update step.
+            lambda_: The regularization parameter for the linear head. Must be greater than 0.
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
-                Default is 1e-2. Must be greater than 0.
+                Must be greater than 0.
             learning_rate: The learning rate for the optimizer of the neural network.
                 Passed to `lr` of `torch.optim.Adam`.
-                Default is 1e-3. Must be greater than 0.
+                Must be greater than 0.
             weight_decay: The regularization parameter for the neural network.
                 Passed to `weight_decay` of `torch.optim.Adam`.
-                Default is 1.0. Must be greater equal 0.
+                Must be greater equal 0.
             learning_rate_decay: Multiplicative factor for learning rate decay.
                 Passed to `gamma` of `torch.optim.lr_scheduler.StepLR`.
                 Default is 1.0 (i.e. no decay). Must be greater than 0.
             learning_rate_scheduler_step_size: The step size for the learning rate decay.
                 Passed to `step_size` of `torch.optim.lr_scheduler.StepLR`.
-                Default is 1000. Must be greater than 0.
+                Must be greater than 0.
                 The learning rate scheduler is called every time the neural network is updated.
             early_stop_threshold: Loss threshold for early stopping. None to disable.
-                Defaults to 1e-3. Must be greater equal 0.
+                Must be greater equal 0.
             initial_train_steps: Number of initial training steps (in samples).
-                Defaults to 1024. Must be greater equal 0.
+                Must be greater equal 0.
+            warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
+                `network.reset_parameters()` everytime a retraining of the network occurs. If `True` the network is
+                trained from the current state.
         """
         assert n_embedding_size > 0, "The embedding size must be greater than 0."
         assert min_samples_required_for_training is None or min_samples_required_for_training > 0, (
@@ -163,6 +166,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 "learning_rate_scheduler_step_size": learning_rate_scheduler_step_size,
                 "early_stop_threshold": early_stop_threshold,
                 "initial_train_steps": initial_train_steps,
+                "warm_start": warm_start,
             }
         )
 
@@ -185,6 +189,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         # Disable Lightning's automatic optimization. Has to be kept in sync with should_train_network.
         self.automatic_optimization = False
+        self._helper_network_init = self._helper_network.state_dict().copy() if not self.hparams["warm_start"] else None
 
     def _predict_action(
         self, contextualized_actions: ActionInputType, **kwargs: Any
@@ -378,10 +383,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
             self.should_train_network = True
 
-        # TODO: If not warm_start: reset the linear head and the network before training
-        # if self.should_train_network:
-        # self.helper_network.reset()
-        # self._helper_network.reset_linear_head()
+        if not self.hparams["warm_start"] and self.should_train_network and self._helper_network_init is not None:
+            self._helper_network.load_state_dict(self._helper_network_init)
 
     def is_initial_training_stage(self) -> bool:
         """Check if the bandit is in the initial training stage.

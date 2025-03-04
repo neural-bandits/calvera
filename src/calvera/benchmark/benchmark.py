@@ -392,10 +392,10 @@ class BenchmarkAnalyzer:
             log_path: Path to the log data.
                 Will also be output directory for plots.
                 Most likely the log_dir where metrics.csv from your CSV logger is located.
-            bandit_logs_file: Name of the metrics file of the CSV Logger. Default is "metrics.csv".
-            metrics_file: Name of the metrics file. Default is "env_metrics.csv".
+            bandit_logs_file: Name of the metrics file of the CSV Logger.
+            metrics_file: Name of the metrics file.
 
-            suppress_plots: If True, plots will not be automatically shown. Default is False.
+            suppress_plots: If True, plots will not be automatically shown.
         """
         self.log_path = log_path
         self.bandit_logs_file = bandit_logs_file
@@ -511,7 +511,7 @@ def run(
     Args:
         config: Contains the `bandit`, `dataset`, `bandit_hparams`
             and other parameters necessary for setting up the benchmark and bandit.
-        suppress_plots: If True, plots will not be automatically shown. Default is False.
+        suppress_plots: If True, plots will not be automatically shown.
     """
     logger = CSVLogger("logs/")
     benchmark = BanditBenchmark.from_config(config, logger)
