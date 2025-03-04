@@ -52,7 +52,7 @@ benchmark = [
     "pandas",
     "ucimlrepo",
     "transformers",
-    "sklearn"
+    "scikit-learn",
 ]
 
 
