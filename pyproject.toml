@@ -24,10 +24,10 @@ classifiers = [
 
 requires-python = ">=3.10"
 dependencies = [
+  "lightning",
   "torch",
   "torchvision",
   "torchaudio",
-  "lightning",
 ]
 
 [project.optional-dependencies]
