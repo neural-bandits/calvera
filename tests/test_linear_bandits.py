@@ -4,12 +4,12 @@ import pytest
 import pytorch_lightning as pl
 import torch
 
-from neural_bandits.bandits.linear_bandit import LinearBandit
-from neural_bandits.bandits.linear_ts_bandit import (
+from calvera.bandits.linear_bandit import LinearBandit
+from calvera.bandits.linear_ts_bandit import (
     DiagonalPrecApproxLinearTSBandit,
     LinearTSBandit,
 )
-from neural_bandits.bandits.linear_ucb_bandit import (
+from calvera.bandits.linear_ucb_bandit import (
     DiagonalPrecApproxLinearUCBBandit,
     LinearUCBBandit,
 )
@@ -284,7 +284,7 @@ def test_update_correct() -> None:
       - chosen_actions = [[2.0]]
       - realized_rewards = [1.0]
 
-    The manual Sherman-Morrison update for M should yield:
+    The manual update for the precision_matrix should yield:
       M_new = [[0.2]]
       b_new = [2.0]
       theta_new = [0.4]
@@ -375,6 +375,7 @@ def test_update_zero_denominator(
     chosen_actions = torch.tensor([[[2.0]]])
     realized_rewards = torch.zeros(1, 1)
 
+    bandit.save_hyperparameters({"eps": 0.0})
     bandit.precision_matrix = torch.tensor([[-0.25]])  # shape (1,1)
 
     with pytest.raises((AssertionError, Exception)):

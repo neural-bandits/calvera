@@ -6,8 +6,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
-from neural_bandits.utils.data_storage import (
+from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
+from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
@@ -190,7 +190,7 @@ def test_neural_linear_bandit_training_step(
         buffer=buffer,
     )
     # If True the uncertainty will be updated in the training and not the forward step.
-    bandit.lazy_uncertainty_update = True
+    bandit.save_hyperparameters({"lazy_uncertainty_update": True})
 
     theta_1 = bandit.theta.clone()
     precision_matrix_1 = bandit.precision_matrix.clone()
@@ -386,7 +386,7 @@ def test_neural_linear_sliding_window(
         buffer=buffer,
     )
     # If True the uncertainty will be updated in the training and not the forward step.
-    bandit.lazy_uncertainty_update = True
+    bandit.save_hyperparameters({"lazy_uncertainty_update": True})
 
     theta_1 = bandit.theta.clone()
     precision_matrix_1 = bandit.precision_matrix.clone()

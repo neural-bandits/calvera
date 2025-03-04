@@ -1,24 +1,46 @@
-# Contribution Rules
+# Contributing to Calvera
 
-## Plan of working together
-- assign different tasks (issues in the Github repo.)
-- try to work separately on your issues (the ones in the Github repo :) )
-- as we dont have weeklies, just write in the group
-- for weekly updates with Giovanni add the things you want to discuss to meeting notes.
+Thank you for your interest in contributing to Calvera! Your contributions help improve the library for everyone.
+
+## How to Contribute
+
+### Reporting Issues
+- If you encounter a bug or have a feature request, please open an issue on our [GitHub repository](https://github.com/neural-bandits/calvera/issues).
+
+- Before filing an issue, please check existing and recent issues to avoid duplicates. Include details such as:
+  - A reproducible test case or steps to reproduce
+  - The code version in use
+  - Any relevant modifications
+	- Any unusual aspects of your environment or deployment
+
+### Submitting Pull Requests
+- **Fork** the repository and create a new branch for your work.
+- **Develop** your changes and ensure that all tests pass.
+- **Submit** a pull request with a clear description of your changes.
+
+### Coding Guidelines
+- Follow [PEP8](https://www.python.org/dev/peps/pep-0008/) style guidelines.
+- Include tests for any new features or bug fixes.
+- Write clear commit messages that describe your changes.
+
+### Documentation
+- Update or add documentation as necessary to reflect your changes.
+- We use `mkdocs` for documentation. You can build the documentation locally by running `mkdocs serve` and opening the displayed url in your browser.
+- Follow the google styleguide for docstrings section: [3.8 Comments and Docstrings](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
+- Docstrings can be automatically injected into the documentation to see how take a look at `mkdocstrings` and maybe an example in the docs themself.
 
 
-## How to work on an issue
-1. Assign yourself to the issue.
-2. Create a new branch with the issue number and a short description. (like `1-fix-typo`)
-3. Make your changes (including reasonable unit tests).
-4. Create a pull request to the `main` branch.
+## Getting Started
+
+1. Fork the repository.
+2. Clone your fork locally.
+3. Create a new branch for your changes.
+4. Implement and test your changes.
 5. Ensure that ALL tests pass and format / lint / typing is correct. (`make all` / `make test` / `make lint` / `make format` / `make mypy`)
 6. Document all of the user facing library code. 
-7. Ask someone for a review if you need it.
+7. Submit a pull request with a detailed description of your work.
 
-## Documentation
-- Follow the google styleguide section: [3.8 Comments and Docstrings](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
-- Consider using pdoc3 to generate documentation for the library automatically.
+Thank you for helping to make Calvera better!
 
 
 ## Timeplan

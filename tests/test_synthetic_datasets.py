@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from neural_bandits.benchmark.datasets.synthetic import (
+from calvera.benchmark.datasets.synthetic import (
     CubicSyntheticDataset,
     LinearCombinationSyntheticDataset,
     LinearSyntheticDataset,

@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=6.0.1"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "NeuralBandits"
-version = "0.1.0"
-description = "Package that will offer a small collection of different Bandit algorithms with different feedback strategies."
+name = "calvera"
+version = "0.1.4"
+description = "Package that will offer a small collection of different (Neural) Bandit algorithms with different feedback strategies."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -13,33 +13,64 @@ authors = [
     {name = "Philipp Kolbe", email = "philipp.kolbe@student.hpi.de"},
     {name = "Parisa Shahabinejad", email = "parisa.shahabinejad@student.hpi.de"}
 ]
-keywords = ["python", "bandits", "neural networks"]
+keywords = ["python", "bandits", "neural networks", "machine learning"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Development Status :: 4 - Beta"
 ]
-requires-python = ">=3.8"
+
+requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.22.0",
+  "lightning",
+  "torch",
+  "torchvision",
+  "torchaudio",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=3.0.0",
-    "mypy>=0.991",
-    "types-setuptools",
+  "black",
+  "black[jupyter]",
+  "ruff",
+  "isort",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "mkdocs",
+  "mkdocs-material",
+  "mkdocstrings",
+  "mkdocstrings[python]",
 ]
+
+benchmark = [
+    "numpy",
+    "matplotlib",
+    "pandas",
+    "ucimlrepo",
+    "transformers",
+    "scikit-learn",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/neural-bandits/calvera"
+Issues = "https://github.com/neural-bandits/calvera/issues"
+Documentation = "https://neural-bandits.github.io/calvera/"
+Repository = "https://github.com/neural-bandits/calvera"
+
+
+[tool.setuptools.package-data]
+calvera = ["py.typed"]
+
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.mypy]
-files = "src/neural_bandits"
+files = "src/calvera"
 strict = true
 python_version = "3.10"
 
@@ -104,4 +135,4 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
 "examples/**" = ["D"] 
-"src/**" = ["D100", "D104"] # Missing docstring in public module / package
+"src/**" = ["D100"] # Missing docstring in public module / package

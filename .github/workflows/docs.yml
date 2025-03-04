@@ -22,21 +22,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5 
         with:
-          fetch-depth: 0
-      # See: https://github.com/marketplace/actions/setup-micromamba
-      - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v1
-        with:
-          environment-file: environment.yml
-          cache-environment: true
-          cache-environment-key: micromamba-env-${{ hashFiles('environment.yml') }}
-          init-shell: >-
-            bash
+          python-version: '3.10'
+
+      - name: Install Neural-Bandits
+        run: pip3 install -e . --extra-index-url https://download.pytorch.org/whl/cpu
+        shell: bash
+
+      - name: Install dev dependencies
+        run: pip3 install -e .[dev]
+        shell: bash
 
       - name: Build documentation
         run: mkdocs build --config-file mkdocs.yml
-        shell: micromamba-shell {0}
+        shell: bash
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

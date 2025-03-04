@@ -1,4 +1,4 @@
-name: neural_bandits
+name: calvera
 channels:
   - conda-forge
   # We want to have a reproducible setup, so we don't want default channels,
@@ -43,3 +43,4 @@ dependencies:
       - print-on-steroids[exceptions]
       - wandb[sweeps]
       - mkdocstrings[python]
+      - black[jupyter]
