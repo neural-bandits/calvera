@@ -7,7 +7,7 @@ So, when implementing a new bandit, the following methods need to be implemented
 
 
 
-::: neural_bandits.bandits.abstract_bandit.AbstractBandit
+::: calvera.bandits.abstract_bandit.AbstractBandit
     handler: python
     options:
       heading_level: 2
