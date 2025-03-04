@@ -5,10 +5,10 @@ import pytest
 import torch
 import torch.nn as nn
 
-from neural_bandits.bandits.neural_bandit import NeuralBandit
-from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
-from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
+from calvera.bandits.neural_bandit import NeuralBandit
+from calvera.bandits.neural_ts_bandit import NeuralTSBandit
+from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
 
 
 @pytest.fixture(autouse=True)

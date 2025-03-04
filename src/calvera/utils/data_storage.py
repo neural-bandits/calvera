@@ -15,7 +15,7 @@ from typing import (
 
 import torch
 
-from neural_bandits.bandits.action_input_type import ActionInputType
+from calvera.bandits.action_input_type import ActionInputType
 
 StateDictType = TypeVar("StateDictType", bound=Mapping[str, Any])
 BufferDataFormat = Union[

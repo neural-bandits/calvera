@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 
-from neural_bandits.bandits.action_input_type import ActionInputType
+from calvera.bandits.action_input_type import ActionInputType
 
 
 class BanditBenchmarkEnvironment(Generic[ActionInputType]):

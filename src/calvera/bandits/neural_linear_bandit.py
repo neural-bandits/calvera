@@ -4,10 +4,10 @@ from typing import Any, Optional, cast
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
-from neural_bandits.bandits.action_input_type import ActionInputType
-from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
-from neural_bandits.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
-from neural_bandits.utils.selectors import AbstractSelector
+from calvera.bandits.action_input_type import ActionInputType
+from calvera.bandits.linear_ts_bandit import LinearTSBandit
+from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
+from calvera.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
 

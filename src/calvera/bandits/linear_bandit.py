@@ -3,9 +3,9 @@ from typing import Any, Optional, cast
 
 import torch
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit
-from neural_bandits.bandits.action_input_type import ActionInputType
-from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
+from calvera.bandits.abstract_bandit import AbstractBandit
+from calvera.bandits.action_input_type import ActionInputType
+from calvera.utils.data_storage import AbstractBanditDataBuffer
 
 
 class LinearBandit(AbstractBandit[ActionInputType], ABC):

@@ -10,7 +10,7 @@ import pandas as pd
 import torch
 from transformers import BertTokenizer, PreTrainedTokenizer
 
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
+from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 
 logger = logging.getLogger(__name__)
 

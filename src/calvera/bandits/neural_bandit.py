@@ -8,9 +8,9 @@ import torch.nn as nn
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import optim
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit
-from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
-from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.bandits.abstract_bandit import AbstractBandit
+from calvera.utils.data_storage import AbstractBanditDataBuffer
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
 
 logger = logging.getLogger(__name__)
 

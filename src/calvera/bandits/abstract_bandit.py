@@ -7,8 +7,8 @@ import torch
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch.utils.data import DataLoader
 
-from neural_bandits.bandits.action_input_type import ActionInputType
-from neural_bandits.utils.data_storage import (
+from calvera.bandits.action_input_type import ActionInputType
+from calvera.utils.data_storage import (
     AbstractBanditDataBuffer,
     AllDataBufferStrategy,
     BufferDataFormat,

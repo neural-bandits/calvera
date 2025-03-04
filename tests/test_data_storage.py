@@ -4,7 +4,7 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
+from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
 
 
 def test_all_data_strategy() -> None:

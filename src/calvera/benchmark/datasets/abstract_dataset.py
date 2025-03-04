@@ -4,8 +4,8 @@ from typing import Any, Callable, Generic, Tuple
 import torch
 from torch.utils.data import Dataset
 
-from neural_bandits.bandits.action_input_type import ActionInputType
-from neural_bandits.benchmark.multiclass import MultiClassContextualizer
+from calvera.bandits.action_input_type import ActionInputType
+from calvera.benchmark.multiclass import MultiClassContextualizer
 
 
 class AbstractDataset(ABC, Generic[ActionInputType], Dataset[Tuple[ActionInputType, torch.Tensor]]):

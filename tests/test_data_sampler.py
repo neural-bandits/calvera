@@ -4,7 +4,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset, TensorDataset
 
-from neural_bandits.utils.data_sampler import RandomDataSampler, SortedDataSampler
+from calvera.utils.data_sampler import RandomDataSampler, SortedDataSampler
 
 
 @pytest.fixture

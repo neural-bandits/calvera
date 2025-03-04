@@ -13,35 +13,35 @@ from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit
-from neural_bandits.bandits.action_input_type import ActionInputType
-from neural_bandits.bandits.linear_ts_bandit import (
+from calvera.bandits.abstract_bandit import AbstractBandit
+from calvera.bandits.action_input_type import ActionInputType
+from calvera.bandits.linear_ts_bandit import (
     DiagonalPrecApproxLinearTSBandit,
     LinearTSBandit,
 )
-from neural_bandits.bandits.linear_ucb_bandit import (
+from calvera.bandits.linear_ucb_bandit import (
     DiagonalPrecApproxLinearUCBBandit,
     LinearUCBBandit,
 )
-from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
-from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
-from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
-from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
-from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
-from neural_bandits.benchmark.datasets.mnist import MNISTDataset
-from neural_bandits.benchmark.datasets.movie_lens import MovieLensDataset
-from neural_bandits.benchmark.datasets.statlog import StatlogDataset
-from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
-from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
-from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
-from neural_bandits.utils.data_storage import (
+from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
+from calvera.bandits.neural_ts_bandit import NeuralTSBandit
+from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
+from calvera.benchmark.datasets.covertype import CovertypeDataset
+from calvera.benchmark.datasets.imdb_reviews import ImdbMovieReviews
+from calvera.benchmark.datasets.mnist import MNISTDataset
+from calvera.benchmark.datasets.movie_lens import MovieLensDataset
+from calvera.benchmark.datasets.statlog import StatlogDataset
+from calvera.benchmark.datasets.wheel import WheelBanditDataset
+from calvera.benchmark.environment import BanditBenchmarkEnvironment
+from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     DataBufferStrategy,
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
 )
-from neural_bandits.utils.selectors import (
+from calvera.utils.selectors import (
     AbstractSelector,
     ArgMaxSelector,
     EpsilonGreedySelector,

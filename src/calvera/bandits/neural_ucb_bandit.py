@@ -1,6 +1,6 @@
 import torch
 
-from neural_bandits.bandits.neural_bandit import NeuralBandit
+from calvera.bandits.neural_bandit import NeuralBandit
 
 
 class NeuralUCBBandit(NeuralBandit):

@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple
 
 import torch
 
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
+from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
 def sample_rewards(
