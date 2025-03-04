@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterator, Optional, Tuple
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import torch
 from torch.utils.data import Dataset, Sampler
@@ -15,7 +16,7 @@ class AbstractDataSampler(Sampler[int], ABC):
 
     def __init__(
         self,
-        data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
+        data_source: Dataset[tuple[torch.Tensor, torch.Tensor]],
     ) -> None:
         """Initializes the AbstractDataSampler.
 
@@ -43,8 +44,8 @@ class RandomDataSampler(AbstractDataSampler):
 
     def __init__(
         self,
-        data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
-        generator: Optional[torch.Generator] = None,
+        data_source: Dataset[tuple[torch.Tensor, torch.Tensor]],
+        generator: torch.Generator | None = None,
     ) -> None:
         """Initializes the RandomDataSampler.
 
@@ -69,7 +70,7 @@ class SortedDataSampler(AbstractDataSampler):
 
     def __init__(
         self,
-        data_source: Dataset[Tuple[torch.Tensor, torch.Tensor]],
+        data_source: Dataset[tuple[torch.Tensor, torch.Tensor]],
         key_fn: Callable[[int], Any],
         reverse: bool = False,
     ) -> None:

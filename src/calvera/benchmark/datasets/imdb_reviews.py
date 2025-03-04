@@ -4,7 +4,7 @@ import pathlib
 import re
 import tarfile
 import urllib.request
-from typing import Literal, Tuple
+from typing import Literal
 
 import pandas as pd
 import torch
@@ -43,7 +43,7 @@ def _extract_data(tar_path: str, extract_dir: str) -> None:
         logger.info("Dataset already extracted.")
 
 
-def _load_imdb_data(data_dir: str, subset: str = "train") -> Tuple[list[str], list[int]]:
+def _load_imdb_data(data_dir: str, subset: str = "train") -> tuple[list[str], list[int]]:
     """Load IMDB reviews and labels from the specified subset directory.
 
     Assumes a directory structure: aclImdb/{train,test}/{pos,neg}
@@ -158,7 +158,7 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
         """Return the number of samples in this dataset."""
         return len(self.data)
 
-    def __getitem__(self, idx: int) -> Tuple[TextActionInputType, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[TextActionInputType, torch.Tensor]:
         """Return the input and reward for the given index.
 
         Args:

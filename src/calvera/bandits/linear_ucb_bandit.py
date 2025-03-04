@@ -1,4 +1,4 @@
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import torch
 
@@ -16,8 +16,8 @@ class LinearUCBBandit(LinearBandit[torch.Tensor]):
     def __init__(
         self,
         n_features: int,
-        selector: Optional[AbstractSelector] = None,
-        buffer: Optional[AbstractBanditDataBuffer[torch.Tensor, Any]] = None,
+        selector: AbstractSelector | None = None,
+        buffer: AbstractBanditDataBuffer[torch.Tensor, Any] | None = None,
         train_batch_size: int = 32,
         eps: float = 1e-2,
         lambda_: float = 1.0,

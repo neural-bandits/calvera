@@ -24,7 +24,6 @@ classifiers = [
 
 requires-python = ">=3.10"
 dependencies = [
-  "pip<24.1",
   "lightning",
   "torch",
   "torchvision",

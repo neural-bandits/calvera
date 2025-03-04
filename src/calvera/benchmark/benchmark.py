@@ -2,7 +2,8 @@ import inspect
 import logging
 import os
 import random
-from typing import Any, Callable, Dict, Generic, Optional
+from collections.abc import Callable
+from typing import Any, Generic
 
 import lightning as pl
 import matplotlib.pyplot as plt
@@ -150,7 +151,7 @@ class BanditBenchmark(Generic[ActionInputType]):
     """Benchmark class which trains a bandit on a dataset."""
 
     @staticmethod
-    def from_config(config: dict[str, Any], logger: Optional[Logger] = None) -> "BanditBenchmark[Any]":
+    def from_config(config: dict[str, Any], logger: Logger | None = None) -> "BanditBenchmark[Any]":
         """Initialize a benchmark from a configuration of strings.
 
         Will instantiate all necessary classes from given strings for the user.
@@ -220,8 +221,8 @@ class BanditBenchmark(Generic[ActionInputType]):
         self,
         bandit: AbstractBandit[ActionInputType],
         dataset: AbstractDataset[ActionInputType],
-        training_params: Dict[str, Any],
-        logger: Optional[Logger] = None,
+        training_params: dict[str, Any],
+        logger: Logger | None = None,
     ) -> None:
         """Initializes the benchmark.
 
@@ -237,7 +238,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         self.training_params["seed"] = training_params.get("seed", 42)
         pl.seed_everything(training_params["seed"])
 
-        self.logger: Optional[OnlineBanditLoggerDecorator] = (
+        self.logger: OnlineBanditLoggerDecorator | None = (
             OnlineBanditLoggerDecorator(logger, enable_console_logging=False) if logger is not None else None
         )
         self.log_dir = self.logger.log_dir if self.logger is not None and self.logger.log_dir else "logs"
@@ -402,7 +403,7 @@ class BenchmarkAnalyzer:
         self.suppress_plots = suppress_plots
         self.df = self.load_metrics()
 
-    def load_metrics(self) -> Optional[pd.DataFrame]:
+    def load_metrics(self) -> pd.DataFrame | None:
         """Loads the logs from the log path.
 
         Returns:

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Optional, cast
+from typing import Any, Generic, cast
 
 import lightning as pl
 import torch
@@ -32,7 +32,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
     def __init__(
         self,
         n_features: int,
-        buffer: Optional[AbstractBanditDataBuffer[ActionInputType, Any]] = None,
+        buffer: AbstractBanditDataBuffer[ActionInputType, Any] | None = None,
         train_batch_size: int = 32,
     ):
         """Initializes the Bandit.
@@ -96,7 +96,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 f"but got shape {contextualized_actions.shape}"
             )
             batch_size, n_chosen_actions, _ = contextualized_actions.shape
-        elif isinstance(contextualized_actions, (tuple, list)):
+        elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert contextualized_actions[0].ndim == 3, (
                 "Chosen actions must have shape (batch_size, num_actions, n_features) "
@@ -173,7 +173,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         self,
         contextualized_actions: ActionInputType,
         realized_rewards: torch.Tensor,
-        embedded_actions: Optional[torch.Tensor] = None,
+        embedded_actions: torch.Tensor | None = None,
     ) -> None:
         """Records a pair of chosen actions and rewards in the buffer.
 
@@ -219,7 +219,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 ActionInputType,
                 contextualized_actions.reshape(-1, contextualized_actions.shape[-1]),
             )
-        elif isinstance(contextualized_actions, (tuple, list)):
+        elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert (
                 contextualized_actions[0].ndim == 3 and contextualized_actions[0].shape[0] == realized_rewards.shape[0]
@@ -337,7 +337,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 f"same as reward. Expected shape ({(batch_size, n_chosen_arms)}, n_features) "
                 f"but got shape {contextualized_actions.shape}"
             )
-        elif isinstance(contextualized_actions, (tuple, list)):
+        elif isinstance(contextualized_actions, tuple | list):
             assert all(
                 action.device == self.device for action in contextualized_actions
             ), "Contextualized actions must be on the same device as the model."

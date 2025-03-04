@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Generic, Tuple
+from collections.abc import Callable
+from typing import Any, Generic
 
 import torch
 from torch.utils.data import Dataset
@@ -8,7 +9,7 @@ from calvera.bandits.action_input_type import ActionInputType
 from calvera.benchmark.multiclass import MultiClassContextualizer
 
 
-class AbstractDataset(ABC, Generic[ActionInputType], Dataset[Tuple[ActionInputType, torch.Tensor]]):
+class AbstractDataset(ABC, Generic[ActionInputType], Dataset[tuple[ActionInputType, torch.Tensor]]):
     """Abstract class for a dataset that is derived from PyTorch's Dataset class.
 
     Additionally, it provides a reward method for the specific bandit setting.
@@ -44,7 +45,7 @@ class AbstractDataset(ABC, Generic[ActionInputType], Dataset[Tuple[ActionInputTy
         pass
 
     @abstractmethod
-    def __getitem__(self, idx: int) -> Tuple[ActionInputType, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[ActionInputType, torch.Tensor]:
         """Retrieve the item and the associated rewards for a given index.
 
         Returns:

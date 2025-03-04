@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import torch
 
@@ -22,7 +22,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
     def __init__(
         self,
         n_features: int,
-        buffer: Optional[AbstractBanditDataBuffer[Any, Any]] = None,
+        buffer: AbstractBanditDataBuffer[Any, Any] | None = None,
         train_batch_size: int = 32,
         eps: float = 1e-2,
         lambda_: float = 1.0,

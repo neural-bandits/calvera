@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import numpy as np
 import torch
 from sklearn.datasets import fetch_covtype
@@ -39,7 +37,7 @@ class CovertypeDataset(AbstractDataset[torch.Tensor]):
         """
         return len(self.X)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for a given index.
 
         Args:
