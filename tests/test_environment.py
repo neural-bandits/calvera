@@ -4,7 +4,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
-from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
+from calvera.benchmark.environment import BanditBenchmarkEnvironment
 
 
 @pytest.fixture

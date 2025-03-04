@@ -1,0 +1,4 @@
+exclude .gitignore
+exclude mkdocs.yml
+exclude Makefile
+exclude tests/*

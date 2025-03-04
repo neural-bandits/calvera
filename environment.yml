@@ -43,3 +43,4 @@ dependencies:
       - print-on-steroids[exceptions]
       - wandb[sweeps]
       - mkdocstrings[python]
+      - black[jupyter]
