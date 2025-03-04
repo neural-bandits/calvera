@@ -3,19 +3,19 @@ import pytest
 import torch
 import torch.nn as nn
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit
-from neural_bandits.bandits.linear_ts_bandit import (
+from calvera.bandits.abstract_bandit import AbstractBandit
+from calvera.bandits.linear_ts_bandit import (
     DiagonalPrecApproxLinearTSBandit,
     LinearTSBandit,
 )
-from neural_bandits.bandits.linear_ucb_bandit import (
+from calvera.bandits.linear_ucb_bandit import (
     DiagonalPrecApproxLinearUCBBandit,
     LinearUCBBandit,
 )
-from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
-from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
-from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer
+from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
+from calvera.bandits.neural_ts_bandit import NeuralTSBandit
+from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer
 
 n_features = 3
 

@@ -6,8 +6,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
-from neural_bandits.utils.data_storage import (
+from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
+from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
