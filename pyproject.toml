@@ -104,4 +104,4 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
 "examples/**" = ["D"] 
-"src/**" = ["D100", "D104"] # Missing docstring in public module / package
+"src/**" = ["D100"] # Missing docstring in public module / package
