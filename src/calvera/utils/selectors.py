@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import torch
 
@@ -47,7 +46,7 @@ class ArgMaxSelector(AbstractSelector):
 class EpsilonGreedySelector(AbstractSelector):
     """Implements an epsilon-greedy action selection strategy."""
 
-    def __init__(self, epsilon: float = 0.1, seed: Optional[int] = None) -> None:
+    def __init__(self, epsilon: float = 0.1, seed: int | None = None) -> None:
         """Initialize the epsilon-greedy selector.
 
         Args:

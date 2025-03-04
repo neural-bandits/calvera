@@ -1,14 +1,14 @@
-from typing import Any, List, Tuple, Type, Union, cast
+from typing import Any, cast
 
 import lightning as pl
 import pytest
 import torch
 import torch.nn as nn
 
-from neural_bandits.bandits.neural_bandit import NeuralBandit
-from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
-from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
+from calvera.bandits.neural_bandit import NeuralBandit
+from calvera.bandits.neural_ts_bandit import NeuralTSBandit
+from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +17,7 @@ def seed_tests() -> None:
 
 
 @pytest.fixture
-def network_and_buffer() -> Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]]:
+def network_and_buffer() -> tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]]:
     """
     Create a simple network and buffer for bandit testing
     """
@@ -62,7 +62,7 @@ def small_context_reward_batch() -> tuple[
 # ------------------------------------------------------------------------------
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_forward_shape(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     bandit_type: str,
 ) -> None:
     """
@@ -90,7 +90,7 @@ def test_neural_bandit_forward_shape(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_training_step(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
@@ -218,7 +218,7 @@ def test_neural_bandit_training_step(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_training_step_custom_dataloader(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
@@ -308,7 +308,7 @@ def test_neural_bandit_training_step_custom_dataloader(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_training_step_sliding_window(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
@@ -432,7 +432,7 @@ def test_neural_bandit_training_step_sliding_window(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_hparams_effect(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     bandit_type: str,
 ) -> None:
     """
@@ -499,7 +499,7 @@ def test_neural_bandit_hparams_effect(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_neural_bandit_parameter_validation(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
     bandit_type: str,
 ) -> None:
     """
@@ -507,7 +507,7 @@ def test_neural_bandit_parameter_validation(
     """
     n_features, network, buffer = network_and_buffer
 
-    BanditClass: Type[Union[NeuralUCBBandit, NeuralTSBandit]]
+    BanditClass: type[NeuralUCBBandit | NeuralTSBandit]
 
     BanditClass = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
 
@@ -550,7 +550,7 @@ def test_neural_bandit_parameter_validation(
 # 2) Specific Tests for each Bandit Type
 # ------------------------------------------------------------------------------
 def test_ucb_score_method(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
 ) -> None:
     """
     Test that NeuralUCBBandit._score method correctly implements UCB scoring.
@@ -568,7 +568,7 @@ def test_ucb_score_method(
 
 
 def test_ts_score_method(
-    network_and_buffer: Tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
 ) -> None:
     """
     Test that NeuralTSBandit._score method correctly implements TS scoring.
@@ -651,7 +651,7 @@ def test_neural_ts_forward_stochastic() -> None:
         [[[1.0, 1.0], [1.0, 1.0]]], dtype=torch.float32
     )  # shape (1, 2, 2)
 
-    outputs: List[torch.Tensor] = []
+    outputs: list[torch.Tensor] = []
     for _ in range(n_runs):
         output, _ = bandit(contextualized_actions)
         outputs.append(output)

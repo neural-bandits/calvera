@@ -1,27 +1,20 @@
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sized
 from typing import (
     Any,
     Generic,
-    Mapping,
-    Optional,
     Protocol,
-    Sized,
-    Tuple,
     TypedDict,
     TypeVar,
-    Union,
     cast,
 )
 
 import torch
 
-from neural_bandits.bandits.action_input_type import ActionInputType
+from calvera.bandits.action_input_type import ActionInputType
 
 StateDictType = TypeVar("StateDictType", bound=Mapping[str, Any])
-BufferDataFormat = Union[
-    tuple[ActionInputType, torch.Tensor],
-    tuple[ActionInputType, torch.Tensor, torch.Tensor],
-]
+BufferDataFormat = tuple[ActionInputType, torch.Tensor] | tuple[ActionInputType, torch.Tensor, torch.Tensor]
 
 
 # TODO: Fix DocStrings
@@ -45,7 +38,7 @@ class BanditStateDict(TypedDict):
     embedded_actions: torch.Tensor
     rewards: torch.Tensor
     buffer_strategy: "DataBufferStrategy"
-    max_size: Optional[int]
+    max_size: int | None
 
 
 class DataBufferStrategy(Protocol):
@@ -124,7 +117,7 @@ class AbstractBanditDataBuffer(
     def add_batch(
         self,
         contextualized_actions: ActionInputType,
-        embedded_actions: Optional[torch.Tensor],
+        embedded_actions: torch.Tensor | None,
         rewards: torch.Tensor,
     ) -> None:
         """Add a batch of data points to the buffer.
@@ -140,7 +133,7 @@ class AbstractBanditDataBuffer(
     @abstractmethod
     def get_all_data(
         self,
-    ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+    ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor]:
         """Get all available data from the buffer.
 
         Note that data which may have been deleted due to buffer size limits is not included.
@@ -154,7 +147,7 @@ class AbstractBanditDataBuffer(
     def get_batch(
         self,
         batch_size: int,
-    ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+    ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor]:
         """Get batches of training data according to buffer strategy.
 
         Args:
@@ -218,8 +211,8 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
     def __init__(
         self,
         buffer_strategy: DataBufferStrategy,
-        max_size: Optional[int] = None,
-        device: Optional[torch.device] = None,
+        max_size: int | None = None,
+        device: torch.device | None = None,
     ):
         """Initialize the in-memory buffer.
 
@@ -240,7 +233,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
     def add_batch(
         self,
         contextualized_actions: ActionInputType,
-        embedded_actions: Optional[torch.Tensor],
+        embedded_actions: torch.Tensor | None,
         rewards: torch.Tensor,
     ) -> None:
         """Add each point from the batch to the buffer.
@@ -265,7 +258,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
             ), "Number of contextualized actions must match number of rewards"
 
             contextualized_actions_tensor = contextualized_actions.unsqueeze(1)  # shape: (batch_size, 1, n_features)
-        elif isinstance(contextualized_actions, (tuple, list)):
+        elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert contextualized_actions[0].ndim == 2 and contextualized_actions[0].shape[0] == rewards.shape[0], (
                 f"Chosen actions must have shape (batch_size, n_features)"
@@ -349,7 +342,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
     def get_all_data(
         self,
-    ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+    ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor]:
         """Get all available data from the buffer.
 
         Note that data which may have been deleted due to buffer size limits is not included.
@@ -370,7 +363,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
     def get_batch(
         self,
         batch_size: int,
-    ) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+    ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor]:
         """Get a random batch of training data from the buffer. Uses the buffer strategy to select data.
 
         Args:
@@ -397,7 +390,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
         return self._get_data(batch_indices)
 
-    def _get_data(self, indices: torch.Tensor) -> Tuple[ActionInputType, Optional[torch.Tensor], torch.Tensor]:
+    def _get_data(self, indices: torch.Tensor) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor]:
         """Get data for the given indices.
 
         Args:

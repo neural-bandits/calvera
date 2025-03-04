@@ -1,13 +1,13 @@
 import logging
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
-from neural_bandits.bandits.action_input_type import ActionInputType
-from neural_bandits.bandits.linear_ts_bandit import LinearTSBandit
-from neural_bandits.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
-from neural_bandits.utils.selectors import AbstractSelector
+from calvera.bandits.action_input_type import ActionInputType
+from calvera.bandits.linear_ts_bandit import LinearTSBandit
+from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
+from calvera.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
 
@@ -75,10 +75,10 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
     def __init__(
         self,
         network: torch.nn.Module,
-        buffer: Optional[AbstractBanditDataBuffer[ActionInputType, Any]],
+        buffer: AbstractBanditDataBuffer[ActionInputType, Any] | None,
         n_embedding_size: int,
-        min_samples_required_for_training: Optional[int] = 1024,
-        selector: Optional[AbstractSelector] = None,
+        min_samples_required_for_training: int | None = 1024,
+        selector: AbstractSelector | None = None,
         train_batch_size: int = 32,
         lazy_uncertainty_update: bool = False,
         lambda_: float = 1.0,
@@ -87,7 +87,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         learning_rate: float = 1e-3,
         learning_rate_decay: float = 1.0,
         learning_rate_scheduler_step_size: int = 1,
-        early_stop_threshold: Optional[float] = 1e-3,
+        early_stop_threshold: float | None = 1e-3,
         initial_train_steps: int = 1024,
     ) -> None:
         """Initializes the NeuralLinearBanditModule.
@@ -244,7 +244,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             embedded_actions: torch.Tensor = self.network.forward(
                 flattened_actions,
             )  # shape: (batch_size * n_arms, n_embedding_size)
-        elif isinstance(contextualized_actions, (tuple, list)):
+        elif isinstance(contextualized_actions, tuple | list):
             # assert shape of all tensors
             assert len(contextualized_actions) > 1 and contextualized_actions[0].ndim == 3, (
                 "The tuple of contextualized_actions must contain more than one element and be of shape"
@@ -562,7 +562,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                         ActionInputType,
                         contexts[i : i + batch_size].unsqueeze(1).to(self.device),
                     )
-                elif isinstance(contexts, (tuple, list)):
+                elif isinstance(contexts, tuple | list):
                     batch_input = cast(
                         ActionInputType,
                         tuple(input_part[i : i + batch_size].unsqueeze(1).to(self.device) for input_part in contexts),

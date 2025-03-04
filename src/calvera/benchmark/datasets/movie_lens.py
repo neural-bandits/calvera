@@ -2,12 +2,12 @@ import logging
 import os
 import urllib
 import zipfile
-from typing import Literal, Tuple
+from typing import Literal
 
 import pandas as pd
 import torch
 
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
+from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def _load_movielens_data(data_dir: str) -> pd.DataFrame:
     return pd.read_csv(ratings_path)
 
 
-def _build_movielens_features(history: torch.Tensor, svd_rank: int = 64) -> Tuple[torch.Tensor, torch.Tensor]:
+def _build_movielens_features(history: torch.Tensor, svd_rank: int = 64) -> tuple[torch.Tensor, torch.Tensor]:
     """Build the user and movie features for the MovieLens dataset."""
     U_full, S_full, Vt_full = torch.linalg.svd(history, full_matrices=False)
     U_r = U_full[:, :svd_rank]  # shape: (num_users, svd_rank)
@@ -76,7 +76,7 @@ def _setup_movielens(
     min_movies: int = 10,
     store_features: bool = True,
     version: Literal["ml-latest-small", "ml-32m"] = "ml-latest-small",
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Download, extract, and load the MovieLens dataset.
 
     Args:
@@ -241,7 +241,7 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         """Return the number of contexts / samples in this dataset."""
         return self.user_features.shape[0]
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for a given index.
 
         Args:

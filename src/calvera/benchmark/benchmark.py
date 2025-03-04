@@ -2,7 +2,8 @@ import inspect
 import logging
 import os
 import random
-from typing import Any, Callable, Dict, Generic, Optional
+from collections.abc import Callable
+from typing import Any, Generic
 
 import lightning as pl
 import matplotlib.pyplot as plt
@@ -13,35 +14,35 @@ from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit
-from neural_bandits.bandits.action_input_type import ActionInputType
-from neural_bandits.bandits.linear_ts_bandit import (
+from calvera.bandits.abstract_bandit import AbstractBandit
+from calvera.bandits.action_input_type import ActionInputType
+from calvera.bandits.linear_ts_bandit import (
     DiagonalPrecApproxLinearTSBandit,
     LinearTSBandit,
 )
-from neural_bandits.bandits.linear_ucb_bandit import (
+from calvera.bandits.linear_ucb_bandit import (
     DiagonalPrecApproxLinearUCBBandit,
     LinearUCBBandit,
 )
-from neural_bandits.bandits.neural_linear_bandit import NeuralLinearBandit
-from neural_bandits.bandits.neural_ts_bandit import NeuralTSBandit
-from neural_bandits.bandits.neural_ucb_bandit import NeuralUCBBandit
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
-from neural_bandits.benchmark.datasets.covertype import CovertypeDataset
-from neural_bandits.benchmark.datasets.imdb_reviews import ImdbMovieReviews
-from neural_bandits.benchmark.datasets.mnist import MNISTDataset
-from neural_bandits.benchmark.datasets.movie_lens import MovieLensDataset
-from neural_bandits.benchmark.datasets.statlog import StatlogDataset
-from neural_bandits.benchmark.datasets.wheel import WheelBanditDataset
-from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
-from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
-from neural_bandits.utils.data_storage import (
+from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
+from calvera.bandits.neural_ts_bandit import NeuralTSBandit
+from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
+from calvera.benchmark.datasets.covertype import CovertypeDataset
+from calvera.benchmark.datasets.imdb_reviews import ImdbMovieReviews
+from calvera.benchmark.datasets.mnist import MNISTDataset
+from calvera.benchmark.datasets.movie_lens import MovieLensDataset
+from calvera.benchmark.datasets.statlog import StatlogDataset
+from calvera.benchmark.datasets.wheel import WheelBanditDataset
+from calvera.benchmark.environment import BanditBenchmarkEnvironment
+from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     DataBufferStrategy,
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
 )
-from neural_bandits.utils.selectors import (
+from calvera.utils.selectors import (
     AbstractSelector,
     ArgMaxSelector,
     EpsilonGreedySelector,
@@ -150,7 +151,7 @@ class BanditBenchmark(Generic[ActionInputType]):
     """Benchmark class which trains a bandit on a dataset."""
 
     @staticmethod
-    def from_config(config: dict[str, Any], logger: Optional[Logger] = None) -> "BanditBenchmark[Any]":
+    def from_config(config: dict[str, Any], logger: Logger | None = None) -> "BanditBenchmark[Any]":
         """Initialize a benchmark from a configuration of strings.
 
         Will instantiate all necessary classes from given strings for the user.
@@ -220,8 +221,8 @@ class BanditBenchmark(Generic[ActionInputType]):
         self,
         bandit: AbstractBandit[ActionInputType],
         dataset: AbstractDataset[ActionInputType],
-        training_params: Dict[str, Any],
-        logger: Optional[Logger] = None,
+        training_params: dict[str, Any],
+        logger: Logger | None = None,
     ) -> None:
         """Initializes the benchmark.
 
@@ -237,7 +238,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         self.training_params["seed"] = training_params.get("seed", 42)
         pl.seed_everything(training_params["seed"])
 
-        self.logger: Optional[OnlineBanditLoggerDecorator] = (
+        self.logger: OnlineBanditLoggerDecorator | None = (
             OnlineBanditLoggerDecorator(logger, enable_console_logging=False) if logger is not None else None
         )
         self.log_dir = self.logger.log_dir if self.logger is not None and self.logger.log_dir else "logs"
@@ -402,7 +403,7 @@ class BenchmarkAnalyzer:
         self.suppress_plots = suppress_plots
         self.df = self.load_metrics()
 
-    def load_metrics(self) -> Optional[pd.DataFrame]:
+    def load_metrics(self) -> pd.DataFrame | None:
         """Loads the logs from the log path.
 
         Returns:

@@ -1,10 +1,10 @@
-from typing import Generic, Optional, cast
+from typing import Generic, cast
 
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 
-from neural_bandits.bandits.action_input_type import ActionInputType
+from calvera.bandits.action_input_type import ActionInputType
 
 
 class BanditBenchmarkEnvironment(Generic[ActionInputType]):
@@ -33,15 +33,15 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
     """
 
     _dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]]
-    _iterator: Optional[_BaseDataLoaderIter]
-    _last_contextualized_actions: Optional[ActionInputType]
-    _last_all_rewards: Optional[torch.Tensor]
-    device: Optional[torch.device]
+    _iterator: _BaseDataLoaderIter | None
+    _last_contextualized_actions: ActionInputType | None
+    _last_all_rewards: torch.Tensor | None
+    device: torch.device | None
 
     def __init__(
         self,
         dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]],
-        device: Optional[torch.device] = None,
+        device: torch.device | None = None,
     ) -> None:
         """Initializes a BanditBenchmarkEnvironment.
 
@@ -50,9 +50,9 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
             device: The device the tensors should be moved to. If None, the default device is used.
         """
         self._dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = dataloader
-        self._iterator: Optional[_BaseDataLoaderIter] = None
-        self._last_contextualized_actions: Optional[ActionInputType] = None
-        self._last_all_rewards: Optional[torch.Tensor] = None
+        self._iterator: _BaseDataLoaderIter | None = None
+        self._last_contextualized_actions: ActionInputType | None = None
+        self._last_all_rewards: torch.Tensor | None = None
         self.device = device
 
     def __iter__(self) -> "BanditBenchmarkEnvironment[ActionInputType]":
@@ -87,7 +87,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         if isinstance(contextualized_actions, torch.Tensor):
             batch_size, num_actions, _ = contextualized_actions.shape
             contextualized_actions = cast(ActionInputType, contextualized_actions.to(device=self.device))
-        elif isinstance(contextualized_actions, (tuple, list)):
+        elif isinstance(contextualized_actions, tuple | list):
             contextualized_actions = cast(
                 ActionInputType,
                 tuple(action_tensor.to(device=self.device) for action_tensor in contextualized_actions),
@@ -224,7 +224,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
                     self._last_contextualized_actions.size(-1),
                 ),
             )  # shape (n, m, k)
-        elif isinstance(self._last_contextualized_actions, (tuple, list)):
+        elif isinstance(self._last_contextualized_actions, tuple | list):
             first_tensor = self._last_contextualized_actions[0]
             expanded_mask = mask.unsqueeze(-1).expand_as(first_tensor)
             return cast(

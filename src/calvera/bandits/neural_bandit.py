@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import lightning as pl
 import torch
@@ -8,9 +8,9 @@ import torch.nn as nn
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import optim
 
-from neural_bandits.bandits.abstract_bandit import AbstractBandit
-from neural_bandits.utils.data_storage import AbstractBanditDataBuffer
-from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.bandits.abstract_bandit import AbstractBandit
+from calvera.utils.data_storage import AbstractBanditDataBuffer
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +41,16 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         self,
         n_features: int,
         network: nn.Module,
-        buffer: Optional[AbstractBanditDataBuffer[torch.Tensor, Any]] = None,
-        selector: Optional[AbstractSelector] = None,
+        buffer: AbstractBanditDataBuffer[torch.Tensor, Any] | None = None,
+        selector: AbstractSelector | None = None,
         exploration_rate: float = 1.0,
         train_batch_size: int = 32,
         learning_rate: float = 1e-3,
         weight_decay: float = 1.0,
         learning_rate_decay: float = 1.0,
         learning_rate_scheduler_step_size: int = 1,
-        early_stop_threshold: Optional[float] = 1e-3,
-        min_samples_required_for_training: Optional[int] = 64,
+        early_stop_threshold: float | None = 1e-3,
+        min_samples_required_for_training: int | None = 64,
         initial_train_steps: int = 1024,
     ) -> None:
         """Initialize the NeuralUCB bandit module.

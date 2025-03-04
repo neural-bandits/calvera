@@ -4,12 +4,12 @@ import pytest
 import pytorch_lightning as pl
 import torch
 
-from neural_bandits.bandits.linear_bandit import LinearBandit
-from neural_bandits.bandits.linear_ts_bandit import (
+from calvera.bandits.linear_bandit import LinearBandit
+from calvera.bandits.linear_ts_bandit import (
     DiagonalPrecApproxLinearTSBandit,
     LinearTSBandit,
 )
-from neural_bandits.bandits.linear_ucb_bandit import (
+from calvera.bandits.linear_ucb_bandit import (
     DiagonalPrecApproxLinearUCBBandit,
     LinearUCBBandit,
 )

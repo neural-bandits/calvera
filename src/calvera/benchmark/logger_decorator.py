@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import torch
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
@@ -62,7 +62,7 @@ class OnlineBanditLoggerDecorator(Logger):
         return getattr(self._logger_wrappee, name)
 
     @property
-    def root_dir(self) -> Optional[str]:
+    def root_dir(self) -> str | None:
         """Return the root directory.
 
         Returns the root directory where all versions of an experiment get saved, or `None` if the logger does not
@@ -71,7 +71,7 @@ class OnlineBanditLoggerDecorator(Logger):
         return self._logger_wrappee.root_dir
 
     @property
-    def log_dir(self) -> Optional[str]:
+    def log_dir(self) -> str | None:
         """Return directory with the current version of the experiment.
 
         Returns the directory where the current version of the experiment gets saved, or `None` if the logger does not
@@ -80,7 +80,7 @@ class OnlineBanditLoggerDecorator(Logger):
         return self._logger_wrappee.log_dir
 
     @property
-    def save_dir(self) -> Optional[str]:
+    def save_dir(self) -> str | None:
         """Return the root directory, or `None` if the logger does not save data locally."""
         return self._logger_wrappee.save_dir
 
@@ -90,17 +90,17 @@ class OnlineBanditLoggerDecorator(Logger):
         return self._logger_wrappee.group_separator
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """Return the experiment name."""
         return self._logger_wrappee.name
 
     @property
-    def version(self) -> Optional[str | int]:
+    def version(self) -> str | int | None:
         """Return the experiment version."""
         return self._logger_wrappee.version
 
     @rank_zero_only
-    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
         """Records metrics. This method logs metrics as soon as it received them.
 
         Args:
@@ -137,7 +137,7 @@ class OnlineBanditLoggerDecorator(Logger):
         self._logger_wrappee.log_hyperparams(params, *args, **kwargs)
 
     @rank_zero_only
-    def log_graph(self, model: torch.nn.Module, input_array: Optional[torch.Tensor] = None) -> None:
+    def log_graph(self, model: torch.nn.Module, input_array: torch.Tensor | None = None) -> None:
         """Record model graph.
 
         Args:

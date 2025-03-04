@@ -1,8 +1,6 @@
-from typing import List, Optional, Tuple
-
 import torch
 
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
+from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
 def sample_rewards(
@@ -111,7 +109,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         std_medium: float = 0.01,
         mu_large: float = 50.0,
         std_large: float = 0.01,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ) -> None:
         """Initialize the Wheel Bandit dataset.
 
@@ -143,7 +141,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         self.data = data
         self.rewards = rewards
 
-    def _generate_data(self, seed: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _generate_data(self, seed: int | None = None) -> tuple[torch.Tensor, torch.Tensor]:
         """Pregenerate the dataset for the Wheel Bandit problem.
 
         We do this because we need to make the dataset compatible with PyTorch's Dataset.
@@ -163,7 +161,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         # We'll attempt a similar approach: sample more and filter.
         # The original code took a while-loop approach. We'll do the same.
 
-        data_list: List[torch.Tensor] = []
+        data_list: list[torch.Tensor] = []
         batch_size = max(int(self.num_samples / 3), 1)
         while len(data_list) < self.num_samples:
             raw_data = (torch.rand(batch_size, self.num_features, generator=generator) * 2.0 - 1.0).float()
@@ -199,7 +197,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         """Return the number of contexts / samples in this dataset."""
         return self.num_samples
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for the context at index idx in this dataset.
 
         Args:

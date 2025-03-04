@@ -1,4 +1,4 @@
-from typing import TypeVar, Union
+from typing import TypeVar
 
 import torch
 
@@ -8,4 +8,4 @@ import torch
     corresponding to the `input_ids`, `attention_mask`, and `token_type_ids`.
     On the other hand, a neural network only takes a single tensor as input.
 """
-ActionInputType = TypeVar("ActionInputType", bound=Union[torch.Tensor, tuple[torch.Tensor, ...] | list[torch.Tensor]])
+ActionInputType = TypeVar("ActionInputType", bound=torch.Tensor | (tuple[torch.Tensor, ...] | list[torch.Tensor]))

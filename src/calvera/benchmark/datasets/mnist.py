@@ -1,11 +1,9 @@
-from typing import Tuple
-
 import numpy as np
 import torch
 from sklearn.datasets import fetch_openml
 from sklearn.utils import Bunch
 
-from neural_bandits.benchmark.datasets.abstract_dataset import AbstractDataset
+from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
 class MNISTDataset(AbstractDataset[torch.Tensor]):
@@ -40,7 +38,7 @@ class MNISTDataset(AbstractDataset[torch.Tensor]):
         """Return the number of contexts / samples in this dataset."""
         return len(self.X)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the contextualized actions and rewards for a given index.
 
         Args:
