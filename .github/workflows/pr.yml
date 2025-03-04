@@ -24,7 +24,7 @@ jobs:
         shell: bash
 
       - name: Install Neural-Bandits
-        run: pip3 install -e .
+        run: pip3 install -e . --extra-index-url https://download.pytorch.org/whl/cpu
         shell: bash
 
       - name: Install dev dependencies
@@ -56,7 +56,7 @@ jobs:
         shell: bash
 
       - name: Install Neural-Bandits
-        run: pip3 install -e .
+        run: pip3 install -e . --extra-index-url https://download.pytorch.org/whl/cpu
         shell: bash
 
       - name: Install dev dependencies
