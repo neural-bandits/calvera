@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "calvera"
-version = "0.1.2"
+version = "0.1.3"
 description = "Package that will offer a small collection of different (Neural) Bandit algorithms with different feedback strategies."
 readme = "README.md"
 license = {text = "MIT"}
@@ -24,10 +24,11 @@ classifiers = [
 
 requires-python = ">=3.10"
 dependencies = [
+  "pip<24.1",
   "lightning",
-  "torch",
-  "torchvision",
-  "torchaudio",
+#   "torch",
+#   "torchvision",
+#   "torchaudio",
 ]
 
 [project.optional-dependencies]
