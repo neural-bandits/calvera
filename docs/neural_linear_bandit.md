@@ -1,4 +1,4 @@
-::: neural_bandits.bandits.neural_linear_bandit.NeuralLinearBandit
+::: calvera.bandits.neural_linear_bandit.NeuralLinearBandit
     handler: python
     options:
       heading: NeuralLinearBandit

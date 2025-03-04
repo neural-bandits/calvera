@@ -17,7 +17,7 @@ class OnlineBanditLoggerDecorator(Logger):
     ```python
     from lightning.pytorch.loggers import CSVLogger
     from lightning import Trainer
-    from neural_bandits.benchmark.logger import OnlineBanditLoggerDecorator
+    from calvera.benchmark.logger import OnlineBanditLoggerDecorator
     import pandas as pd
 
     logger = CSVLogger("logs")

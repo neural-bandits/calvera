@@ -19,7 +19,7 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
 
 ## **Data Buffers**
 
-::: neural_bandits.utils.data_storage.AbstractBanditDataBuffer
+::: calvera.utils.data_storage.AbstractBanditDataBuffer
     handler: python
     options:
       show_root_heading: true
@@ -34,7 +34,7 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
         - load_state_dict
 
 
-::: neural_bandits.utils.data_storage.InMemoryDataBuffer
+::: calvera.utils.data_storage.InMemoryDataBuffer
     handler: python
     options:
       heading: InMemoryDataBuffer
@@ -54,7 +54,7 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
 
 ## **Strategies**
 
-::: neural_bandits.utils.data_storage.DataBufferStrategy
+::: calvera.utils.data_storage.DataBufferStrategy
     handler: python
     options:
       heading: DataBufferStrategy
@@ -64,7 +64,7 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
       members: 
         - get_training_indices
 
-::: neural_bandits.utils.data_storage.SlidingWindowBufferStrategy
+::: calvera.utils.data_storage.SlidingWindowBufferStrategy
     handler: python
     options:
       heading: SlidingWindowBufferStrategy
@@ -73,7 +73,7 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
       heading_level: 2
       members: False
 
-::: neural_bandits.utils.data_storage.AllDataBufferStrategy
+::: calvera.utils.data_storage.AllDataBufferStrategy
     handler: python
     options:
       heading: AllDataBufferStrategy

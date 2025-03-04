@@ -15,7 +15,7 @@ If you want to implement your own selector, you can subclass the `Selector` clas
 
 <br>
 
-::: neural_bandits.utils.selectors.AbstractSelector
+::: calvera.utils.selectors.AbstractSelector
     handler: python
     options:
       heading: AbstractSelector
@@ -25,7 +25,7 @@ If you want to implement your own selector, you can subclass the `Selector` clas
       members:
         - __call__
 
-::: neural_bandits.utils.selectors.ArgMaxSelector
+::: calvera.utils.selectors.ArgMaxSelector
     handler: python
     options:
       heading: ArgMaxSelector
@@ -34,7 +34,7 @@ If you want to implement your own selector, you can subclass the `Selector` clas
       heading_level: 3
       members: False
 
-::: neural_bandits.utils.selectors.EpsilonGreedySelector
+::: calvera.utils.selectors.EpsilonGreedySelector
     handler: python
     options:
       heading: EpsilonGreedySelector
@@ -43,7 +43,7 @@ If you want to implement your own selector, you can subclass the `Selector` clas
       heading_level: 3
       members: False
 
-::: neural_bandits.utils.selectors.TopKSelector
+::: calvera.utils.selectors.TopKSelector
     handler: python
     options:
       heading: TopKSelector
@@ -61,7 +61,7 @@ To simulate a bandit in a scenario with non-i.i.d. contexts, we need to modify t
 To be consistent we provide a `DataSampler` class that can be used to sample data from a dataset.
 <br>
 
-::: neural_bandits.utils.data_sampler.AbstractDataSampler
+::: calvera.utils.data_sampler.AbstractDataSampler
     handler: python
     options:
       heading: AbstractDataSampler
@@ -74,7 +74,7 @@ To be consistent we provide a `DataSampler` class that can be used to sample dat
         - __iter__
 
 
-::: neural_bandits.utils.data_sampler.RandomDataSampler
+::: calvera.utils.data_sampler.RandomDataSampler
     handler: python
     options:
       heading: RandomDataSampler
@@ -83,7 +83,7 @@ To be consistent we provide a `DataSampler` class that can be used to sample dat
       heading_level: 3
       members: False
 
-::: neural_bandits.utils.data_sampler.SortedDataSampler
+::: calvera.utils.data_sampler.SortedDataSampler
     handler: python
     options:
       heading: SortedDataSampler

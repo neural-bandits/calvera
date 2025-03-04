@@ -4,7 +4,7 @@ To estimate the uncertainty the gradients of the estimated reward of the chosen 
 These gradients are used to build a precision matrix which is used to compute the UCB or perform Thompson sampling.
 
 
-::: neural_bandits.bandits.neural_ucb_bandit.NeuralUCBBandit
+::: calvera.bandits.neural_ucb_bandit.NeuralUCBBandit
     handler: python
     options:
       heading: LinearTSBandit
@@ -15,7 +15,7 @@ These gradients are used to build a precision matrix which is used to compute th
       inherited_members:
         - __init__
 
-::: neural_bandits.bandits.neural_ts_bandit.NeuralTSBandit
+::: calvera.bandits.neural_ts_bandit.NeuralTSBandit
     handler: python
     options:
       heading: LinearTSBandit
