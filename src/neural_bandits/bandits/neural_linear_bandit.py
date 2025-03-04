@@ -189,9 +189,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         # Disable Lightning's automatic optimization. Has to be kept in sync with should_train_network.
         self.automatic_optimization = False
-        self._helper_network_init = (
-            self._helper_network.state_dict().copy() if not self.hparams["warm_start"] else None
-        )
+        self._helper_network_init = self._helper_network.state_dict().copy() if not self.hparams["warm_start"] else None
 
     def _predict_action(
         self, contextualized_actions: ActionInputType, **kwargs: Any
