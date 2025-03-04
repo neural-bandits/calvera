@@ -89,7 +89,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: Optional[float] = 1e-3,
         initial_train_steps: int = 1024,
-        warm_restart: bool = True,
+        warm_start: bool = True,
     ) -> None:
         """Initializes the NeuralLinearBanditModule.
 
@@ -124,7 +124,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 Must be greater equal 0.
             initial_train_steps: Number of initial training steps (in samples).
                 Must be greater equal 0.
-            warm_restart: If `False` the parameters of the network are reset in order to be retrained from scratch using
+            warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
                 `network.reset_parameters()` everytime a retraining of the network occurs. If `True` the network is
                 trained from the current state.
         """
@@ -166,7 +166,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 "learning_rate_scheduler_step_size": learning_rate_scheduler_step_size,
                 "early_stop_threshold": early_stop_threshold,
                 "initial_train_steps": initial_train_steps,
-                "warm_restart": warm_restart,
+                "warm_start": warm_start,
             }
         )
 
@@ -190,7 +190,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         # Disable Lightning's automatic optimization. Has to be kept in sync with should_train_network.
         self.automatic_optimization = False
         self._helper_network_init = (
-            self._helper_network.state_dict().copy() if not self.hparams["warm_restart"] else None
+            self._helper_network.state_dict().copy() if not self.hparams["warm_start"] else None
         )
 
     def _predict_action(
@@ -385,7 +385,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
             self.should_train_network = True
 
-        if self.hparams["warm_restart"] and self.should_train_network and self._helper_network_init is not None:
+        if not self.hparams["warm_start"] and self.should_train_network and self._helper_network_init is not None:
             self._helper_network.load_state_dict(self._helper_network_init)
 
     def is_initial_training_stage(self) -> bool:

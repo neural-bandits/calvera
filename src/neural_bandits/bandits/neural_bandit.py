@@ -52,7 +52,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         early_stop_threshold: Optional[float] = 1e-3,
         min_samples_required_for_training: Optional[int] = 64,
         initial_train_steps: int = 1024,
-        warm_restart: bool = True,
+        warm_start: bool = True,
     ) -> None:
         """Initialize the NeuralUCB bandit module.
 
@@ -86,7 +86,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
                 Must be greater equal 0.
-            warm_restart: If `False` the parameters of the network are reset in order to be retrained from scratch using
+            warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
                 `network.reset_parameters()` everytime a retraining of the network occurs. If `True` the network is
                 trained from the current state.
         """
@@ -120,7 +120,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 "min_samples_required_for_training": min_samples_required_for_training,
                 "early_stop_threshold": early_stop_threshold,
                 "initial_train_steps": initial_train_steps,
-                "warm_restart": warm_restart,
+                "warm_start": warm_start,
             }
         )
 
@@ -128,7 +128,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         # Model parameters: Initialize θ_t
         self.theta_t = network.to(self.device)
-        self.theta_t_init = self.theta_t.state_dict().copy() if self.hparams["warm_restart"] else None
+        self.theta_t_init = self.theta_t.state_dict().copy() if not self.hparams["warm_start"] else None
 
         self.total_params = sum(p.numel() for p in self.theta_t.parameters() if p.requires_grad)
 
@@ -300,7 +300,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
             self._skip_training()
 
-        if not self.hparams["warm_restart"] and self.should_train_network:
+        if not self.hparams["warm_start"] and self.should_train_network:
             self.theta_t.load_state_dict(cast(Mapping[str, Any], self.theta_t_init))
 
     def _update(
