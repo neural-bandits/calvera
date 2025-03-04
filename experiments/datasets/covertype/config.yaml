@@ -23,7 +23,7 @@ train_batch_size: 32  # this is actually passed to the bandit but it needs to be
 gradient_clip_val: 20.0
 
 # Network
-network: small_mlp  # 1 hidden layer with 64 units
+network: small_mlp  # 3 hidden layer with 128 units
 
 # Buffer
 data_strategy: all
