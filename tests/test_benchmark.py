@@ -1,4 +1,4 @@
-from neural_bandits.benchmark.benchmark import filter_kwargs, run, run_comparison
+from calvera.benchmark.benchmark import filter_kwargs, run, run_comparison
 
 
 def test_lin_ucb_benchmark() -> None:

@@ -4,6 +4,23 @@ repo_name: neural_bandits/calvera
 
 markdown_extensions: 
   - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/katex.js
+  - https://unpkg.com/katex@0/dist/katex.min.js
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
+
+extra_css:
+  - https://unpkg.com/katex@0/dist/katex.min.css
 
 theme:
   name: material
@@ -38,7 +55,8 @@ theme:
   features:
       - header.autohide
       - navigation.footer
-      # - navigation.tabs
+      - navigation.tabs
+      - navigation.indexes
 
 plugins:
   - search
@@ -47,8 +65,18 @@ plugins:
       handlers:
         python:
           paths: [src]
-
+          options:
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
 nav:
   - Docs: index.md
-  - How-To Guides: how-to-guides.md
-
+  - Examples: examples.md
+  - API Reference:
+      - Bandit Interface: bandits.md
+      - LinearTS and LinearUCB: linear_ts_and_linear_ucb.md
+      - NeuralTS and NeuralUCB: neural_ts_and_neural_ucb.md
+      - Neural Linear Bandit: neural_linear_bandit.md
+      - Buffers: buffers.md
+      - Utils: utils.md
+      - Benchmark: benchmark.md
