@@ -166,3 +166,5 @@ data/
 examples/logs/*
 examples/lightning_logs/*
 logs/*
+
+experiments/*
