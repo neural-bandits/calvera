@@ -14,6 +14,7 @@ class SyntheticDataset(AbstractDataset[torch.Tensor]):
     mapping, the feature matrix would be [1, x, x^2].
     """
 
+    # TODO: Add support for more than 2 actions by having a theta for each action. See issue #145.
     num_actions = 2
 
     def __init__(self, n_features: int = 2, num_samples: int = 10000, noise_std: float = 0.1) -> None:
