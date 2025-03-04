@@ -9,6 +9,9 @@ class SyntheticDataset(AbstractDataset[torch.Tensor]):
     """A binary classification synthetic dataset for bandit algorithms.
 
     Subclasses should implement the `phi` method to define the feature mapping.
+    `phi` takes the input tensor `x` of shape (n_samples, n_features) and returns
+    the feature matrix of shape (n_samples, phi_features). E.g. to do a quadratic
+    mapping, the feature matrix would be [1, x, x^2].
     """
 
     num_actions = 2
