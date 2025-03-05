@@ -2,7 +2,7 @@
 #SBATCH -A herbrich-student
 #SBATCH --partition cauldron
 #SBATCH --cpus-per-task=4
-#SBATCH --mem-per-gpu=16GB
+#SBATCH --mem-per-gpu=64GB
 #SBATCH --gpus=1
 #SBATCH --output=experiments/logs/log_%j.log
 #SBATCH --constraint=ARCH:X86
