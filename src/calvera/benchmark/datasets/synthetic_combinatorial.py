@@ -25,7 +25,7 @@ class SyntheticCombinatorialDataset(AbstractDataset[torch.Tensor]):
         num_actions: int = 20,
         context_size: int = 80,
         function_type: str = "linear",
-        noise_std: float = 0.1,
+        noise_std: float = 0,
         seed: int = 42,
     ):
         """Initialize the synthetic dataset.
