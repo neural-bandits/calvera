@@ -5,7 +5,7 @@ import torch
 from calvera.bandits.action_input_type import ActionInputType
 from calvera.bandits.linear_bandit import LinearBandit
 from calvera.utils.data_storage import AbstractBanditDataBuffer
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.utils.selectors import AbstractSelector
 
 
 class LinearTSBandit(LinearBandit[ActionInputType]):
@@ -49,8 +49,8 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
             lambda_=lambda_,
             lazy_uncertainty_update=lazy_uncertainty_update,
             clear_buffer_after_train=clear_buffer_after_train,
+            selector=selector,
         )
-        self.selector = selector if selector is not None else ArgMaxSelector()
 
     def _predict_action_hook(
         self, contextualized_actions: ActionInputType, **kwargs: Any
@@ -96,7 +96,7 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
             The probability of the chosen actions. For now we always return 1 but we might return the actual probability
                 in the future. Shape: (batch_size, ).
         """
-        # TODO: Implement the actual probability computation for Thompson Sampling.
+        # TODO: Implement the actual probability computation for Thompson Sampling. See issue #72.
         return torch.ones(contextualized_actions.shape[0], device=contextualized_actions.device)
 
 
