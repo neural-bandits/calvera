@@ -5,14 +5,8 @@ import pytorch_lightning as pl
 import torch
 
 from calvera.bandits.linear_bandit import LinearBandit
-from calvera.bandits.linear_ts_bandit import (
-    DiagonalPrecApproxLinearTSBandit,
-    LinearTSBandit,
-)
-from calvera.bandits.linear_ucb_bandit import (
-    DiagonalPrecApproxLinearUCBBandit,
-    LinearUCBBandit,
-)
+from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
+from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
 from calvera.utils.selectors import ArgMaxSelector, EpsilonGreedySelector
 
 BanditClassType = TypeVar("BanditClassType", bound="LinearBandit[torch.Tensor]")
@@ -68,8 +62,6 @@ def simple_ucb_bandit() -> LinearUCBBandit:
     module = LinearUCBBandit(n_features=n_features, lazy_uncertainty_update=True)
     return module
 
-
-# TODO: Also use the fixtures from above here?
 
 LinearBanditTypes = [
     LinearTSBandit,
@@ -247,7 +239,7 @@ def test_linear_ts_correct() -> None:
         torch.tensor([[0, 0, 1]]),
     ), "Expected one-hot encoding of the arm with highest expected reward."
 
-    # TODO: Test correct computation of probabilities
+    # TODO: Test correct computation of probabilities. See issue #72.
 
 
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit[torch.Tensor]])
