@@ -269,7 +269,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         self.dataset = dataset
         self.dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = self._initialize_dataloader(dataset)
         # Wrap the dataloader in an environment to simulate delayed feedback.
-        self.environment = BanditBenchmarkEnvironment(self.dataloader)
+        self.environment = BanditBenchmarkEnvironment(self.dataloader, self.device)
 
         self.regrets = np.array([])
         self.rewards = np.array([])
@@ -317,8 +317,8 @@ class BanditBenchmark(Generic[ActionInputType]):
             chosen_contextualized_actions, realized_rewards = self.environment.get_feedback(chosen_actions)
 
             regrets = self.environment.compute_regret(chosen_actions)
-            self.regrets = np.append(self.regrets, regrets)
-            self.rewards = np.append(self.rewards, realized_rewards)
+            self.regrets = np.append(self.regrets, regrets.to(self.regrets.device))
+            self.rewards = np.append(self.rewards, realized_rewards.to(self.rewards.device))
             progress_bar.set_postfix(
                 regret=regrets.mean().item(),
                 reward=realized_rewards.mean().item(),
@@ -342,6 +342,7 @@ class BanditBenchmark(Generic[ActionInputType]):
                 enable_model_summary=False,
                 log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
                 accelerator=self.device,
+                strategy="fsdp",
                 **optional_kwargs,
             )
 
@@ -431,7 +432,8 @@ class BenchmarkAnalyzer:
             save_plots: If True, plots will be saved to the results directory. Default is False.
             suppress_plots: If True, plots will not be automatically shown. Default is False.
         """
-        assert save_plots or not suppress_plots, "Cannot suppress plots and not save them."
+        if not save_plots and suppress_plots:
+            logging.warning("Suppressing plots and not saving them. Results will not be visible.")
 
         self.log_dir = log_dir
         self.results_dir = os.path.join(log_dir, results_dir)
@@ -493,12 +495,12 @@ class BenchmarkAnalyzer:
         if isinstance(metric_name, str):
             metric_name = [metric_name]
 
-        if self.env_metrics_df["bandit"].nunique() > 1 and len(metric_name) > 1:
-            raise ValueError("Cannot plot multiple metrics for multiple bandits.")
-
         if any(name not in self.env_metrics_df.columns for name in metric_name):
             logger.warning(f"\One of {','.join(metric_name)} data not found in logs.")
             return
+
+        if self.env_metrics_df["bandit"].nunique() > 1 and len(metric_name) > 1:
+            raise ValueError("Cannot plot multiple metrics for multiple bandits.")
 
         plt.figure(figsize=(10, 5))
         if self.env_metrics_df["bandit"].nunique() > 1:
@@ -690,28 +692,28 @@ def run_comparison(
     analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
 
     for bandit in config["bandit"]:
-        try:
-            print("==============================================")
-            # deep copy the config to avoid overwriting the original
-            bandit_config = copy.deepcopy(config)
-            bandit_config["bandit"] = bandit
+        # try:
+        print("==============================================")
+        # deep copy the config to avoid overwriting the original
+        bandit_config = copy.deepcopy(config)
+        bandit_config["bandit"] = bandit
 
-            csv_logger = CSVLogger(os.path.join(log_dir, bandit), version=0)
-            benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
-            print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
-            print(f"Config: {bandit_config}")
-            print(
-                f"Dataset {bandit_config['dataset']}:"
-                f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
-                f"and {benchmark.dataset.num_actions} actions."
-            )
-            benchmark.run()
+        csv_logger = CSVLogger(os.path.join(log_dir, bandit), version=0)
+        benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
+        print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
+        print(f"Config: {bandit_config}")
+        print(
+            f"Dataset {bandit_config['dataset']}:"
+            f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
+            f"and {benchmark.dataset.num_actions} actions."
+        )
+        benchmark.run()
 
-            analyzer.load_metrics(csv_logger.log_dir, bandit)
-            analyzer.log_metrics(bandit)
-        except Exception as e:
-            print(f"Failed to run benchmark for {bandit}. It might not be part of the final analysis.")
-            print(e)
+        analyzer.load_metrics(csv_logger.log_dir, bandit)
+        analyzer.log_metrics(bandit)
+        # except Exception as e:
+            # print(f"Failed to run benchmark for {bandit}. It might not be part of the final analysis.")
+            # print(e)
 
     for bandit in config.get("load_previous_result", []):
         print("==============================================")
