@@ -717,11 +717,12 @@ def run_comparison(
     for bandit in config.get("load_previous_result", []):
         print("==============================================")
         print(f"Loading previous result for {bandit}.")
+        csv_log_dir = os.path.join(log_dir, bandit, "lightning_logs", "version_0")
         try:
-            analyzer.load_metrics(os.path.join(log_dir, bandit), bandit)
+            analyzer.load_metrics(csv_log_dir, bandit)
             analyzer.log_metrics(bandit)
         except Exception as e:
-            print(f"Failed to load previous result for {bandit}.")
+            print(f"Failed to load previous result for {bandit} from {csv_log_dir}.")
             print(e)
 
     analyzer.plot_accumulated_metric("reward")
