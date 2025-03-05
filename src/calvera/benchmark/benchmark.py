@@ -222,7 +222,10 @@ class BanditBenchmark(Generic[ActionInputType]):
             bandit_hparams["network"] = networks[training_params["network"]](network_input_size, network_output_size)
 
             data_strategy = data_strategies[training_params["data_strategy"]](training_params)
-            bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](data_strategy)
+            bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](
+                data_strategy,
+                max_size=training_params.get("max_buffer_size", None),
+            )
 
         BanditClass = bandits[bandit_name]
         bandit = BanditClass(**filter_kwargs(BanditClass, bandit_hparams))
