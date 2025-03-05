@@ -13,7 +13,7 @@ lint:
 
 .PHONY: mypy
 mypy:
-	mypy $(sources)
+	mypy $(ARGS) $(sources)
 
 .PHONY: all
 all:
