@@ -3,11 +3,13 @@ dataset_hparams:
   num_samples: 20480
   delta: 0.9
 
-bandit:
+load_previous_result:
   - approx_lin_ucb
   - lin_ts
   - lin_ucb
   - approx_lin_ts
+
+bandit:
   - neural_linear
   - neural_ts
   - neural_ucb
