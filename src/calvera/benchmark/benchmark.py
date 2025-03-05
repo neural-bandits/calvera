@@ -5,7 +5,7 @@ import logging
 import os
 import random
 from collections.abc import Callable
-from typing import Any, Generic, Optional
+from typing import Any, Generic
 
 import lightning as pl
 import matplotlib.pyplot as plt
@@ -440,7 +440,7 @@ class BenchmarkAnalyzer:
         self.env_metrics_df = pd.DataFrame()
         self.bandit_logs_df = pd.DataFrame()
 
-    def load_metrics(self, log_path: Optional[str] = None, bandit: str = "bandit") -> None:
+    def load_metrics(self, log_path: str | None = None, bandit: str = "bandit") -> None:
         """Loads the logs from the log path.
 
         Args:
@@ -462,7 +462,7 @@ class BenchmarkAnalyzer:
 
             self.bandit_logs_df = pd.concat([self.bandit_logs_df, bandit_metrics_df], ignore_index=True)
 
-    def _load_df(self, log_path: str, file_name: str) -> Optional[pd.DataFrame]:
+    def _load_df(self, log_path: str, file_name: str) -> pd.DataFrame | None:
         """Loads the logs from the log path.
 
         Args:
@@ -671,7 +671,7 @@ def run_comparison(
     log_dir: str = "logs",
     save_plots: bool = False,
     suppress_plots: bool = False,
-):
+) -> None:
     """Runs the benchmark training on multiple bandits.
 
     Args:
@@ -687,24 +687,38 @@ def run_comparison(
     analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
 
     for bandit in config["bandit"]:
+        try:
+            print("==============================================")
+            # deep copy the config to avoid overwriting the original
+            bandit_config = copy.deepcopy(config)
+            bandit_config["bandit"] = bandit
+
+            csv_logger = CSVLogger(os.path.join(log_dir, bandit), version=0)
+            benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
+            print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
+            print(f"Config: {bandit_config}")
+            print(
+                f"Dataset {bandit_config['dataset']}:"
+                f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
+                f"and {benchmark.dataset.num_actions} actions."
+            )
+            benchmark.run()
+
+            analyzer.load_metrics(csv_logger.log_dir, bandit)
+            analyzer.log_metrics(bandit)
+        except Exception as e:
+            print(f"Failed to run benchmark for {bandit}. It might not be part of the final analysis.")
+            print(e)
+
+    for bandit in config.get("load_previous_result", []):
         print("==============================================")
-        # deep copy the config to avoid overwriting the original
-        bandit_config = copy.deepcopy(config)
-        bandit_config["bandit"] = bandit
-
-        csv_logger = CSVLogger(os.path.join(log_dir, bandit), version=0)
-        benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
-        print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
-        print(f"Config: {bandit_config}")
-        print(
-            f"Dataset {bandit_config['dataset']}:"
-            f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
-            f"and {benchmark.dataset.num_actions} actions."
-        )
-        benchmark.run()
-
-        analyzer.load_metrics(csv_logger.log_dir, bandit)
-        analyzer.log_metrics(bandit)
+        print(f"Loading previous result for {bandit}.")
+        try:
+            analyzer.load_metrics(os.path.join(log_dir, bandit), bandit)
+            analyzer.log_metrics(bandit)
+        except Exception as e:
+            print(f"Failed to load previous result for {bandit}.")
+            print(e)
 
     analyzer.plot_accumulated_metric("reward")
     analyzer.plot_accumulated_metric("regret")
