@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 import torch
 
@@ -25,6 +26,39 @@ class AbstractSelector(ABC):
             One hot encoded actions that were chosen. Shape: (batch_size, n_arms).
         """
         pass
+
+    def get_state_dict(self) -> dict[str, Any]:
+        """Return a serializable state dictionary for checkpointing.
+
+        Returns:
+            A dictionary containing the selector's type information.
+        """
+        return {"type": self.__class__.__name__}
+
+    @staticmethod
+    def from_state_dict(state: dict[str, Any]) -> "AbstractSelector":
+        """Create a selector from a state dictionary.
+
+        Args:
+            state: Dictionary containing the selector's state information.
+
+        Returns:
+            A new selector instance initialized with the state.
+
+        Raises:
+            ValueError: If the selector type is unknown.
+        """
+        selector_type = state["type"]
+        if selector_type == "EpsilonGreedySelector":
+            selector = EpsilonGreedySelector(epsilon=state["epsilon"])
+            selector.generator.set_state(state["generator_state"])
+            return selector
+        elif selector_type == "TopKSelector":
+            return TopKSelector(k=state["k"])
+        elif selector_type == "ArgMaxSelector":
+            return ArgMaxSelector()
+        else:
+            raise ValueError(f"Unknown selector type: {selector_type}")
 
 
 class ArgMaxSelector(AbstractSelector):
@@ -87,6 +121,17 @@ class EpsilonGreedySelector(AbstractSelector):
 
         return torch.nn.functional.one_hot(selected_actions, num_classes=n_arms)
 
+    def get_state_dict(self) -> dict[str, Any]:
+        """Return a serializable state dictionary for checkpointing.
+
+        Returns:
+            Dictionary containing the selector's state information.
+        """
+        state = super().get_state_dict()
+        state["epsilon"] = self.epsilon
+        state["generator_state"] = self.generator.get_state()
+        return state
+
 
 class TopKSelector(AbstractSelector):
     """Selects the top k actions with the highest scores."""
@@ -128,3 +173,13 @@ class TopKSelector(AbstractSelector):
             remaining_scores[selected_mask] = float("-inf")
 
         return selected_actions
+
+    def get_state_dict(self) -> dict[str, Any]:
+        """Return a serializable state dictionary for checkpointing.
+
+        Returns:
+            Dictionary containing the selector's state information.
+        """
+        state = super().get_state_dict()
+        state["k"] = self.k
+        return state

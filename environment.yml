@@ -44,3 +44,4 @@ dependencies:
       - wandb[sweeps]
       - mkdocstrings[python]
       - black[jupyter]
+      - types-PyYAML
