@@ -548,7 +548,7 @@ def test_bandit_end_to_end_checkpoint(BanditClass: BanditClassType) -> None:
         agreement_rate = (
             sum(
                 original_choice == loaded_choice
-                for original_choice, loaded_choice in zip(original_choices, loaded_choices)
+                for original_choice, loaded_choice in zip(original_choices, loaded_choices, strict=False)
             )
             / n_samples
         )

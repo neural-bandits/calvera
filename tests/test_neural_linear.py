@@ -245,7 +245,8 @@ def test_neural_linear_bandit_checkpoint_save_load(
     # Verify the pattern of selections is similar (agreement rate > 0.7)
     agreement_rate = (
         sum(
-            original_choice == loaded_choice for original_choice, loaded_choice in zip(original_choices, loaded_choices)
+            original_choice == loaded_choice
+            for original_choice, loaded_choice in zip(original_choices, loaded_choices, strict=False)
         )
         / n_samples
     )

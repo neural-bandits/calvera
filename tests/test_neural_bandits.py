@@ -6,11 +6,11 @@ import pytest
 import torch
 import torch.nn as nn
 
-from calvera.utils.selectors import EpsilonGreedySelector
 from calvera.bandits.neural_bandit import NeuralBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
 from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
+from calvera.utils.selectors import EpsilonGreedySelector
 
 
 @pytest.fixture(autouse=True)
@@ -626,7 +626,7 @@ def test_neural_bandit_save_load_checkpoint(
 
     # Verify network weights are preserved
     for (orig_name, orig_param), (loaded_name, loaded_param) in zip(
-        original_bandit.theta_t.named_parameters(), loaded_bandit.theta_t.named_parameters()
+        original_bandit.theta_t.named_parameters(), loaded_bandit.theta_t.named_parameters(), strict=True
     ):
         assert orig_name == loaded_name
         assert torch.allclose(orig_param, loaded_param)
@@ -653,7 +653,7 @@ def test_neural_bandit_save_load_checkpoint(
         agreement_rate = (
             sum(
                 original_choice == loaded_choice
-                for original_choice, loaded_choice in zip(original_choices, loaded_choices)
+                for original_choice, loaded_choice in zip(original_choices, loaded_choices, strict=False)
             )
             / n_samples
         )
