@@ -61,7 +61,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             n_features: Number of input features. Must be greater 0.
             network: Neural network module for function approximation.
             buffer: Buffer for storing bandit interaction data. See superclass for further information.
-            selector: Action selector for the bandit. Defaults to ArgMaxSelector (if None).
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             exploration_rate: Exploration parameter for UCB. Called gamma_t=nu in the original paper.
                 Must be greater 0.
             train_batch_size: Size of mini-batches for training. Must be greater 0.

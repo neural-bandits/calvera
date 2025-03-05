@@ -14,7 +14,7 @@ from calvera.utils.data_storage import (
     BufferDataFormat,
     InMemoryDataBuffer,
 )
-from neural_bandits.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         n_features: int,
         buffer: AbstractBanditDataBuffer[ActionInputType, Any] | None = None,
         train_batch_size: int = 32,
-        selector: Optional[AbstractSelector] = None,
+        selector: AbstractSelector | None = None,
     ):
         """Initializes the Bandit.
 

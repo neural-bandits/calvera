@@ -13,7 +13,7 @@ from calvera.bandits.linear_ucb_bandit import (
     DiagonalPrecApproxLinearUCBBandit,
     LinearUCBBandit,
 )
-from neural_bandits.utils.selectors import ArgMaxSelector, EpsilonGreedySelector
+from calvera.utils.selectors import ArgMaxSelector, EpsilonGreedySelector
 
 BanditClassType = TypeVar("BanditClassType", bound="LinearBandit[torch.Tensor]")
 
