@@ -91,4 +91,5 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
 ## **Environment**
 
 The `BanditBenchmarkEnvironment` class is used to simulate a bandit environment. It is used to evaluate the performance of a bandit algorithm.
-TODO
+
+TODO: See issue #140.

@@ -1,4 +1,4 @@
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import pytest
 import pytorch_lightning as pl
@@ -13,6 +13,7 @@ from calvera.bandits.linear_ucb_bandit import (
     DiagonalPrecApproxLinearUCBBandit,
     LinearUCBBandit,
 )
+from calvera.utils.selectors import ArgMaxSelector, EpsilonGreedySelector
 
 BanditClassType = TypeVar("BanditClassType", bound="LinearBandit[torch.Tensor]")
 
@@ -67,8 +68,6 @@ def simple_ucb_bandit() -> LinearUCBBandit:
     module = LinearUCBBandit(n_features=n_features, lazy_uncertainty_update=True)
     return module
 
-
-# TODO: Also use the fixtures from above here?
 
 LinearBanditTypes = [
     LinearTSBandit,
@@ -246,7 +245,7 @@ def test_linear_ts_correct() -> None:
         torch.tensor([[0, 0, 1]]),
     ), "Expected one-hot encoding of the arm with highest expected reward."
 
-    # TODO: Test correct computation of probabilities
+    # TODO: Test correct computation of probabilities. See issue #72.
 
 
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit[torch.Tensor]])
@@ -408,3 +407,165 @@ def test_approx_prec_update(BanditClass: BanditClassType) -> None:
     assert torch.allclose(
         bandit.precision_matrix, expected_precision_matrix
     ), f"Expected precision matrix {expected_precision_matrix}, got {bandit.precision_matrix}"
+
+
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
+def test_bandit_state_checkpoint(BanditClass: BanditClassType) -> None:
+    """Test basic state saving and loading for bandits."""
+    n_features = 4
+    original_bandit = BanditClass(n_features=n_features)
+
+    original_bandit.precision_matrix = torch.diag(torch.tensor([2.0, 3.0, 4.0, 5.0]))
+    original_bandit.b = torch.tensor([0.5, 1.5, 2.5, 3.5])
+    original_bandit.theta = torch.tensor([0.25, 0.75, 1.25, 1.75])
+
+    checkpoint: dict[str, Any] = {}
+    original_bandit.on_save_checkpoint(checkpoint)
+
+    loaded_bandit = BanditClass(n_features=n_features)
+    loaded_bandit.on_load_checkpoint(checkpoint)
+
+    # Verify state was properly restored
+    assert torch.allclose(loaded_bandit.precision_matrix, original_bandit.precision_matrix)
+    assert torch.allclose(loaded_bandit.b, original_bandit.b)
+    assert torch.allclose(loaded_bandit.theta, original_bandit.theta)
+
+    # Verify selector was properly restored
+    assert isinstance(loaded_bandit.selector, ArgMaxSelector)
+    assert checkpoint["selector_state"]["type"] == "ArgMaxSelector"
+
+
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
+def test_bandit_selector_checkpoint_epsilon_greedy(BanditClass: BanditClassType) -> None:
+    """Test saving and loading EpsilonGreedySelector configuration."""
+    n_features = 3
+    epsilon = 0.15
+    original_bandit = BanditClass(n_features=n_features, selector=EpsilonGreedySelector(epsilon=epsilon))
+
+    original_bandit.selector.generator.get_state()
+
+    checkpoint: dict[str, Any] = {}
+    original_bandit.on_save_checkpoint(checkpoint)
+
+    loaded_bandit = BanditClass(n_features=n_features)
+    loaded_bandit.on_load_checkpoint(checkpoint)
+
+    # Verify selector was properly restored
+    assert isinstance(loaded_bandit.selector, EpsilonGreedySelector)
+    assert loaded_bandit.selector.epsilon == epsilon
+    assert checkpoint["selector_state"]["type"] == "EpsilonGreedySelector"
+    assert checkpoint["selector_state"]["epsilon"] == epsilon
+
+    # Verify random generator state was saved
+    assert "generator_state" in checkpoint["selector_state"]
+
+
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
+def test_bandit_hyperparameters_checkpoint(BanditClass: BanditClassType) -> None:
+    """Test that model hyperparameters are properly preserved during checkpointing."""
+    n_features = 5
+    eps = 1e-3
+    lambda_ = 2.0
+    exploration_rate = 2.0
+    lazy_update = True
+
+    if BanditClass in [LinearUCBBandit, DiagonalPrecApproxLinearUCBBandit]:
+        original_bandit = BanditClass(
+            n_features=n_features,
+            eps=eps,
+            lambda_=lambda_,
+            exploration_rate=exploration_rate,
+            lazy_uncertainty_update=lazy_update,
+        )
+    else:
+        original_bandit = BanditClass(
+            n_features=n_features, eps=eps, lambda_=lambda_, lazy_uncertainty_update=lazy_update
+        )
+
+    checkpoint: dict[str, Any] = {}
+    original_bandit.on_save_checkpoint(checkpoint)
+
+    # Verify hyperparameters are maintained by lightning's hyperparameter saving
+    assert original_bandit.hparams["n_features"] == n_features
+    assert original_bandit.hparams["eps"] == eps
+    assert original_bandit.hparams["lambda_"] == lambda_
+    assert original_bandit.hparams["lazy_uncertainty_update"] == lazy_update
+
+    if BanditClass in [LinearUCBBandit, DiagonalPrecApproxLinearUCBBandit]:
+        assert original_bandit.hparams["exploration_rate"] == exploration_rate
+
+
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
+def test_bandit_end_to_end_checkpoint(BanditClass: BanditClassType) -> None:
+    """
+    End-to-end test of training, saving checkpoint, and restoring bandit
+    with proper behavior preservation.
+    """
+    n_features = 3
+    original_bandit = BanditClass(n_features=n_features, lazy_uncertainty_update=True)
+
+    batch_size = 1
+    n_arms = 4
+    torch.manual_seed(42)
+    test_context = torch.randn(batch_size, n_arms, n_features)
+
+    initial_theta = original_bandit.theta.clone()
+    initial_b = original_bandit.b.clone()
+    initial_precision = original_bandit.precision_matrix.clone()
+
+    checkpoint: dict[str, Any] = {}
+    original_bandit.on_save_checkpoint(checkpoint)
+
+    loaded_bandit = BanditClass(n_features=n_features, lazy_uncertainty_update=True)
+    loaded_bandit.on_load_checkpoint(checkpoint)
+
+    if BanditClass in [LinearUCBBandit, DiagonalPrecApproxLinearUCBBandit]:
+        # UCB bandits should be deterministic with same parameters
+        orig_action, _ = original_bandit.forward(test_context)
+        loaded_action, _ = loaded_bandit.forward(test_context)
+
+        assert torch.equal(orig_action, loaded_action), f"Expected {orig_action}, got {loaded_action}"
+    else:
+        n_samples = 50
+        original_choices = []
+        loaded_choices = []
+
+        for i in range(n_samples):
+            seed = 1000 + i
+
+            torch.manual_seed(seed)
+            orig_action, _ = original_bandit.forward(test_context)
+
+            torch.manual_seed(seed)
+            loaded_action, _ = loaded_bandit.forward(test_context)
+
+            original_choices.append(orig_action.argmax(dim=1).item())
+            loaded_choices.append(loaded_action.argmax(dim=1).item())
+
+        # Verify the pattern of selections is similar (agreement rate > 0.8)
+        agreement_rate = (
+            sum(
+                original_choice == loaded_choice
+                for original_choice, loaded_choice in zip(original_choices, loaded_choices, strict=False)
+            )
+            / n_samples
+        )
+
+        assert agreement_rate > 0.8, f"Models only agreed on {agreement_rate:.1%} of selections"
+
+    # Update the model and verify updates work properly
+    batch_size = 5
+    torch.manual_seed(43)
+    chosen_actions = torch.randn(batch_size, 1, n_features)
+    realized_rewards = torch.ones(batch_size, 1)
+
+    loaded_bandit._perform_update(chosen_actions, realized_rewards)
+
+    # Verify the parameters has changed
+    params_changed = (
+        not torch.allclose(loaded_bandit.theta, initial_theta)
+        and not torch.allclose(loaded_bandit.b, initial_b)
+        and not torch.allclose(loaded_bandit.precision_matrix, initial_precision)
+    )
+
+    assert params_changed, "Model parameters should change after update"

@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from calvera.utils.selectors import ArgMaxSelector, EpsilonGreedySelector, TopKSelector
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, EpsilonGreedySelector, TopKSelector
 
 
 class TestArgMaxSelector:
@@ -176,3 +176,97 @@ class TestTopKSelector:
         assert selected.shape == (batch_size, n_arms)
         assert (selected.sum(dim=1) == k).all()  # Exactly k selections per sample
         assert ((selected == 0) | (selected == 1)).all()  # Only binary values
+
+
+class TestSelectorSerialization:
+    def test_argmax_selector_state_dict(self) -> None:
+        """Test state dictionary creation for ArgMaxSelector."""
+        selector = ArgMaxSelector()
+        state = selector.get_state_dict()
+
+        assert state["type"] == "ArgMaxSelector"
+        # ArgMaxSelector has no additional state
+        assert len(state) == 1
+
+    def test_epsilon_greedy_selector_state_dict(self) -> None:
+        """Test state dictionary creation for EpsilonGreedySelector."""
+        epsilon = 0.15
+        selector = EpsilonGreedySelector(epsilon=epsilon, seed=42)
+        state = selector.get_state_dict()
+
+        assert state["type"] == "EpsilonGreedySelector"
+        assert state["epsilon"] == epsilon
+        assert "generator_state" in state
+        assert len(state) == 3
+
+    def test_topk_selector_state_dict(self) -> None:
+        """Test state dictionary creation for TopKSelector."""
+        k = 3
+        selector = TopKSelector(k=k)
+        state = selector.get_state_dict()
+
+        assert state["type"] == "TopKSelector"
+        assert state["k"] == k
+        assert len(state) == 2
+
+    def test_from_state_dict_argmax(self) -> None:
+        """Test creating ArgMaxSelector from state dictionary."""
+        state = {"type": "ArgMaxSelector"}
+        selector = AbstractSelector.from_state_dict(state)
+
+        assert isinstance(selector, ArgMaxSelector)
+
+    def test_from_state_dict_epsilon_greedy(self) -> None:
+        """Test creating EpsilonGreedySelector from state dictionary."""
+        epsilon = 0.2
+        original = EpsilonGreedySelector(epsilon=epsilon, seed=42)
+        original_state = original.generator.get_state()
+
+        state = {"type": "EpsilonGreedySelector", "epsilon": epsilon, "generator_state": original_state}
+        selector = AbstractSelector.from_state_dict(state)
+
+        assert isinstance(selector, EpsilonGreedySelector)
+        assert selector.epsilon == epsilon
+
+        # Verify random generator was properly restored by comparing outputs
+        scores = torch.tensor([[0.5, 0.8, 0.3]])
+
+        original.generator.set_state(original_state)
+        selector.generator.set_state(torch.as_tensor(state["generator_state"]))
+
+        # Verify identical output with same random state
+        assert torch.equal(original(scores), selector(scores))
+
+    def test_from_state_dict_topk(self) -> None:
+        """Test creating TopKSelector from state dictionary."""
+        k = 2
+        state = {"type": "TopKSelector", "k": k}
+        selector = AbstractSelector.from_state_dict(state)
+
+        assert isinstance(selector, TopKSelector)
+        assert selector.k == k
+
+    def test_from_state_dict_invalid_type(self) -> None:
+        """Test error handling for unknown selector type."""
+        state = {"type": "UnknownSelector"}
+        with pytest.raises(ValueError, match="Unknown selector type"):
+            AbstractSelector.from_state_dict(state)
+
+    def test_round_trip_serialization(self) -> None:
+        """Test round-trip serialization for all selector types."""
+        orig_argmax = ArgMaxSelector()
+        argmax_state = orig_argmax.get_state_dict()
+        new_argmax = AbstractSelector.from_state_dict(argmax_state)
+        assert isinstance(new_argmax, ArgMaxSelector)
+
+        orig_eps = EpsilonGreedySelector(epsilon=0.3, seed=123)
+        eps_state = orig_eps.get_state_dict()
+        new_eps = AbstractSelector.from_state_dict(eps_state)
+        assert isinstance(new_eps, EpsilonGreedySelector)
+        assert new_eps.epsilon == orig_eps.epsilon
+
+        orig_topk = TopKSelector(k=3)
+        topk_state = orig_topk.get_state_dict()
+        new_topk = AbstractSelector.from_state_dict(topk_state)
+        assert isinstance(new_topk, TopKSelector)
+        assert new_topk.k == orig_topk.k
