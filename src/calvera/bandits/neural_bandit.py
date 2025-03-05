@@ -11,7 +11,7 @@ from torch import optim
 
 from calvera.bandits.abstract_bandit import AbstractBandit
 from calvera.utils.data_storage import AbstractBanditDataBuffer
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             n_features: Number of input features. Must be greater 0.
             network: Neural network module for function approximation.
             buffer: Buffer for storing bandit interaction data. See superclass for further information.
-            selector: Action selector for the bandit. Defaults to ArgMaxSelector (if None).
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             exploration_rate: Exploration parameter for UCB. Called gamma_t=nu in the original paper.
                 Must be greater 0.
             train_batch_size: Size of mini-batches for training. Must be greater 0.
@@ -108,6 +108,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             n_features=n_features,
             buffer=buffer,
             train_batch_size=train_batch_size,
+            selector=selector,
         )
 
         self.save_hyperparameters(
@@ -124,8 +125,6 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 "warm_start": warm_start,
             }
         )
-
-        self.selector = selector if selector is not None else ArgMaxSelector()
 
         # Model parameters: Initialize θ_t
         self.theta_t = network.to(self.device)
@@ -393,3 +392,40 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         super().on_train_end()
         if not self._training_skipped:
             self.should_train_network = False
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle saving custom NeuralBandit state.
+
+        Args:
+            checkpoint: Dictionary to save the state into.
+        """
+        super().on_save_checkpoint(checkpoint)
+
+        checkpoint["Z_t"] = self.Z_t
+
+        checkpoint["network_state"] = self.theta_t.state_dict()
+
+        if self.theta_t_init is not None:
+            checkpoint["init_network_state"] = self.theta_t_init
+
+        checkpoint["_should_train_network"] = self._should_train_network
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle loading custom NeuralBandit state.
+
+        Args:
+            checkpoint: Dictionary containing the state to load.
+        """
+        super().on_load_checkpoint(checkpoint)
+
+        if "Z_t" in checkpoint:
+            self.register_buffer("Z_t", checkpoint["Z_t"])
+
+        if "network_state" in checkpoint:
+            self.theta_t.load_state_dict(checkpoint["network_state"])
+
+        if "init_network_state" in checkpoint and not self.hparams["warm_start"]:
+            self.theta_t_init = checkpoint["init_network_state"]
+
+        if "_should_train_network" in checkpoint:
+            self._should_train_network = checkpoint["_should_train_network"]
