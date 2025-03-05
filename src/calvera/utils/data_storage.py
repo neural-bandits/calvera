@@ -10,6 +10,7 @@ from typing import (
 )
 
 import torch
+import random
 
 from calvera.bandits.action_input_type import ActionInputType
 
@@ -502,3 +503,223 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.contextualized_actions = torch.empty(0, 0, 0, device=self.device)  # shape: (n, input_items, n_features)
         self.embedded_actions = torch.empty(0, 0, device=self.device)  # shape: (n, n_embedding_size)
         self.rewards = torch.empty(0, device=self.device)  # shape: (n,)
+
+
+class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
+    """A list-based implementation of the bandit data buffer.
+
+    This implementation stores contextualized actions, optional embedded actions, and rewards
+    in Python lists. No torch tensors are used.
+    """
+
+    def __init__(self, buffer_strategy: DataBufferStrategy, max_size: int | None = None):
+        """Initialize the list-based buffer.
+        
+        Args:
+            buffer_strategy: Strategy for selecting training samples.
+            max_size: Optional maximum number of samples to store.
+        """
+        super().__init__(buffer_strategy)
+        self.max_size = max_size
+        self.contextualized_actions: list[Any] = []
+        self.embedded_actions: list[Any] = []  # Can store embeddings if provided
+        self.rewards: list[float] = []
+
+    def add_batch(
+        self,
+        contextualized_actions: Any,
+        embedded_actions: Any,
+        rewards: list[float],
+    ) -> None:
+        """Add a batch of data to the buffer.
+
+        Args:
+            contextualized_actions: Either a list of actions (each can be a single value or list)
+                or a tuple/list of such lists. (no action dimension!!!)
+            embedded_actions: Either a list of embeddings corresponding to each action or None.
+            rewards: A list of rewards for each action.
+        """
+        batch_size = len(rewards)
+        
+        print("Adding data to buffer: ")
+        print(contextualized_actions)
+
+        if isinstance(contextualized_actions, torch.Tensor):
+            assert contextualized_actions.shape[0] == batch_size, "Number of actions must match number of rewards"
+            
+            for i in range(batch_size):
+                self.contextualized_actions.append(contextualized_actions[i])
+                self.embedded_actions.append(embedded_actions[i])
+                self.rewards.append(rewards[i])
+            
+        if isinstance(contextualized_actions, tuple | list):
+            # if it is a tuple or a list the it must be a tuple or list of tensors with the same batch size
+            assert all(
+                action_item.shape[0] == batch_size for action_item in contextualized_actions
+            ), "Number of actions must match number of rewards"
+            
+            for i in range(batch_size):
+                self.contextualized_actions.append(tuple(elem[i] for elem in contextualized_actions))
+                self.embedded_actions.append(embedded_actions[i])
+                self.rewards.append(rewards[i])
+
+        # Enforce max size limit: keep only the most recent data
+        if self.max_size is not None and len(self.contextualized_actions) > self.max_size:
+            excess = len(self.contextualized_actions) - self.max_size
+            self.contextualized_actions = self.contextualized_actions[excess:]
+            self.embedded_actions = self.embedded_actions[excess:]
+            self.rewards = self.rewards[excess:]
+
+    # TODO
+    def get_all_data(
+        self,
+    ) -> tuple[ActionInputType, list[Any] | None, list[float]]:
+        """Retrieve all available data from the buffer.
+
+        Returns:
+            A tuple containing:
+              - All contextualized actions,
+              - All embedded actions (or None if not provided),
+              - All rewards.
+        """
+        if len(self.contextualized_actions) == 0:
+            return ([], None, [])
+        # If all stored embeddings are None, return None instead of a list.
+        embeddings = None if all(emb is None for emb in self.embedded_actions) else self.embedded_actions
+        
+        if isinstance(self.contextualized_actions[0], tuple | list):
+            # collate the contextualized actions
+            contextualized_actions = [torch.stack([elem[i] for elem in self.contextualized_actions]) for i in range(len(self.contextualized_actions[0]))]
+            # Tuple (of tensors) of contextualized actions
+            print("All contextualized actions: ")
+            print(contextualized_actions)
+            print(self.rewards)
+            
+            return tuple(contextualized_actions), embeddings, torch.stack(self.rewards)
+        else:
+            return self.contextualized_actions, embeddings, torch.stack(self.rewards)
+
+    def get_batch(
+        self,
+        batch_size: int,
+    ) -> tuple[ActionInputType, list[Any] | None, list[float]]:
+        """Get a random batch of data from the buffer using the buffer strategy.
+
+        Args:
+            batch_size: Number of samples to retrieve.
+
+        Returns:
+            A tuple (batch_contextualized_actions, batch_embedded_actions, batch_rewards).
+
+        Raises:
+            ValueError: If the requested batch size exceeds available data.
+        """
+        available_indices = self._get_available_indices()
+        if len(available_indices) < batch_size:
+            raise ValueError(
+                f"Requested batch size {batch_size} is larger than available data ({len(available_indices)})."
+            )
+        # Randomly sample batch indices
+        batch_indices = random.sample(available_indices, batch_size)
+
+        batch_contextualized = [self.contextualized_actions[i] for i in batch_indices]
+        # Only return embedded actions if at least one entry is not None
+        if any(self.embedded_actions[i] is not None for i in batch_indices):
+            batch_embedded = [self.embedded_actions[i] for i in batch_indices]
+        else:
+            batch_embedded = None
+        batch_rewards = [self.rewards[i] for i in batch_indices]
+        
+        print ("Batch contextualized actions: ")
+        print(batch_contextualized)
+
+        return (batch_contextualized, batch_embedded, batch_rewards)
+
+    def _get_available_indices(self) -> list[int]:
+        """Determine which indices should be used for training based on the buffer strategy.
+
+        Returns:
+            A list of indices.
+        """
+        total = len(self.contextualized_actions)
+        # Assume buffer_strategy.get_training_indices returns a list of indices
+        indices = self.buffer_strategy.get_training_indices(total)
+        return indices
+
+    def update_embeddings(self, embedded_actions: list[Any]) -> None:
+        """Update the stored embedded actions.
+
+        Args:
+            embedded_actions: A list of new embeddings matching the buffer size.
+        """
+        if len(embedded_actions) != len(self.embedded_actions):
+            raise ValueError("Number of embeddings to update must match buffer size.")
+        self.embedded_actions = embedded_actions
+
+    def __getitem__(self, index: int) -> Any:
+        """Retrieve a single data point based on the training indices.
+
+        Args:
+            index: The index in the available training data.
+
+        Returns:
+            A tuple of either (action, reward) or (action, embedding, reward)
+            depending on whether embeddings are provided.
+        """
+        available_indices = self._get_available_indices()
+        actual_index = available_indices[index]
+        
+        
+        # Add a dimension for the actions
+        action: Any
+        if isinstance(self.contextualized_actions[actual_index], tuple):
+            action = tuple(self.contextualized_actions[actual_index][i].unsqueeze(0) for i in range(len(self.contextualized_actions[actual_index])))
+        else:
+            action = self.contextualized_actions[actual_index].unsqueeze(0)
+        
+        reward = self.rewards[actual_index].unsqueeze(0)
+        embedding = self.embedded_actions[actual_index].unsqueeze(0) if self.embedded_actions[actual_index] is not None else None
+        
+        print("Getting item from buffer: ")
+        print(action, reward, embedding) #
+        
+        if embedding is None:
+            return (action, reward)
+        else:
+            return (action, embedding, reward)
+
+    def __len__(self) -> int:
+        """Return the number of samples available for training."""
+        return len(self._get_available_indices())
+
+    def state_dict(self) -> BanditStateDict:
+        """Create a state dictionary for checkpointing.
+
+        Returns:
+            A dictionary containing the current state of the buffer.
+        """
+        return {
+            "contextualized_actions": self.contextualized_actions,
+            "embedded_actions": self.embedded_actions,
+            "rewards": self.rewards,
+            "buffer_strategy": self.buffer_strategy,
+            "max_size": self.max_size,
+        }
+
+    def load_state_dict(self, state_dict: BanditStateDict) -> None:
+        """Load the buffer state from a checkpoint.
+
+        Args:
+            state_dict: A dictionary containing state information.
+        """
+        self.contextualized_actions = state_dict["contextualized_actions"]
+        self.embedded_actions = state_dict["embedded_actions"]
+        self.rewards = state_dict["rewards"]
+        self.buffer_strategy = state_dict["buffer_strategy"]
+        self.max_size = state_dict["max_size"]
+
+    def clear(self) -> None:
+        """Clear the entire buffer."""
+        self.contextualized_actions.clear()
+        self.embedded_actions.clear()
+        self.rewards.clear()

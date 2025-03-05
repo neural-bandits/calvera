@@ -91,22 +91,22 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         assert contextualized_actions is not None, "contextualized_actions must be passed."
 
         if isinstance(contextualized_actions, torch.Tensor):
-            assert contextualized_actions.ndim == 3, (
-                "Chosen actions must have shape (batch_size, num_actions, n_features) "
+            assert contextualized_actions.ndim >= 3, (
+                "Chosen actions must have shape (batch_size, num_actions, ...) "
                 f"but got shape {contextualized_actions.shape}"
             )
             batch_size, n_chosen_actions, _ = contextualized_actions.shape
         elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
-            assert contextualized_actions[0].ndim == 3, (
-                "Chosen actions must have shape (batch_size, num_actions, n_features) "
+            assert contextualized_actions[0].ndim >= 3, (
+                "Chosen actions must have shape (batch_size, num_actions, ...) "
                 f"but got shape {contextualized_actions[0].shape}"
             )
             batch_size, n_chosen_actions, _ = contextualized_actions[0].shape
             assert all(
-                action_item.ndim == 3 and action_item.shape == contextualized_actions[0].shape
+                action_item.ndim >= 3
                 for action_item in contextualized_actions
-            ), "All tensors in tuple must have shape (batch_size, num_actions, n_features)"
+            ), "All tensors in tuple must have shape (batch_size, num_actions, ...)"
         else:
             raise ValueError(
                 f"Contextualized actions must be a torch.Tensor or a tuple of torch.Tensors."
@@ -201,13 +201,13 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 "The number of chosen_actions in the embedded actions must match the number of chosen_actions in the "
                 "rewards."
             )
-            embedded_actions_reshaped = embedded_actions.reshape(-1, embedded_actions.shape[-1])
+            embedded_actions_reshaped = embedded_actions.reshape(-1, *embedded_actions.shape[2:])
         else:
             embedded_actions_reshaped = None
 
         if isinstance(contextualized_actions, torch.Tensor):
-            assert contextualized_actions.ndim == 3, (
-                "Chosen actions must have shape (batch_size, num_actions, n_features) "
+            assert contextualized_actions.ndim >= 3, (
+                "Chosen actions must have shape (batch_size, num_actions, ...) "
                 f"but got shape {contextualized_actions.shape}"
             )
             assert (
@@ -222,20 +222,20 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert (
-                contextualized_actions[0].ndim == 3 and contextualized_actions[0].shape[0] == realized_rewards.shape[0]
+                contextualized_actions[0].ndim >= 3 and contextualized_actions[0].shape[0] == realized_rewards.shape[0]
             ), (
-                "Chosen actions must have shape (batch_size, num_actions, n_features) "
+                "Chosen actions must have shape (batch_size, num_actions, ...) "
                 f"but got shape {contextualized_actions[0].shape}"
             )
             assert all(
-                action_item.ndim == 3 and action_item.shape == contextualized_actions[0].shape
+                action_item.ndim >= 3
                 for action_item in contextualized_actions
-            ), "All tensors in tuple must have shape (batch_size, num_actions, n_features)"
+            ), "All tensors in tuple must have shape (batch_size, num_actions, ...)"
 
             # For now the data buffer only supports non-combinatorial bandits. so we have to reshape.
             contextualized_actions_reshaped = cast(
                 ActionInputType,
-                tuple(action_item.reshape(-1, action_item.shape[-1]) for action_item in contextualized_actions),
+                tuple(action_item.reshape(-1, *action_item.shape[2:]) for action_item in contextualized_actions),
             )
         else:
             raise ValueError(
@@ -254,7 +254,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         self._new_samples_count += batch_size
         self._total_samples_count += batch_size
 
-    def train_dataloader(self) -> DataLoader[BufferDataFormat[ActionInputType]]:
+    def train_dataloader(self, custom_collate_fn = None) -> DataLoader[BufferDataFormat[ActionInputType]]:
         """Dataloader used by PyTorch Lightning if none is passed via `trainer.fit(..., dataloader)`."""
         if len(self.buffer) > 0:
             self._custom_data_loader_passed = False
@@ -262,6 +262,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 self.buffer,
                 self.hparams["train_batch_size"],
                 shuffle=True,
+                collate_fn=custom_collate_fn,
             )
         else:
             raise ValueError("The buffer is empty. Please add data to the buffer before calling trainer.fit().")
@@ -318,7 +319,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         batch_size, n_chosen_arms = realized_rewards.shape
 
-        contextualized_actions = batch[0]  # shape: (batch_size, n_chosen_arms, n_features)
+        contextualized_actions = batch[0]  # shape: (batch_size, n_chosen_arms, ...)
 
         if self._custom_data_loader_passed:
             self.record_feedback(contextualized_actions, realized_rewards)
@@ -328,13 +329,13 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 contextualized_actions.device == self.device
             ), "Contextualized actions must be on the same device as the model."
 
-            assert contextualized_actions.ndim == 3, (
-                f"Chosen actions must have shape (batch_size, n_chosen_arms, n_features) "
+            assert contextualized_actions.ndim >= 3, (
+                f"Chosen actions must have shape (batch_size, n_chosen_arms, ...) "
                 f"but got shape {contextualized_actions.shape}"
             )
             assert contextualized_actions.shape[0] == batch_size and contextualized_actions.shape[1] == n_chosen_arms, (
-                "Chosen contextualized actions must have shape (batch_size, n_chosen_arms, n_features) "
-                f"same as reward. Expected shape ({(batch_size, n_chosen_arms)}, n_features) "
+                "Chosen contextualized actions must have shape (batch_size, n_chosen_arms, ...) "
+                f"same as reward. Expected shape ({(batch_size, n_chosen_arms)}, ...) "
                 f"but got shape {contextualized_actions.shape}"
             )
         elif isinstance(contextualized_actions, tuple | list):
@@ -342,20 +343,17 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 action.device == self.device for action in contextualized_actions
             ), "Contextualized actions must be on the same device as the model."
 
-            assert len(contextualized_actions) > 1 and contextualized_actions[0].ndim == 3, (
+            assert len(contextualized_actions) > 1 and contextualized_actions[0].ndim >= 3, (
                 "The tuple of contextualized_actions must contain more than one element and be of shape "
-                "(batch_size, n_chosen_arms, n_features)."
+                "(batch_size, n_chosen_arms, ...)."
             )
             assert (
                 contextualized_actions[0].shape[0] == batch_size and contextualized_actions[0].shape[1] == n_chosen_arms
             ), (
-                "Chosen contextualized actions must have shape (batch_size, n_chosen_arms, n_features) "
-                f"same as reward. Expected shape ({(batch_size, n_chosen_arms)}, n_features) "
+                "Chosen contextualized actions must have shape (batch_size, n_chosen_arms, ...) "
+                f"same as reward. Expected shape ({(batch_size, n_chosen_arms)}, ...) "
                 f"but got shape {contextualized_actions[0].shape}"
             )
-            assert all(
-                input_part.shape == contextualized_actions[0].shape for input_part in contextualized_actions
-            ), "All parts of the contextualized actions inputs must have the same shape."
         else:
             raise ValueError(
                 f"Contextualized actions must be a torch.Tensor or a tuple of torch.Tensors. "

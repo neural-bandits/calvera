@@ -327,16 +327,15 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                     input_part.ndim == 3
                     and input_part.shape[0] == batch_size
                     and input_part.shape[1] == n_arms
-                    and input_part.shape[2] == n_network_input_size
                 ), (
                     f"All parts of the contextualized actions inputs must have shape"
                     f"(batch_size, n_chosen_arms, n_network_input_size)."
-                    f"Expected shape {(batch_size, n_arms, n_network_input_size)}"
+                    f"Expected shape {(batch_size, n_arms, ...)}"
                     f"but got shape {input_part.shape} for the {i}-th part."
                 )
                 # We flatten the input because e.g. BERT expects a tensor of shape (batch_size, sequence_length)
                 # and not (batch_size, sequence_length, hidden_size)
-                flattened_actions_list.append(input_part.view(-1, n_network_input_size))
+                flattened_actions_list.append(input_part.view(batch_size * n_arms, -1))
 
             embedded_actions = self.network.forward(
                 *tuple(flattened_actions_list),

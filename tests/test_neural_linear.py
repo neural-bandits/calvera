@@ -9,6 +9,7 @@ import torch.nn as nn
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
+    ListDataBuffer,
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
 )
@@ -121,6 +122,83 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
     assert torch.all(output == torch.tensor([[0, 1]]))
 
     # TODO: test output probabilities are correct
+
+
+def test_neural_linear_bandit_forward_tuple() -> None:
+    """Verify forward() returns a one-hot action (batch_size, n_arms) with correct shape."""
+    batch_size, n_arms, seq_len, n_features, n_embeddings = 2, 1, 3, 4, 5
+
+    # Simple network: embed from 4 to 5 dimensions
+    test_net = nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(n_features * seq_len, n_embeddings, bias=False),
+        # don't add a ReLU here because its the final layer
+    )
+    
+    class TestNetwork(nn.Module):
+        def forward(self, x, y):
+            return test_net(x)
+        
+    network = TestNetwork().to("cpu")
+    
+    buffer = ListDataBuffer(buffer_strategy=AllDataBufferStrategy())
+    
+    # adaptor = TextActionAdaptor(network, n_features)
+
+    # Create bandit
+    bandit = NeuralLinearBandit[torch.Tensor](
+        n_embedding_size=n_embeddings,  # same as input if encoder is identity
+        network=network,
+        buffer=buffer,
+    )
+
+    context = torch.randn(batch_size, seq_len, n_features, device="cpu").view(batch_size, n_arms, seq_len * n_features)
+    some_mask = torch.ones(batch_size, seq_len, dtype=torch.bool, device="cpu").view(batch_size, n_arms, seq_len)
+    
+    contextualized_actions = (context, some_mask)
+    
+    output, p = bandit.forward(contextualized_actions)
+    
+    bandit.record_feedback(contextualized_actions, torch.randn(batch_size, n_arms, device="cpu"))
+    
+    # Also test training
+    trainer = pl.Trainer(fast_dev_run=True, accelerator="cpu")
+    
+    def custom_collate_fn(batch):
+        print("Batch in collate_fn")
+        print(batch)
+        
+        # Batch looks like [((context, mask), embedding, reward), ...]
+        contexts = []
+        embeddings = []
+        masks = []
+        rewards = []
+        
+        for (context, mask), embedding, reward in batch:
+            contexts.append(context)
+            masks.append(mask)
+            embeddings.append(embedding)
+            rewards.append(reward)
+        
+        output = (torch.stack(contexts), torch.stack(masks)), torch.stack(embeddings), torch.stack(rewards)
+        
+        print("Result of collate_fn")
+        print(output)
+        
+        return output
+        
+        
+    
+    trainer.fit(bandit, bandit.train_dataloader(custom_collate_fn=custom_collate_fn))
+
+    # Check shape
+    assert output.shape == (
+        batch_size,
+        n_arms,
+    ), f"Expected shape {(batch_size, n_arms)}, got {output.shape}"
+
+    assert p.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {p.shape}"
+    assert torch.all(p >= 0) and torch.all(p <= 1), "Probabilities should be in [0, 1]"
 
 
 # ------------------------------------------------------------------------------
