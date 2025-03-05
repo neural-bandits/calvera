@@ -24,13 +24,17 @@ extra_css:
 
 theme:
   name: material
-  logo: calvera.png
+  logo: calvera-light.png
+  favicon: calvera-light.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
+      primary: white
+      logo: calvera-light.png
+      favicon: calvera-light.png
 
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
@@ -39,6 +43,8 @@ theme:
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
+      logo: calvera-light.png
+      favicon: calvera-light.png
 
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
@@ -47,10 +53,10 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
+      logo: calvera-dark.png
+      favicon: calvera-dark.png
 
   icon:
-    logo: calvera.png
-    favicon: calvera.png
     repo: fontawesome/brands/git-alt
   features:
       - header.autohide
