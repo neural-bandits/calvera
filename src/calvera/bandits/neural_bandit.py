@@ -197,7 +197,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         chosen_actions = self.selector(self._score(f_t_a, exploration_terms))
 
         assert (chosen_actions.sum(dim=1) == 1).all(), "Currently only supports non-combinatorial bandits"
-        chosen_actions_idx = chosen_actions.argmax(dim=1)  # TODO: this only works for non-combinatorial bandits!
+        chosen_actions_idx = chosen_actions.argmax(dim=1)
 
         # Update Z_t using g(x_t,a_t; θ_t-1)
         for b in range(batch_size):
