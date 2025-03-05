@@ -167,7 +167,7 @@ class TestTinyImageNetDataset:
     def test_getitem(self, dataset: TinyImageNetDataset) -> None:
         for _ in range(10):
             X, rewards = dataset[0]
-            assert X.shape == (200, 200 * 3 * 64 * 64)
+            assert X.shape == (200, 3 * 64 * 64)
             assert rewards.shape == (200,)
 
     def test_reward(self, dataset: TinyImageNetDataset) -> None:

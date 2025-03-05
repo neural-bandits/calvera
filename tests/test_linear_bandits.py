@@ -5,14 +5,8 @@ import pytorch_lightning as pl
 import torch
 
 from calvera.bandits.linear_bandit import LinearBandit
-from calvera.bandits.linear_ts_bandit import (
-    DiagonalPrecApproxLinearTSBandit,
-    LinearTSBandit,
-)
-from calvera.bandits.linear_ucb_bandit import (
-    DiagonalPrecApproxLinearUCBBandit,
-    LinearUCBBandit,
-)
+from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
+from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
 
 BanditClassType = TypeVar("BanditClassType", bound="LinearBandit[torch.Tensor]")
 

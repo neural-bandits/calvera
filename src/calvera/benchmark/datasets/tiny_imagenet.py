@@ -143,23 +143,21 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
     """
 
     num_actions: int = 200
-    context_size: int = 3 * 64 * 64 * 200  # disjoint model
+    context_size: int = 3 * 64 * 64
     num_samples: int = 100000
 
     def __init__(
         self,
         dest_path: str = "./data",
         split: Literal["train", "val", "test"] = "train",
-        needs_disjoint_contextualization: bool = True,
     ) -> None:
         """Initialize the Tiny ImageNet dataset.
 
         Args:
             dest_path: The directory where the dataset will be stored.
             split: Which split to use ('train', 'val', or 'test')
-            needs_disjoint_contextualization: Whether the dataset needs disjoint contextualization
         """
-        super().__init__(needs_disjoint_contextualization=needs_disjoint_contextualization)
+        super().__init__(needs_disjoint_contextualization=False)
 
         self.dest_path = dest_path
         self.split = split
