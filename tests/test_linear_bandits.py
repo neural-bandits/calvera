@@ -68,8 +68,6 @@ def simple_ucb_bandit() -> LinearUCBBandit:
     return module
 
 
-# TODO: Also use the fixtures from above here?
-
 LinearBanditTypes = [
     LinearTSBandit,
     LinearUCBBandit,
@@ -246,7 +244,7 @@ def test_linear_ts_correct() -> None:
         torch.tensor([[0, 0, 1]]),
     ), "Expected one-hot encoding of the arm with highest expected reward."
 
-    # TODO: Test correct computation of probabilities
+    # TODO: Test correct computation of probabilities. See issue #72.
 
 
 @pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit[torch.Tensor]])

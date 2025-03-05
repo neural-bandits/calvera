@@ -43,6 +43,7 @@ class HelperNetwork(torch.nn.Module):
         Returns:
             The output of the linear head.
         """
+        # TODO: Do we pass kwargs to the network? See issue #148.
         z = self.network.forward(*x)
         return self.linear_head.forward(z)
 
@@ -245,7 +246,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 -1, contextualized_actions.size(-1)
             )  # shape: (batch_size * n_arms, n_network_input_size)
 
-            # TODO: We should probably pass the kwargs here but then we would need to pass them in the update method.
+            # TODO: Do we pass kwargs to the network? See issue #148.
             embedded_actions: torch.Tensor = self.network.forward(
                 flattened_actions,
             )  # shape: (batch_size * n_arms, n_embedding_size)
@@ -275,6 +276,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 # and not (batch_size, sequence_length, hidden_size)
                 flattened_actions_list.append(input_part.view(-1, n_network_input_size))
 
+            # TODO: Do we pass kwargs to the network? See issue #148.
             embedded_actions = self.network.forward(
                 *tuple(flattened_actions_list),
             )  # shape: (batch_size * n_arms, n_embedding_size)
@@ -309,6 +311,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 Size: (batch_size, n_actions, n_features).
             rewards: The rewards that were observed for the chosen actions. Size: (batch_size, n_actions).
         """
+        # TODO: embedding actions is unnecessary if we will update the network later anyways. See issue #149.
         embedded_actions = self._embed_contextualized_actions(
             contextualized_actions
         )  # shape: (batch_size, n_actions, n_embedding_size)
@@ -546,7 +549,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
     def update_embeddings(self) -> None:
         """Update all of the embeddings stored in the replay buffer."""
-        # TODO: possibly do lazy updates of the embeddings as computing all at once will take forever
+        # TODO: recomputing all embeddings at once takes forever. See issue #149.
         contexts, _, _ = self.buffer.get_all_data()  # shape: (num_samples, n_network_input_size)
 
         num_samples = contexts.shape[0] if isinstance(contexts, torch.Tensor) else contexts[0].shape[0]

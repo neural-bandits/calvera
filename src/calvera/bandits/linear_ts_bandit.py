@@ -96,7 +96,7 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
             The probability of the chosen actions. For now we always return 1 but we might return the actual probability
                 in the future. Shape: (batch_size, ).
         """
-        # TODO: Implement the actual probability computation for Thompson Sampling.
+        # TODO: Implement the actual probability computation for Thompson Sampling. See issue #72.
         return torch.ones(contextualized_actions.shape[0], device=contextualized_actions.device)
 
 

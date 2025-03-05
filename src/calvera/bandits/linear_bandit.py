@@ -164,8 +164,6 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         )
         chosen_actions = chosen_actions.squeeze(1)
         realized_rewards = realized_rewards.squeeze(1)
-        # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial
-        #   Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
         if self.hparams["lazy_uncertainty_update"]:
             self._update_precision_matrix(chosen_actions)
