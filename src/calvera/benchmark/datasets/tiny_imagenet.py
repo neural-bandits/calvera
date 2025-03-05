@@ -192,28 +192,26 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
         return len(self.image_dataset)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return the contextualized actions and rewards for a given index.
+        """Return the context (flattened image) and rewards for a given index.
 
         Args:
             idx: The index of the context in this dataset.
 
         Returns:
-            contextualized_actions: The contextualized actions for the given index.
-            rewards: The rewards for each action, retrieved via `self.reward`.
+            context: The flattened image features as the context.
+            rewards: The rewards for each action (1.0 for correct class, 0.0 otherwise).
         """
         image_tensor, _ = self.image_dataset[idx]
 
-        # Need to flatten the image tensor from (C, H, W) to (1, C*H*W)
-        flattened_features = image_tensor.view(1, -1)  # shape: (1, 3*64*64)
-
-        contextualized_actions = self.contextualizer(flattened_features).squeeze(0)
+        # Flatten the image tensor from (C, H, W) to (C*H*W)
+        context = image_tensor.view(-1)  # shape: (3*64*64)
 
         rewards = torch.tensor(
             [self.reward(idx, action) for action in range(self.num_actions)],
             dtype=torch.float32,
         )
 
-        return contextualized_actions, rewards
+        return context, rewards
 
     def reward(self, idx: int, action: int) -> float:
         """Return the reward for a given index and action.
