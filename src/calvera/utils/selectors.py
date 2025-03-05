@@ -133,7 +133,7 @@ class TopKSelector(AbstractSelector):
 class RandomSelector(AbstractSelector):
     """Selects k random actions from the available actions."""
 
-    def __init__(self, k: int = 1, seed: Optional[int] = None):
+    def __init__(self, k: int = 1, seed: int | None = None):
         """Initialize the random selector.
 
         Args:
@@ -155,7 +155,6 @@ class RandomSelector(AbstractSelector):
             One-hot encoded selected actions where exactly k entries are 1 per sample.
             Shape: (batch_size, n_arms).
         """
-
         batch_size, n_arms = scores.shape
         selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64, device=scores.device)
         for i in range(batch_size):

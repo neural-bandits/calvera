@@ -1,7 +1,8 @@
+from math import isclose
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from math import isclose
 
 from calvera.benchmark.datasets.synthetic_combinatorial import SyntheticCombinatorialDataset
 
