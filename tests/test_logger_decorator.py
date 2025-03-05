@@ -1,39 +1,27 @@
 from unittest.mock import MagicMock
 
-import pytest
-import torch
 from lightning.pytorch.loggers.logger import Logger
 
-from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
 
 
 def test_online_bandit_logger_decorator_basic() -> None:
     mock_logger = MagicMock(spec=Logger)
     decorator = OnlineBanditLoggerDecorator(mock_logger)
 
-    # 1. Check pre_training_log
-    batch = torch.Tensor([123.0, 53.0])
-    decorator.pre_training_log({"pre_metric": batch})
-    assert decorator.pre_training_metrics == {"pre_metric": batch}
-
     # 2. Check log_metrics
     decorator.log_metrics({"loss": 0.5}, step=0)
     # Ensure that the wrapped logger’s log_metrics was called with updated metrics
-    mock_logger.log_metrics.assert_called_with({"training_run": 0, "loss": 0.5, "pre_metric": 123.0}, 0)
+    mock_logger.log_metrics.assert_called_with({"training_run": 0, "loss": 0.5}, 0)
 
     decorator.log_metrics({"loss": 0.9}, step=1)
-    mock_logger.log_metrics.assert_called_with({"training_run": 0, "loss": 0.9, "pre_metric": 53.0}, 1)
-
-    # assert it throws an AssertionError
-    with pytest.raises(AssertionError):
-        decorator.log_metrics({"loss": 0.9}, step=2)
+    mock_logger.log_metrics.assert_called_with({"training_run": 0, "loss": 0.9}, 1)
 
     # 3. Check finalize increments training_run
     decorator.finalize(status="finished")
     mock_logger.finalize.assert_called_with("finished")
     assert decorator.training_run == 1
     assert decorator.start_step_of_current_run == 2
-    assert decorator.pre_training_metrics is None
 
     # 4. Check log_hyperparams
     params = {"lr": 0.1}

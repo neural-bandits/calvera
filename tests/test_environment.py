@@ -1,10 +1,10 @@
-from typing import Sized, cast
+from typing import cast
 
 import pytest
 import torch
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
-from neural_bandits.benchmark.environment import BanditBenchmarkEnvironment
+from calvera.benchmark.environment import BanditBenchmarkEnvironment
 
 
 @pytest.fixture
@@ -66,17 +66,15 @@ def test_get_feedback(
     # Choose actions (one-hot) => shape (1, 3)
     chosen_actions = torch.tensor([[1, 0, 1]], dtype=torch.float32)
 
-    # get_feedback returns a dataset with chosen actions & realized rewards
-    feedback_dataset = env.get_feedback(chosen_actions)
-    feedback_dataset_sized = cast(Sized, feedback_dataset)
-    # since batch_size=1
-    assert len(feedback_dataset_sized) == 1
-
-    chosen_contexts, chosen_rewards = feedback_dataset[0]
-    # chosen_contexts: shape (2, 4) => within each row: #actions=2
-    # chosen_rewards: shape (2, )
-    assert chosen_contexts.shape == (2, 4)
-    assert chosen_rewards.shape == (2,)
+    # get_feedback returns chosen actions & realized rewards
+    chosen_contexts, chosen_rewards = env.get_feedback(chosen_actions)
+    # chosen_contexts: shape (1, 2, 4) => within each row: #actions=2
+    # chosen_rewards: shape (1, 2, )
+    assert chosen_contexts.shape == (1, 2, 4)
+    assert chosen_rewards.shape == (
+        1,
+        2,
+    )
     # The actual values: we picked indices 0 and 2 from row 0
     # so we can compare them
     expected_contexts = batch_contexts[:, [0, 2], :]
