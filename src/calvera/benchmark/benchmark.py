@@ -691,28 +691,28 @@ def run_comparison(
     analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
 
     for bandit in config["bandit"]:
-        # try:
-        print("==============================================")
-        # deep copy the config to avoid overwriting the original
-        bandit_config = copy.deepcopy(config)
-        bandit_config["bandit"] = bandit
+        try:
+            print("==============================================")
+            # deep copy the config to avoid overwriting the original
+            bandit_config = copy.deepcopy(config)
+            bandit_config["bandit"] = bandit
 
-        csv_logger = CSVLogger(os.path.join(log_dir, bandit), version=0)
-        benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
-        print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
-        print(f"Config: {bandit_config}")
-        print(
-            f"Dataset {bandit_config['dataset']}:"
-            f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
-            f"and {benchmark.dataset.num_actions} actions."
-        )
-        benchmark.run()
+            csv_logger = CSVLogger(os.path.join(log_dir, bandit), version=0)
+            benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
+            print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
+            print(f"Config: {bandit_config}")
+            print(
+                f"Dataset {bandit_config['dataset']}:"
+                f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
+                f"and {benchmark.dataset.num_actions} actions."
+            )
+            benchmark.run()
 
-        analyzer.load_metrics(csv_logger.log_dir, bandit)
-        analyzer.log_metrics(bandit)
-        # except Exception as e:
-            # print(f"Failed to run benchmark for {bandit}. It might not be part of the final analysis.")
-            # print(e)
+            analyzer.load_metrics(csv_logger.log_dir, bandit)
+            analyzer.log_metrics(bandit)
+        except Exception as e:
+            print(f"Failed to run benchmark for {bandit}. It might not be part of the final analysis.")
+            print(e)
 
     for bandit in config.get("load_previous_result", []):
         print("==============================================")
