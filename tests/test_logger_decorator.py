@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 from lightning.pytorch.loggers.logger import Logger
 
-from neural_bandits.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
 
 
 def test_online_bandit_logger_decorator_basic() -> None:
