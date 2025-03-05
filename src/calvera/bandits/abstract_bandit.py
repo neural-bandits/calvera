@@ -95,17 +95,16 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 "Chosen actions must have shape (batch_size, num_actions, ...) "
                 f"but got shape {contextualized_actions.shape}"
             )
-            batch_size, n_chosen_actions, _ = contextualized_actions.shape
+            batch_size, n_chosen_actions = contextualized_actions.shape[:2]
         elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert contextualized_actions[0].ndim >= 3, (
                 "Chosen actions must have shape (batch_size, num_actions, ...) "
                 f"but got shape {contextualized_actions[0].shape}"
             )
-            batch_size, n_chosen_actions, _ = contextualized_actions[0].shape
+            batch_size, n_chosen_actions = contextualized_actions[0].shape[:2]
             assert all(
-                action_item.ndim >= 3
-                for action_item in contextualized_actions
+                action_item.ndim >= 3 for action_item in contextualized_actions
             ), "All tensors in tuple must have shape (batch_size, num_actions, ...)"
         else:
             raise ValueError(
@@ -216,8 +215,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             ), "Batch size and number of actions must match number of rewards"
             # For now the data buffer only supports non-combinatorial bandits. so we have to reshape.
             contextualized_actions_reshaped = cast(
-                ActionInputType,
-                contextualized_actions.reshape(-1, contextualized_actions.shape[-1]),
+                ActionInputType, contextualized_actions.squeeze(1)  # remove the action dimension
             )
         elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
@@ -228,8 +226,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 f"but got shape {contextualized_actions[0].shape}"
             )
             assert all(
-                action_item.ndim >= 3
-                for action_item in contextualized_actions
+                action_item.ndim >= 3 for action_item in contextualized_actions
             ), "All tensors in tuple must have shape (batch_size, num_actions, ...)"
 
             # For now the data buffer only supports non-combinatorial bandits. so we have to reshape.
@@ -254,7 +251,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         self._new_samples_count += batch_size
         self._total_samples_count += batch_size
 
-    def train_dataloader(self, custom_collate_fn = None) -> DataLoader[BufferDataFormat[ActionInputType]]:
+    def train_dataloader(self, custom_collate_fn=None) -> DataLoader[BufferDataFormat[ActionInputType]]:
         """Dataloader used by PyTorch Lightning if none is passed via `trainer.fit(..., dataloader)`."""
         if len(self.buffer) > 0:
             self._custom_data_loader_passed = False

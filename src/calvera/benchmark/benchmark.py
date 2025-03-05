@@ -145,8 +145,7 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
         torch.nn.Linear(64, out_size),
     ),
     "bert": lambda in_size, out_size: BertModel.from_pretrained(
-        "google/bert_uncased_L-2_H-128_A-2", 
-        output_hidden_states=True
+        "google/bert_uncased_L-2_H-128_A-2", output_hidden_states=True
     ),
 }
 
