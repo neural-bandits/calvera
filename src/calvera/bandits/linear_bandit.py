@@ -73,6 +73,9 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
 
         self._init_linear_params()
 
+        # Please don't ask. Lightning requires any parameter to be registered in order to train it on cuda.
+        self.register_parameter("_", None)
+
     def _init_linear_params(self) -> None:
         n_features = cast(int, self.hparams["n_features"])
         lambda_ = cast(float, self.hparams["lambda_"])

@@ -9,7 +9,7 @@ bandit:
   - neural_ts
   - neural_ucb
 
-max_samples: 20480
+max_samples: 4096
 
 selector: argmax
 
@@ -24,10 +24,11 @@ gradient_clip_val: 20.0
 
 # Network
 network: small_mlp  # 3 hidden layer with 128 units
+device: cuda
 
 # Buffer
 data_strategy: all
-max_buffer_size: 10240
+max_buffer_size: 4096
 
 # Bandit arguments
 bandit_hparams:

@@ -342,7 +342,6 @@ class BanditBenchmark(Generic[ActionInputType]):
                 enable_model_summary=False,
                 log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
                 accelerator=self.device,
-                strategy="fsdp",
                 **optional_kwargs,
             )
 
