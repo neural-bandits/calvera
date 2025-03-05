@@ -63,14 +63,14 @@ Repository = "https://github.com/neural-bandits/calvera"
 
 
 [tool.setuptools.package-data]
-neural_bandits = ["py.typed"]
+calvera = ["py.typed"]
 
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.mypy]
-files = "src/neural_bandits"
+files = "src/calvera"
 strict = true
 python_version = "3.10"
 

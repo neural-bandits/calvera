@@ -17,7 +17,7 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
 
 <br>
 
-::: neural_bandits.benchmark.datasets.abstract_dataset.AbstractDataset
+::: calvera.benchmark.datasets.abstract_dataset.AbstractDataset
     handler: python
     options:
       heading: AbstractDataset
@@ -28,7 +28,7 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
         - __len__
         - reward
 
-::: neural_bandits.benchmark.datasets.covertype.CovertypeDataset
+::: calvera.benchmark.datasets.covertype.CovertypeDataset
     handler: python
     options:
       heading: CovertypeDataset
@@ -38,7 +38,7 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
         - __getitem__
         - reward
 
-::: neural_bandits.benchmark.datasets.imdb_reviews.ImdbMovieReviews
+::: calvera.benchmark.datasets.imdb_reviews.ImdbMovieReviews
     handler: python
     options:
       heading: ImdbMovieReviews
@@ -48,7 +48,7 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
         - __getitem__
         - reward
 
-::: neural_bandits.benchmark.datasets.mnist.MNISTDataset
+::: calvera.benchmark.datasets.mnist.MNISTDataset
     handler: python
     options:
       heading: MNIST
@@ -58,7 +58,7 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
         - __getitem__
         - reward
 
-::: neural_bandits.benchmark.datasets.movie_lens.MovieLensDataset
+::: calvera.benchmark.datasets.movie_lens.MovieLensDataset
     handler: python
     options:
       heading: MovieLens
@@ -68,7 +68,7 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
         - __getitem__
         - reward
 
-::: neural_bandits.benchmark.datasets.statlog.StatlogDataset
+::: calvera.benchmark.datasets.statlog.StatlogDataset
     handler: python
     options:
       heading: StatlogShuttle
@@ -78,7 +78,7 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
         - __getitem__
         - reward
 
-::: neural_bandits.benchmark.datasets.wheel.WheelBanditDataset
+::: calvera.benchmark.datasets.wheel.WheelBanditDataset
     handler: python
     options:
       heading: WheelBanditDataset

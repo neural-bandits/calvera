@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
 
@@ -5,6 +6,7 @@ import lightning as pl
 import pytest
 import torch
 import torch.nn as nn
+from torch.nn import Sequential
 
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.utils.data_storage import (
@@ -121,6 +123,134 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
     assert torch.all(output == torch.tensor([[0, 1]]))
 
     # TODO: test output probabilities are correct
+
+
+def test_neural_linear_bandit_checkpoint_save_load(
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    ],
+    tmp_path: Path,
+) -> None:
+    """
+    Test saving and loading a NeuralLinearBandit checkpoint.
+
+    Verifies that all components (network, helper network, buffer, linear head)
+    are properly serialized and restored.
+    """
+    actions, rewards, dataset = small_context_reward_batch
+    n_features = actions.shape[2]
+    n_embedding_size = 6
+
+    network = nn.Sequential(
+        nn.Linear(n_features, n_embedding_size, bias=False),
+    )
+    nn.init.normal_(network[0].weight, mean=0.5, std=0.1)  # Specific weights for testing
+
+    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+
+    original_bandit = NeuralLinearBandit[torch.Tensor](
+        network=network,
+        n_embedding_size=n_embedding_size,
+        buffer=buffer,
+        train_batch_size=2,
+        learning_rate=0.02,
+        min_samples_required_for_training=4,
+        initial_train_steps=2,
+    )
+
+    with torch.no_grad():
+        original_bandit.precision_matrix = torch.eye(n_embedding_size) * 2.0
+        original_bandit.b = torch.ones(n_embedding_size) * 0.5
+        original_bandit.theta = torch.ones(n_embedding_size) * 0.25
+
+    test_context = torch.randn(1, 3, n_features)
+
+    with torch.no_grad():
+        torch.manual_seed(42)
+        original_output, _ = original_bandit(test_context)
+
+    trainer = pl.Trainer(
+        default_root_dir=str(tmp_path),
+        max_steps=1,
+        enable_checkpointing=True,
+    )
+    trainer.fit(original_bandit, torch.utils.data.DataLoader(dataset, batch_size=2))
+
+    checkpoint_path = tmp_path / "neural_linear_bandit.ckpt"
+    trainer.save_checkpoint(checkpoint_path)
+
+    new_network = nn.Sequential(
+        nn.Linear(n_features, n_embedding_size, bias=False),
+    )
+    nn.init.zeros_(new_network[0].weight)  # Different weights
+
+    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+
+    loaded_bandit = NeuralLinearBandit[torch.Tensor].load_from_checkpoint(
+        checkpoint_path,
+        network=new_network,
+        buffer=new_buffer,
+        n_embedding_size=n_embedding_size,
+    )
+
+    # Verify linear head parameters are preserved
+    assert torch.allclose(original_bandit.precision_matrix, loaded_bandit.precision_matrix)
+    assert torch.allclose(original_bandit.b, loaded_bandit.b)
+    assert torch.allclose(original_bandit.theta, loaded_bandit.theta)
+
+    # Verify neural network weights are preserved
+    assert torch.allclose(
+        cast(Sequential, original_bandit.network)[0].weight, cast(Sequential, loaded_bandit.network)[0].weight
+    )
+
+    # Verify helper network weights are preserved
+    assert torch.allclose(
+        cast(Sequential, original_bandit._helper_network.network)[0].weight,
+        cast(Sequential, loaded_bandit._helper_network.network)[0].weight,
+    )
+
+    # Verify buffer content is preserved
+    assert len(loaded_bandit.buffer) == len(original_bandit.buffer)
+    assert torch.allclose(original_bandit.buffer.contextualized_actions, loaded_bandit.buffer.contextualized_actions)  # type: ignore
+    assert torch.allclose(original_bandit.buffer.rewards, loaded_bandit.buffer.rewards)  # type: ignore
+
+    # Verify hyperparameters are preserved
+    assert loaded_bandit.hparams["n_embedding_size"] == n_embedding_size
+    assert loaded_bandit.hparams["min_samples_required_for_training"] == 4
+    assert loaded_bandit.hparams["learning_rate"] == 0.02
+    assert loaded_bandit.hparams["initial_train_steps"] == 2
+
+    # Verify training state is preserved
+    assert loaded_bandit._should_train_network == original_bandit._should_train_network
+    assert loaded_bandit._samples_without_training_network == original_bandit._samples_without_training_network
+    assert loaded_bandit.automatic_optimization == original_bandit.automatic_optimization
+
+    # Verify model produces identical predictions with Thompson Sampling
+    n_samples = 50
+    original_choices = []
+    loaded_choices = []
+
+    for i in range(n_samples):
+        seed = 1000 + i
+        torch.manual_seed(seed)
+        orig_action, _ = original_bandit(test_context)
+        torch.manual_seed(seed)
+        loaded_action, _ = loaded_bandit(test_context)
+
+        original_choices.append(orig_action.argmax(dim=1).item())
+        loaded_choices.append(loaded_action.argmax(dim=1).item())
+
+    # Verify the pattern of selections is similar (agreement rate > 0.7)
+    agreement_rate = (
+        sum(
+            original_choice == loaded_choice
+            for original_choice, loaded_choice in zip(original_choices, loaded_choices, strict=False)
+        )
+        / n_samples
+    )
+    assert agreement_rate > 0.7, f"Models only agreed on {agreement_rate:.1%} of selections"
 
 
 # ------------------------------------------------------------------------------
@@ -474,8 +604,6 @@ def test_neural_linear_bandit_hparams_effect() -> None:
 # ------------------------------------------------------------------------------
 # 3) Tests for NeuralLinearBandit with tuple input
 # ------------------------------------------------------------------------------
-
-
 @pytest.fixture
 def small_context_reward_tupled_batch() -> tuple[
     tuple[torch.Tensor, torch.Tensor],

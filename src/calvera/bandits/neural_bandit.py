@@ -5,12 +5,13 @@ from typing import Any, cast
 import lightning as pl
 import torch
 import torch.nn as nn
+from _collections_abc import Mapping
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import optim
 
 from calvera.bandits.abstract_bandit import AbstractBandit
 from calvera.utils.data_storage import AbstractBanditDataBuffer
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
 
@@ -52,39 +53,43 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         early_stop_threshold: float | None = 1e-3,
         min_samples_required_for_training: int | None = 64,
         initial_train_steps: int = 1024,
+        warm_start: bool = True,
     ) -> None:
         """Initialize the NeuralUCB bandit module.
 
         Args:
             n_features: Number of input features. Must be greater 0.
             network: Neural network module for function approximation.
-            buffer: Buffer for storing bandit interaction data.
-            selector: Action selector for the bandit. Defaults to ArgMaxSelector (if None).
+            buffer: Buffer for storing bandit interaction data. See superclass for further information.
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             exploration_rate: Exploration parameter for UCB. Called gamma_t=nu in the original paper.
-                Defaults to 1. Must be greater 0.
-            train_batch_size: Size of mini-batches for training. Defaults to 32. Must be greater 0.
+                Must be greater 0.
+            train_batch_size: Size of mini-batches for training. Must be greater 0.
             learning_rate: The learning rate for the optimizer of the neural network.
                 Passed to `lr` of `torch.optim.Adam`.
-                Default is 1e-3. Must be greater than 0.
+                Must be greater than 0.
             weight_decay: The regularization parameter for the neural network.
                 Passed to `weight_decay` of `torch.optim.Adam`.
-                Default is 1.0. Must be greater than 0 because the NeuralUCB algorithm is based on this parameter.
+                Must be greater than 0 because the NeuralUCB algorithm is based on this parameter.
             learning_rate_decay: Multiplicative factor for learning rate decay.
                 Passed to `gamma` of `torch.optim.lr_scheduler.StepLR`.
                 Default is 1.0 (i.e. no decay). Must be greater than 0.
             learning_rate_scheduler_step_size: The step size for the learning rate decay.
                 Passed to `step_size` of `torch.optim.lr_scheduler.StepLR`.
-                Default is 1. Must be greater than 0.
+                Must be greater than 0.
             early_stop_threshold: Loss threshold for early stopping. None to disable.
-                Defaults to 1e-3. Must be greater equal 0.
+                Must be greater equal 0.
             min_samples_required_for_training: If less samples have been added via `record_feedback`
                 than this value, the network is not trained.
                 If None, the network is trained every time `trainer.fit` is called.
-                Defaults to 64. Must be greater 0.
+                Must be greater 0.
             initial_train_steps: For the first `initial_train_steps` samples, the network is always trained even if
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
-                Defaults to 1024. Must be greater equal 0.
+                Must be greater equal 0.
+            warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
+                `network.reset_parameters()` everytime a retraining of the network occurs. If `True` the network is
+                trained from the current state.
         """
         assert weight_decay >= 0, "Regularization parameter must be greater equal 0."
         assert exploration_rate > 0, "Exploration rate must be greater than 0."
@@ -103,6 +108,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             n_features=n_features,
             buffer=buffer,
             train_batch_size=train_batch_size,
+            selector=selector,
         )
 
         self.save_hyperparameters(
@@ -116,13 +122,14 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 "min_samples_required_for_training": min_samples_required_for_training,
                 "early_stop_threshold": early_stop_threshold,
                 "initial_train_steps": initial_train_steps,
+                "warm_start": warm_start,
             }
         )
 
-        self.selector = selector if selector is not None else ArgMaxSelector()
-
         # Model parameters: Initialize θ_t
         self.theta_t = network.to(self.device)
+        self.theta_t_init = self.theta_t.state_dict().copy() if not self.hparams["warm_start"] else None
+
         self.total_params = sum(p.numel() for p in self.theta_t.parameters() if p.requires_grad)
 
         # Initialize Z_0 = λI
@@ -291,7 +298,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
             self._skip_training()
 
-        # TODO: warm_start. If should_train_network and not warm_start, reset the network.
+        if not self.hparams["warm_start"] and self.should_train_network:
+            self.theta_t.load_state_dict(cast(Mapping[str, Any], self.theta_t_init))
 
     def _update(
         self,
@@ -382,3 +390,40 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         super().on_train_end()
         if not self._training_skipped:
             self.should_train_network = False
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle saving custom NeuralBandit state.
+
+        Args:
+            checkpoint: Dictionary to save the state into.
+        """
+        super().on_save_checkpoint(checkpoint)
+
+        checkpoint["Z_t"] = self.Z_t
+
+        checkpoint["network_state"] = self.theta_t.state_dict()
+
+        if self.theta_t_init is not None:
+            checkpoint["init_network_state"] = self.theta_t_init
+
+        checkpoint["_should_train_network"] = self._should_train_network
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle loading custom NeuralBandit state.
+
+        Args:
+            checkpoint: Dictionary containing the state to load.
+        """
+        super().on_load_checkpoint(checkpoint)
+
+        if "Z_t" in checkpoint:
+            self.register_buffer("Z_t", checkpoint["Z_t"])
+
+        if "network_state" in checkpoint:
+            self.theta_t.load_state_dict(checkpoint["network_state"])
+
+        if "init_network_state" in checkpoint and not self.hparams["warm_start"]:
+            self.theta_t_init = checkpoint["init_network_state"]
+
+        if "_should_train_network" in checkpoint:
+            self._should_train_network = checkpoint["_should_train_network"]
