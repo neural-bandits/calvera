@@ -641,6 +641,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         checkpoint["network_state"] = self.network.state_dict()
         checkpoint["helper_network_state"] = self._helper_network.state_dict()
+        if self._helper_network_init is not None:
+            checkpoint["init_helper_network_state"] = self._helper_network_init
 
         checkpoint["_should_train_network"] = self._should_train_network
         checkpoint["_samples_without_training_network"] = self._samples_without_training_network
@@ -662,6 +664,9 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         if "helper_network_state" in checkpoint:
             self._helper_network.load_state_dict(checkpoint["helper_network_state"])
+
+        if "init_helper_network_state" in checkpoint and not self.hparams["warm_start"]:
+            self._helper_network_init = checkpoint["init_helper_network_state"]
 
         if "_should_train_network" in checkpoint:
             self._should_train_network = checkpoint["_should_train_network"]

@@ -405,6 +405,9 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         checkpoint["network_state"] = self.theta_t.state_dict()
 
+        if self.theta_t_init is not None:
+            checkpoint["init_network_state"] = self.theta_t_init
+
         checkpoint["_should_train_network"] = self._should_train_network
 
     def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
@@ -420,6 +423,9 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         if "network_state" in checkpoint:
             self.theta_t.load_state_dict(checkpoint["network_state"])
+
+        if "init_network_state" in checkpoint and not self.hparams["warm_start"]:
+            self.theta_t_init = checkpoint["init_network_state"]
 
         if "_should_train_network" in checkpoint:
             self._should_train_network = checkpoint["_should_train_network"]
