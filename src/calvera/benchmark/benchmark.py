@@ -144,7 +144,10 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
         torch.nn.ReLU(),
         torch.nn.Linear(64, out_size),
     ),
-    "bert": lambda in_size, out_size: BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2"),
+    "bert": lambda in_size, out_size: BertModel.from_pretrained(
+        "google/bert_uncased_L-2_H-128_A-2", 
+        output_hidden_states=True
+    ),
 }
 
 
@@ -286,6 +289,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         return DataLoader(
             subset,
             batch_size=self.training_params.get("feedback_delay", 1),
+            # TODO(rob2u) add collate_fn here
         )
 
     def run(self) -> None:
