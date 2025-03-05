@@ -6,6 +6,7 @@ from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
 from calvera.bandits.action_input_type import ActionInputType
 from calvera.bandits.linear_ts_bandit import LinearTSBandit
+from calvera.benchmark.multiclass import MultiClassContextualizer
 from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
 from calvera.utils.selectors import AbstractSelector
 
@@ -89,6 +90,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: float | None = 1e-3,
         initial_train_steps: int = 1024,
+        contextualization_after_network: bool = False,
+        n_arms: int | None = None,
         warm_start: bool = True,
     ) -> None:
         """Initializes the NeuralLinearBanditModule.
@@ -98,6 +101,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             buffer: The buffer used for storing the data for continuously updating the neural network and
                 storing the embeddings for the linear head.
             n_embedding_size: The size of the embedding produced by the neural network. Must be greater than 0.
+                IF `contextualization_after_network` is True, `n_embedding_size` is the size of the output of the
+                network * n_arms (Using disjoint contextualization).
             selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             train_batch_size: The batch size for the neural network update. Must be greater than 0.
             min_samples_required_for_training: The interval (in steps) at which the neural network is updated.
@@ -123,6 +128,12 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             early_stop_threshold: Loss threshold for early stopping. None to disable.
                 Must be greater equal 0.
             initial_train_steps: Number of initial training steps (in samples).
+                Defaults to 1024. Must be greater equal 0.
+            contextualization_after_network: If True, the contextualization is applied after the network. Useful for
+                situations where you want to use the model for retrieving an embedding then use this single embedding
+                for multiple actions.
+            n_arms: The number of arms to contextualize after the network. Only needed if
+                contextualization_after_network is True. Else the number of arms is determined by the input data.
                 Must be greater equal 0.
             warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
                 `network.reset_parameters()` everytime a retraining of the network occurs. If `True` the network is
@@ -166,6 +177,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 "learning_rate_scheduler_step_size": learning_rate_scheduler_step_size,
                 "early_stop_threshold": early_stop_threshold,
                 "initial_train_steps": initial_train_steps,
+                "contextualization_after_network": contextualization_after_network,
+                "n_arms": n_arms,
                 "warm_start": warm_start,
             }
         )
@@ -189,6 +202,19 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         # Disable Lightning's automatic optimization. Has to be kept in sync with should_train_network.
         self.automatic_optimization = False
+
+        self.contextualizer: MultiClassContextualizer | None = None
+        if self.hparams["contextualization_after_network"]:
+            assert n_arms is not None, "The number of arms must be provided if contextualization_after_network is True."
+
+            assert n_embedding_size % n_arms == 0, (
+                "If `contextualization_after_network` is True, `n_embedding_size` is the size of the output of the "
+                "network * n_arms (Using disjoint contextualization)."
+                "Therefore, `n_embedding_size` must be divisible by `n_arms`."
+            )
+
+            self.contextualizer = MultiClassContextualizer(n_arms=n_arms)
+
         self._helper_network_init = self._helper_network.state_dict().copy() if not self.hparams["warm_start"] else None
 
     def _predict_action(
@@ -208,15 +234,52 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             - p: The probability of the chosen actions. For now we always return 1 but we might return the actual
                 probability in the future. Shape: (batch_size, ).
         """
-        embedded_actions = self._embed_contextualized_actions(
-            contextualized_actions
-        )  # shape: (batch_size, n_arms, n_embedding_size)
+        # MyPy forces us to call it `contextualized_actions` but this would be misleading here.
+        input_data = contextualized_actions
+
+        embedded_actions = self._get_contextualized_actions(input_data)  # shape: (batch_size, n_arms, n_embedding_size)
 
         # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward
         # method here: because of inheriting it would call our forward and _predict_action method again.
-        result, p = super()._predict_action(embedded_actions)  # type: ignore  # shape: (batch_size, n_arms)
+        result, p = super()._predict_action(cast(ActionInputType, embedded_actions))  # shape: (batch_size, n_arms)
 
         return result, p
+
+    def _get_contextualized_actions(self, input_data: ActionInputType) -> torch.Tensor:
+        """Contextualize the input data.
+
+        Args:
+            input_data: A batch of input data. See `ActionInputType`. Shape: (batch_size, n_arms, n_network_input_size)
+                or a tuple of tensors of shape (batch_size, n_arms, n_network_input_size) if there are several inputs to
+                the model.
+
+        Returns:
+            A tensor of shape (batch_size, n_arms, n_embedding_size)
+        """
+        if self.hparams["contextualization_after_network"]:
+            assert self.contextualizer is not None, "Missing contextualizer."
+            # The network should output (batchsize * (n_arms = 1), n_)
+            sample: torch.Tensor
+            if isinstance(input_data, torch.Tensor):
+                sample = input_data
+            elif isinstance(input_data, tuple | list):
+                sample = input_data[0]
+            else:
+                raise ValueError("The contextualized_actions must be either a torch.Tensor or a tuple of torch.Tensor.")
+
+            assert sample.ndim == 3, "The input data must have shape (batch_size, n_arms, n_network_input_size)."
+
+            assert sample.shape[1] == 1, "If `contextualization_after_network` is True, `n_arms` must be 1."
+
+            contextualized_embeddings = self.contextualizer(self.network.forward(input_data))
+            # Shape (batch_size, n_arms, model_output_size * n_arms)
+            assert (
+                contextualized_embeddings.ndim == 3
+            ), "The contextualized embeddings must have shape (batch_size, n_arms, model_output_size * n_arms)."
+
+            return contextualized_embeddings
+        else:
+            return self._embed_contextualized_actions(input_data)
 
     def _embed_contextualized_actions(
         self,
@@ -309,7 +372,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 Size: (batch_size, n_actions, n_features).
             rewards: The rewards that were observed for the chosen actions. Size: (batch_size, n_actions).
         """
-        embedded_actions = self._embed_contextualized_actions(
+        embedded_actions = self._get_contextualized_actions(
             contextualized_actions
         )  # shape: (batch_size, n_actions, n_embedding_size)
 
@@ -575,7 +638,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                         "The contextualized_actions must be either a torch.Tensor or a tuple of torch.Tensors."
                     )
 
-                new_embedded_actions[i : i + batch_size] = self._embed_contextualized_actions(
+                new_embedded_actions[i : i + batch_size] = self._get_contextualized_actions(
                     batch_input  # shape: (batch_size, 1, n_network_input_size)
                 ).squeeze(
                     1

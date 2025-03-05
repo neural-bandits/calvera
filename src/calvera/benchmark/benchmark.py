@@ -5,7 +5,7 @@ import logging
 import os
 import random
 from collections.abc import Callable
-from typing import Any, Generic, Optional
+from typing import Any, Generic
 
 import lightning as pl
 import matplotlib.pyplot as plt
@@ -440,7 +440,7 @@ class BenchmarkAnalyzer:
         self.env_metrics_df = pd.DataFrame()
         self.bandit_logs_df = pd.DataFrame()
 
-    def load_metrics(self, log_path: Optional[str] = None, bandit: str = "bandit") -> None:
+    def load_metrics(self, log_path: str | None = None, bandit: str = "bandit") -> None:
         """Loads the logs from the log path.
 
         Args:
@@ -462,7 +462,7 @@ class BenchmarkAnalyzer:
 
             self.bandit_logs_df = pd.concat([self.bandit_logs_df, bandit_metrics_df], ignore_index=True)
 
-    def _load_df(self, log_path: str, file_name: str) -> Optional[pd.DataFrame]:
+    def _load_df(self, log_path: str, file_name: str) -> pd.DataFrame | None:
         """Loads the logs from the log path.
 
         Args:
@@ -671,7 +671,7 @@ def run_comparison(
     log_dir: str = "logs",
     save_plots: bool = False,
     suppress_plots: bool = False,
-):
+) -> None:
     """Runs the benchmark training on multiple bandits.
 
     Args:
