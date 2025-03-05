@@ -125,12 +125,3 @@ class DiagonalPrecApproxLinearTSBandit(LinearTSBandit[torch.Tensor]):
         self.precision_matrix.add_(torch.diag_embed(prec_diagonal) + cast(float, self.hparams["eps"]))
 
         return self.precision_matrix
-
-    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        """Handle saving custom DiagonalPrecApproxLinearTSBandit state.
-
-        Args:
-            checkpoint: Dictionary to save the state into.
-        """
-        super().on_save_checkpoint(checkpoint)
-        checkpoint["diagonal_precision_approx"] = True

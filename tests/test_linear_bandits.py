@@ -436,10 +436,6 @@ def test_bandit_state_checkpoint(BanditClass: BanditClassType) -> None:
     assert isinstance(loaded_bandit.selector, ArgMaxSelector)
     assert checkpoint["selector_state"]["type"] == "ArgMaxSelector"
 
-    # Verify diagonal precision approximation flag for relevant classes
-    if BanditClass in [DiagonalPrecApproxLinearUCBBandit, DiagonalPrecApproxLinearTSBandit]:  # type: ignore
-        assert checkpoint.get("diagonal_precision_approx") is True
-
 
 @pytest.mark.parametrize("BanditClass", LinearBanditTypes)
 def test_bandit_selector_checkpoint_epsilon_greedy(BanditClass: BanditClassType) -> None:

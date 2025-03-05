@@ -118,12 +118,3 @@ class DiagonalPrecApproxLinearUCBBandit(LinearUCBBandit):
         )
 
         return self.precision_matrix
-
-    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        """Handle saving custom DiagonalPrecApproxLinearUCBBandit state.
-
-        Args:
-            checkpoint: Dictionary to save the state into.
-        """
-        super().on_save_checkpoint(checkpoint)
-        checkpoint["diagonal_precision_approx"] = True
