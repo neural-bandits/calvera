@@ -61,6 +61,9 @@ from calvera.utils.selectors import (
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 try:
     from transformers import BertModel
 except Exception as e:
@@ -525,34 +528,34 @@ def run_comparison(
     analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
 
     for comparison_value in comparison_values:
-        # try:
-        experiment_id = str(comparison_value)
-        print("==============================================")
-        # deep copy the config to avoid overwriting the original but comparison_type can be nested by using "/"
-        bandit_config = copy.deepcopy(config)
-        # bandit_config[comparison_type] = comparison_value
-        deep_set(bandit_config, comparison_key, comparison_value)
+        try:
+            experiment_id = str(comparison_value)
+            print("==============================================")
+            # deep copy the config to avoid overwriting the original but comparison_type can be nested by using "/"
+            bandit_config = copy.deepcopy(config)
+            # bandit_config[comparison_type] = comparison_value
+            deep_set(bandit_config, comparison_key, comparison_value)
 
-        csv_logger = CSVLogger(os.path.join(log_dir, experiment_id), version=0)
-        benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
-        print(f"Running benchmark for {bandit_config['bandit']} with {bandit_config['dataset']} dataset.")
-        print(f"Setting {comparison_key}={experiment_id}.")
-        print(f"Config: {bandit_config}")
-        print(
-            f"Dataset {bandit_config['dataset']}: "
-            f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features "
-            f"and {benchmark.dataset.num_actions} actions."
-        )
-        benchmark.run()
+            csv_logger = CSVLogger(os.path.join(log_dir, experiment_id), version=0)
+            benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
+            print(f"Running benchmark for {bandit_config['bandit']} with {bandit_config['dataset']} dataset.")
+            print(f"Setting {comparison_key}={experiment_id}.")
+            print(f"Config: {bandit_config}")
+            print(
+                f"Dataset {bandit_config['dataset']}: "
+                f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features "
+                f"and {benchmark.dataset.num_actions} actions."
+            )
+            benchmark.run()
 
-        analyzer.load_metrics(csv_logger.log_dir, experiment_id)
-        analyzer.log_metrics(experiment_id)
-    # except Exception as e:
-    # print(
-    # f"Failed to run benchmark for {comparison_key}={comparison_value}. "
-    # "It might not be part of the final analysis."
-    # )
-    # print(e)
+            analyzer.load_metrics(csv_logger.log_dir, experiment_id)
+            analyzer.log_metrics(experiment_id)
+        except Exception as e:
+            print(
+                f"Failed to run benchmark for {comparison_key}={comparison_value}. "
+                "It might not be part of the final analysis."
+            )
+            print(e)
 
     for comparison_value in config.get("load_previous_result", []):
         experiment_id = str(comparison_value)
