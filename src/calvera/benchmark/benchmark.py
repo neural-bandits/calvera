@@ -499,7 +499,7 @@ class BenchmarkAnalyzer:
             logger.warning(f"Could not find metrics file {file_name} in {log_path}.")
             return None
 
-    def plot_accumulated_metric(self, metric_name: str | list[str]) -> None:
+    def plot_accumulated_metric(self, metric_name: str | list[str], comparison_key: str | None = None) -> None:
         """Plots the accumulated metric over training steps.
 
         If several metrics are passed they are all plotted in the same plot.
@@ -530,7 +530,10 @@ class BenchmarkAnalyzer:
                 plt.plot(self.env_metrics_df["step"], accumulated_metric, label=metric)
 
         plt.xlabel("Step")
-        plt.legend()
+        if comparison_key is not None:
+            plt.legend(title=comparison_key)
+        else:
+            plt.legend()
         plt.title(f"Accumulated {', '.join(metric_name)} over training steps")
 
         if self.save_plots:
@@ -796,8 +799,8 @@ def run_comparison(
             print(f"Failed to load previous result for {comparison_key}={experiment_id} from {csv_log_dir}.")
             print(e)
 
-    analyzer.plot_accumulated_metric("reward")
-    analyzer.plot_accumulated_metric("regret")
+    analyzer.plot_accumulated_metric("reward", comparison_key)
+    analyzer.plot_accumulated_metric("regret", comparison_key)
     analyzer.plot_average_metric("reward")
     analyzer.plot_average_metric("regret")
     analyzer.plot_loss()
