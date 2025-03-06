@@ -163,12 +163,12 @@ def test_neural_linear_bandit_forward_tuple() -> None:
     attention_mask = torch.ones(seq_len, dtype=torch.bool, device="cpu").view(1, seq_len)
     token_type_ids = torch.randn(seq_len, device="cpu").view(1, seq_len)
 
-    contextualized_actions = [(inputs_ids, attention_mask, token_type_ids) for _ in range(batch_size)]
+    contextualized_action_list = [(inputs_ids, attention_mask, token_type_ids) for _ in range(batch_size)]
     # collate the inputs
     contextualized_actions = (
-        torch.stack([elem[0] for elem in contextualized_actions]),
-        torch.stack([elem[1] for elem in contextualized_actions]),
-        torch.stack([elem[2] for elem in contextualized_actions]),
+        torch.stack([elem[0] for elem in contextualized_action_list]),
+        torch.stack([elem[1] for elem in contextualized_action_list]),
+        torch.stack([elem[2] for elem in contextualized_action_list]),
     )
 
     output, p = bandit.forward(contextualized_actions)
@@ -275,7 +275,7 @@ def test_neural_linear_bandit_forward_img() -> None:
 # ------------------------------------------------------------------------------
 @pytest.fixture
 def small_context_reward_batch() -> (
-    tuple[torch.Tensor, torch.Tensor, torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]]]
+    tuple[torch.Tensor, torch.Tensor, torch.utils.data.Dataset[tuple[torch.Tensor, None, torch.Tensor, None]]]
 ):
     """
     Generates synthetic test data for training steps.
@@ -293,7 +293,7 @@ def small_context_reward_batch() -> (
     # e.g., random rewards
     rewards = torch.randn(batch_size, n_chosen_arms)
 
-    class RandomDataset(torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
+    class RandomDataset(torch.utils.data.Dataset[tuple[torch.Tensor, None, torch.Tensor, None]]):
         def __init__(self, actions: torch.Tensor, rewards: torch.Tensor):
             self.actions = actions
             self.rewards = rewards
@@ -301,7 +301,7 @@ def small_context_reward_batch() -> (
         def __len__(self) -> int:
             return len(self.actions)
 
-        def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        def __getitem__(self, idx: int) -> tuple[torch.Tensor, None, torch.Tensor, None]:
             return self.actions[idx], None, self.rewards[idx], None
 
     dataset = RandomDataset(contextualized_actions, rewards)

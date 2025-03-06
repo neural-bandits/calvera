@@ -623,16 +623,24 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
             # Tuple (of tensors) of contextualized actions
             return (
                 cast(ActionInputType, contextualized_actions),
-                torch.stack(embeddings) if len(embeddings) > 0 else None,
+                torch.stack(embeddings) if embeddings is not None and (len(embeddings) > 0) else None,
                 torch.tensor(self.rewards),
-                torch.stack(self.chosen_actions) if len(self.chosen_actions) > 0 else None,
+                (
+                    torch.stack(self.chosen_actions)
+                    if self.chosen_actions is not None and len(self.chosen_actions) > 0
+                    else None
+                ),
             )
         else:
             return (
                 cast(ActionInputType, torch.stack(self.contextualized_actions)),
-                torch.stack(embeddings) if len(embeddings) else None,
+                torch.stack(embeddings) if embeddings is not None and len(embeddings) else None,
                 torch.tensor(self.rewards),
-                torch.stack(self.chosen_actions) if len(self.chosen_actions) else None,
+                (
+                    torch.stack(self.chosen_actions)
+                    if self.chosen_actions is not None and len(self.chosen_actions) > 0
+                    else None
+                ),
             )
 
     def get_batch(

@@ -53,7 +53,7 @@ def small_context_reward_batch() -> tuple[
         def __len__(self) -> int:
             return len(self.actions)
 
-        def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        def __getitem__(self, idx: int) -> tuple[torch.Tensor, None, torch.Tensor, None]:
             return self.actions[idx], None, self.rewards[idx], None
 
     dataset = RandomDataset(contextualized_actions, rewards)
