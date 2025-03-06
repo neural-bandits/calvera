@@ -2,7 +2,13 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, EpsilonGreedySelector, TopKSelector
+from calvera.utils.selectors import (
+    AbstractSelector,
+    ArgMaxSelector,
+    EpsilonGreedySelector,
+    RandomSelector,
+    TopKSelector,
+)
 
 
 class TestArgMaxSelector:
@@ -176,6 +182,31 @@ class TestTopKSelector:
         assert selected.shape == (batch_size, n_arms)
         assert (selected.sum(dim=1) == k).all()  # Exactly k selections per sample
         assert ((selected == 0) | (selected == 1)).all()  # Only binary values
+
+
+class TestRandomSelector:
+    # just test that it doesnt fail and the output shapes are correct:
+    def test_random_selector(self) -> None:
+        selector = RandomSelector()
+        scores = torch.rand(10, 5)
+        selected = selector(scores)
+
+        assert selected.shape == (10, 5)
+        assert (selected.sum(dim=1) == 1).all()
+        assert ((selected == 0) | (selected == 1)).all()
+
+    def test_random_selector_with_seed(self) -> None:
+        selector = RandomSelector(seed=42)
+        scores = torch.rand(10, 5)
+        selected = selector(scores)
+
+        assert selected.shape == (10, 5)
+        assert (selected.sum(dim=1) == 1).all()
+        assert ((selected == 0) | (selected == 1)).all()
+
+        selector = RandomSelector(seed=42)
+        selected2 = selector(scores)
+        assert torch.equal(selected, selected2)
 
 
 class TestSelectorSerialization:
