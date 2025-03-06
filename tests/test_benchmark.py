@@ -104,7 +104,7 @@ def test_run_comparison_data_strategy() -> None:
 def test_run_comparison_hparams() -> None:
     run_comparison(
         {
-            "comparison_key": "hparams/min_samples_required_for_training",
+            "comparison_key": "bandit_hparams/min_samples_required_for_training",
             "bandit": "neural_linear",
             "dataset": "covertype",
             "network": "tiny_mlp",
