@@ -153,7 +153,7 @@ class LinearCombinationSyntheticDataset(SyntheticDataset):
     """A synthetic dataset of a linear combination of the features.
 
     We use the outer product of the features as the feature matrix.
-    `y = w0 + sum_i w_i*x_i + sum_i sum_{j>i} w_{i,j}*x_i*x_j`
+    `y = w_0 + sum_i w_i*x_i + sum_i sum_{j>i} w_{i,j}*x_i*x_j`
     """
 
     def phi(self, x: torch.Tensor) -> torch.Tensor:
