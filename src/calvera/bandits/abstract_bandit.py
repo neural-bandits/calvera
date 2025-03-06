@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Optional, cast
+from typing import Any, Generic, cast
 
 import lightning as pl
 import torch
@@ -481,7 +481,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 class DummyBandit(AbstractBandit[ActionInputType]):
     """A dummy bandit that always selects random actions."""
 
-    def __init__(self, n_features: int, selector: Optional[AbstractSelector] = None) -> None:
+    def __init__(self, n_features: int, selector: AbstractSelector | None = None) -> None:
         """Initializes a DummyBandit with a RandomSelector."""
         if selector is None:
             selector = RandomSelector()
@@ -499,14 +499,18 @@ class DummyBandit(AbstractBandit[ActionInputType]):
         **kwargs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass, computed batch-wise. Does nothing but call the selector."""
-        selected_actions_one_hot = self.selector(contextualized_actions)
+        context_tensor = contextualized_actions if isinstance(contextualized_actions, torch.Tensor) else contextualized_actions[0]
+        batch_size = context_tensor.shape[0]
+        n_arms = context_tensor.shape[1]
+
+        selected_actions_one_hot = self.selector(torch.ones((batch_size, n_arms)))
 
         if isinstance(self.selector, RandomSelector):
-            uniform_p = 1 / self.selector.k
-            p = torch.ones((contextualized_actions.shape[0], )) * uniform_p
+            p = torch.ones((batch_size,)) / n_arms
         else:
-            p = torch.zeros((contextualized_actions.shape[0], ))
-            p[selected_actions_one_hot.argmax(dim=1)] = 1.0
+            selected_actions_indices = selected_actions_one_hot.argmax(dim=1)
+            p = torch.zeros((batch_size,))
+            p[selected_actions_indices] = 1.0
 
         return selected_actions_one_hot, p
 
