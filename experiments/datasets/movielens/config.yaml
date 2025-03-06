@@ -1,6 +1,6 @@
 comparison_key: bandit
 
-dataset: movie_lens
+dataset: movielens
 dataset_hparams:
   version: ml-32m
   k: 4
