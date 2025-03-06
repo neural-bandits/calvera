@@ -65,7 +65,7 @@ class AbstractDataset(ABC, Generic[ActionInputType], Dataset[tuple[ActionInputTy
         i.e. in a special setting where the data is passed sorted to the model.
 
         Therefore, we don't require this method to be implemented in all subclasses.
-        
+
         Args:
             idx: The index of the context in this dataset.
 

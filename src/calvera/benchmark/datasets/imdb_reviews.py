@@ -4,7 +4,7 @@ import pathlib
 import re
 import tarfile
 import urllib.request
-from typing import cast, Literal
+from typing import Literal, cast
 
 import pandas as pd
 import torch

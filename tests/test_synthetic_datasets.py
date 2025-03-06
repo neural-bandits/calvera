@@ -3,9 +3,9 @@ import torch
 
 from calvera.benchmark.datasets.synthetic import (
     CubicSyntheticDataset,
-    QuadraticSyntheticDataset,
     LinearCombinationSyntheticDataset,
     LinearSyntheticDataset,
+    QuadraticSyntheticDataset,
     SinSyntheticDataset,
     SyntheticDataset,
 )
@@ -19,7 +19,7 @@ from calvera.benchmark.datasets.synthetic import (
         (LinearSyntheticDataset, 3),
         # CubicSyntheticDataset: bias + x + x^2 → 1 + 2 + 2 = 5
         (QuadraticSyntheticDataset, 5),
-        # CubicSyntheticDataset: bias + x + x^2 → 1 + 2 + 2 + 2 = 7 
+        # CubicSyntheticDataset: bias + x + x^2 → 1 + 2 + 2 + 2 = 7
         (CubicSyntheticDataset, 7),
         # SinSyntheticDataset: bias + x + sin(x) → 1 + 2 + 2 = 5
         (SinSyntheticDataset, 5),

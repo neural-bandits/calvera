@@ -109,6 +109,7 @@ class QuadraticSyntheticDataset(SyntheticDataset):
             dim=1,
         )
 
+
 class CubicSyntheticDataset(SyntheticDataset):
     """A synthetic dataset with bias and cubic features.
 
@@ -134,7 +135,7 @@ class SinSyntheticDataset(SyntheticDataset):
     """A non-linear synthetic dataset using `sin(x)`.
 
     `y = w_0 + sum_i w_i*x_i + sum_j w_j*sin(4*x_j)`
-    
+
     We increase the frequency of the sine function to make it more non-linear.
     """
 
@@ -144,7 +145,7 @@ class SinSyntheticDataset(SyntheticDataset):
             [
                 torch.ones(x.shape[0], 1),
                 x,
-                torch.sin(5*x),
+                torch.sin(5 * x),
             ],
             dim=1,
         )
