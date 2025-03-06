@@ -4,7 +4,7 @@ import pathlib
 import re
 import tarfile
 import urllib.request
-from typing import Literal
+from typing import cast, Literal
 
 import pandas as pd
 import torch
@@ -206,4 +206,4 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
 
     def sort_key(self, idx):
         """Return the label for a given index."""
-        return self.data["sentiment"][idx]
+        return cast(int, self.data["sentiment"][idx])
