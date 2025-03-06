@@ -1,13 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sized
-from typing import (
-    Any,
-    Generic,
-    Protocol,
-    TypedDict,
-    TypeVar,
-    cast,
-)
+from typing import Any, Generic, Protocol, TypedDict, TypeVar, cast
 
 import torch
 

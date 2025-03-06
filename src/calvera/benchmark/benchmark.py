@@ -20,14 +20,8 @@ from tqdm import tqdm
 
 from calvera.bandits.abstract_bandit import AbstractBandit
 from calvera.bandits.action_input_type import ActionInputType
-from calvera.bandits.linear_ts_bandit import (
-    DiagonalPrecApproxLinearTSBandit,
-    LinearTSBandit,
-)
-from calvera.bandits.linear_ucb_bandit import (
-    DiagonalPrecApproxLinearUCBBandit,
-    LinearUCBBandit,
-)
+from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
+from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
@@ -54,12 +48,7 @@ from calvera.utils.data_storage import (
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
 )
-from calvera.utils.selectors import (
-    AbstractSelector,
-    ArgMaxSelector,
-    EpsilonGreedySelector,
-    TopKSelector,
-)
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, EpsilonGreedySelector, TopKSelector
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
