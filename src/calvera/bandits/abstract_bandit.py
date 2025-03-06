@@ -505,13 +505,13 @@ class DummyBandit(AbstractBandit[ActionInputType]):
         batch_size = context_tensor.shape[0]
         n_arms = context_tensor.shape[1]
 
-        selected_actions_one_hot = self.selector(torch.ones((batch_size, n_arms)))
+        selected_actions_one_hot = self.selector(torch.ones((batch_size, n_arms), device=context_tensor.device))
 
         if isinstance(self.selector, RandomSelector):
-            p = torch.ones((batch_size,)) / n_arms
+            p = torch.ones((batch_size,), device=context_tensor.device) / n_arms
         else:
             selected_actions_indices = selected_actions_one_hot.argmax(dim=1)
-            p = torch.zeros((batch_size,))
+            p = torch.zeros((batch_size,), device=context_tensor.device)
             p[selected_actions_indices] = 1.0
 
         return selected_actions_one_hot, p

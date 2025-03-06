@@ -1,4 +1,4 @@
-comparison_key: data_strategy
+comparison_key: bandit
 
 dataset: statlog
 
@@ -35,7 +35,7 @@ max_buffer_size: 10240
 # Bandit arguments
 bandit_hparams:
   exploration_rate: 0.00001
-  lr: 0.0001
+  learning_rate: 0.0001
   weight_decay: 0.00001
   min_samples_required_for_training: 128
   initial_train_steps: 1024

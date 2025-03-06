@@ -3,7 +3,7 @@ comparison_key: data_strategy
 dataset: covertype
 max_samples: 20480
 
-bandit: neural_linear
+bandit: neural_ucb
 
 selector: argmax
 
@@ -22,8 +22,8 @@ network: small_mlp  # 3 hidden layer with 128 units
 
 # Buffer
 data_strategy:
-- sliding_window
-- all
+  - sliding_window
+  - all
 window_size: 1024
 
 max_buffer_size: 10240
@@ -31,7 +31,7 @@ max_buffer_size: 10240
 # Bandit arguments
 bandit_hparams:
   exploration_rate: 0.00001
-  lr: 0.0001
+  learning_rate: 0.0001
   weight_decay: 0.00001
   min_samples_required_for_training: 128
   initial_train_steps: 1024

@@ -27,7 +27,7 @@ max_buffer_size: 4096
 # Bandit arguments
 bandit_hparams:
   exploration_rate: 0.00001
-  lr: 0.0001
+  learning_rate: 0.0001
   weight_decay: 0.00001
   min_samples_required_for_training:
     - null  # not training the network at all
