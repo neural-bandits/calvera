@@ -1,4 +1,4 @@
-comparison_key: delay
+comparison_key: feedback_delay
 
 dataset: statlog
 bandit: neural_ucb
