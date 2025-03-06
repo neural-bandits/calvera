@@ -85,14 +85,14 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         all_rewards: torch.Tensor = batch[1].to(device=self.device)
 
         if isinstance(contextualized_actions, torch.Tensor):
-            batch_size, num_actions, _ = contextualized_actions.shape
+            batch_size, num_actions = contextualized_actions.shape[:2]
             contextualized_actions = cast(ActionInputType, contextualized_actions.to(device=self.device))
         elif isinstance(contextualized_actions, tuple | list):
             contextualized_actions = cast(
                 ActionInputType,
                 tuple(action_tensor.to(device=self.device) for action_tensor in contextualized_actions),
             )
-            batch_size, num_actions, _ = contextualized_actions[0].shape
+            batch_size, num_actions = contextualized_actions[0].shape[:2]
         else:
             raise ValueError(
                 f"contextualized_actions must be a torch.Tensor or a tuple. Received {type(contextualized_actions)}."
@@ -102,7 +102,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
             f"Mismatched batch size of contextualized_actions and all_rewards tensors."
             f"Received {batch_size} and {all_rewards.size(0)}."
         )
-        assert num_actions == all_rewards.size(1), (
+        assert num_actions == all_rewards.size(1) or num_actions == 1, (
             f"Mismatched number of actions in contextualized_actions and all_rewards tensors."
             f"Received {num_actions} and {all_rewards.size(1)}."
         )
@@ -171,19 +171,15 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
         if self._last_contextualized_actions is None:
             return
 
-        batch_size, num_actions, _ = (
-            self._last_contextualized_actions.shape
+        batch_size, num_actions = (
+            self._last_contextualized_actions.shape[:2]
             if isinstance(self._last_contextualized_actions, torch.Tensor)
-            else self._last_contextualized_actions[0].shape
+            else self._last_contextualized_actions[0].shape[:2]
         )
 
         assert chosen_actions.size(0) == batch_size, (
             "Mismatched batch size of chosen_actions and contextualized_actions tensors."
             "Received {chosen_actions.size(0)} and {batch_size}."
-        )
-        assert chosen_actions.size(1) == num_actions, (
-            f"Mismatched number of actions in chosen_actions and contextualized_actions tensors."
-            f"Received {chosen_actions.size(1)} and {num_actions}."
         )
 
         assert (chosen_actions.sum(dim=1) > 0).all(), "No actions were chosen in some rows."
@@ -223,7 +219,11 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
 
         if isinstance(self._last_contextualized_actions, torch.Tensor):
             # Make shape match contextualized_actions for masked_select
-            expanded_mask = mask.unsqueeze(-1).expand_as(self._last_contextualized_actions)
+
+            if self._last_contextualized_actions.shape[1] == 1:
+                return cast(ActionInputType, self._last_contextualized_actions)
+            else:
+                expanded_mask = mask.unsqueeze(-1).expand_as(self._last_contextualized_actions)
 
             return cast(
                 ActionInputType,
@@ -234,6 +234,9 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
                 ),
             )  # shape (n, m, k)
         elif isinstance(self._last_contextualized_actions, tuple | list):
+            if self._last_contextualized_actions[0].shape[1] == 1:
+                return cast(ActionInputType, tuple(action for action in self._last_contextualized_actions))
+
             first_tensor = self._last_contextualized_actions[0]
             expanded_mask = mask.unsqueeze(-1).expand_as(first_tensor)
             return cast(

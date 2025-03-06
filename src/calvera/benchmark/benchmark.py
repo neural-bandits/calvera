@@ -5,17 +5,19 @@ import logging
 import os
 import random
 from collections.abc import Callable
-from functools import reduce
+from functools import partial, reduce
 from typing import Any, Generic
 
 import lightning as pl
 import numpy as np
 import pandas as pd
+import timm
 import torch
 import yaml
 from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
+from transformers import DataCollatorForTokenClassification
 
 from calvera.bandits.abstract_bandit import AbstractBandit, DummyBandit
 from calvera.bandits.action_input_type import ActionInputType
@@ -43,11 +45,13 @@ from calvera.benchmark.datasets.tiny_imagenet import TinyImageNetDataset
 from calvera.benchmark.datasets.wheel import WheelBanditDataset
 from calvera.benchmark.environment import BanditBenchmarkEnvironment
 from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.benchmark.network_wrappers import BertWrapper, ResNetWrapper
 from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     DataBufferStrategy,
     InMemoryDataBuffer,
+    ListDataBuffer,
     SlidingWindowBufferStrategy,
 )
 from calvera.utils.selectors import (
@@ -152,8 +156,54 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
         torch.nn.ReLU(),
         torch.nn.Linear(64, out_size),
     ),
-    "bert": lambda in_size, out_size: BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2"),
+    "bert": lambda in_size, out_size: BertWrapper(
+        BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2", output_hidden_states=True)
+    ),
+    "resnet18": lambda in_size, out_size: ResNetWrapper(
+        network=timm.create_model(
+            "resnet18.a1_in1k",
+            pretrained=True,
+            num_classes=0,  # remove classifier nn.Linear
+        )
+    ),
 }
+
+
+def custom_collate(batch: Any, data_collator: DataCollatorForTokenClassification) -> Any:
+    """Custom collate function for the DataLoader.
+
+    Args:
+        batch: The batch to collate.
+        data_collator: The data collator to use.
+
+    Returns:
+        The collated batch.
+    """
+    examples = []
+    for item in batch:
+        inputs = item[0]
+        example = {
+            "input_ids": inputs[0],
+            "attention_mask": inputs[1],
+            "token_type_ids": inputs[2],
+        }
+        examples.append(example)
+
+    # Let the data collator process the list of individual examples.
+    context = data_collator(examples)
+    input_ids = context["input_ids"]
+    attention_mask = context["attention_mask"]
+    token_type_ids = context["token_type_ids"]
+
+    if len(batch[0]) == 2:
+        realized_rewards = torch.stack([item[1] for item in batch])
+        return (input_ids, attention_mask, token_type_ids), realized_rewards
+
+    embedded_actions = None if batch[0][1] is None else torch.stack([item[1] for item in batch])
+    realized_rewards = torch.stack([item[2] for item in batch])
+    chosen_actions = None if batch[0][3] is None else torch.stack([item[3] for item in batch])
+
+    return (input_ids, attention_mask, token_type_ids), embedded_actions, realized_rewards, chosen_actions
 
 
 def filter_kwargs(cls: type[Any], kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -249,10 +299,17 @@ class BanditBenchmark(Generic[ActionInputType]):
             bandit_hparams["network"] = networks[training_params["network"]](network_input_size, network_output_size)
 
             data_strategy = data_strategies[training_params["data_strategy"]](training_params)
-            bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](
-                data_strategy,
-                max_size=training_params.get("max_buffer_size", None),
-            )
+
+            if "bert" in training_params["network"] or "resnet" in training_params["network"]:
+                bandit_hparams["buffer"] = ListDataBuffer(
+                    data_strategy,
+                    max_size=training_params.get("max_buffer_size", None),
+                )
+            else:
+                bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](
+                    data_strategy,
+                    max_size=training_params.get("max_buffer_size", None),
+                )
 
         BanditClass = bandits[bandit_name]
         bandit = BanditClass(**filter_kwargs(BanditClass, bandit_hparams))
@@ -305,6 +362,11 @@ class BanditBenchmark(Generic[ActionInputType]):
         self, dataset: AbstractDataset[ActionInputType]
     ) -> DataLoader[tuple[ActionInputType, torch.Tensor]]:
         subset: Dataset[tuple[ActionInputType, torch.Tensor]] = dataset
+
+        collate_fn = None
+        if isinstance(dataset, ImdbMovieReviews):
+            collate_fn = partial(custom_collate, data_collator=dataset.get_data_collator())  # type: ignore
+
         if "max_samples" in self.training_params:
             max_samples = self.training_params["max_samples"]
             indices = list(range(len(dataset)))
@@ -315,6 +377,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         return DataLoader(
             subset,
             batch_size=self.training_params.get("feedback_delay", 1),
+            collate_fn=collate_fn,
             sampler=self.training_params.get("data_sampler", None),
         )
 
@@ -372,8 +435,16 @@ class BanditBenchmark(Generic[ActionInputType]):
                 **optional_kwargs,
             )
 
-            self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards)
-            # Train the bandit on the current feedback.
+            # Only provide the `chosen_action` if necessary.
+            chosen_actions_pass = (
+                chosen_actions
+                if "contextualization_after_network" in self.bandit.hparams
+                and self.bandit.hparams["contextualization_after_network"]
+                else None
+            )
+
+            self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards, chosen_actions_pass)
+            # Train the bandit on the current feedback
             trainer.fit(self.bandit)
             trainer.save_checkpoint(os.path.join(self.log_dir, "checkpoint.ckpt"))
 
