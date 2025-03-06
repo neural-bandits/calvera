@@ -183,3 +183,36 @@ class TopKSelector(AbstractSelector):
         state = super().get_state_dict()
         state["k"] = self.k
         return state
+
+
+class RandomSelector(AbstractSelector):
+    """Selects k random actions from the available actions."""
+
+    def __init__(self, k: int = 1, seed: int | None = None):
+        """Initialize the random selector.
+
+        Args:
+            k: Number of actions to select. Must be positive.
+            seed: Random seed for the generator. Defaults to None.
+        """
+        self.k = k
+        self.generator = torch.Generator()
+        if seed is not None:
+            self.generator.manual_seed(seed)
+
+    def __call__(self, scores: torch.Tensor) -> torch.Tensor:
+        """Select k random actions for each sample in the batch.
+
+        Args:
+            scores: Scores for each action. Shape: (batch_size, n_arms).
+
+        Returns:
+            One-hot encoded selected actions where exactly k entries are 1 per sample.
+            Shape: (batch_size, n_arms).
+        """
+        batch_size, n_arms = scores.shape
+        selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64, device=scores.device)
+        for i in range(batch_size):
+            perm = torch.randperm(n_arms, generator=self.generator, device=scores.device)
+            selected_actions[i, perm[: self.k]] = 1
+        return selected_actions

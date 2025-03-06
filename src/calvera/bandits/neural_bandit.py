@@ -51,7 +51,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         learning_rate_decay: float = 1.0,
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: float | None = 1e-3,
-        min_samples_required_for_training: int | None = 64,
+        min_samples_required_for_training: int = 1024,
         initial_train_steps: int = 1024,
         warm_start: bool = True,
     ) -> None:
@@ -81,8 +81,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 Must be greater equal 0.
             min_samples_required_for_training: If less samples have been added via `record_feedback`
                 than this value, the network is not trained.
-                If None, the network is trained every time `trainer.fit` is called.
-                Must be greater 0.
+                Must be greater 0. Default is 1024.
             initial_train_steps: For the first `initial_train_steps` samples, the network is always trained even if
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
@@ -97,8 +96,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         assert learning_rate_decay >= 0, "The learning rate decay must be greater equal 0."
         assert learning_rate_scheduler_step_size > 0, "Learning rate must be greater than 0."
         assert (
-            min_samples_required_for_training is None or min_samples_required_for_training > 0
-        ), "Training interval must be greater than 0."
+            min_samples_required_for_training is not None and min_samples_required_for_training > 0
+        ), "min_samples_required_for_training must not be None and must be greater than 0."
         assert (
             early_stop_threshold is None or early_stop_threshold >= 0
         ), "Early stop threshold must be greater than or equal to 0."
@@ -195,13 +194,11 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         # Select a_t = argmax_a U_t,a
         chosen_actions = self.selector(self._score(f_t_a, exploration_terms))
 
-        assert (chosen_actions.sum(dim=1) == 1).all(), "Currently only supports non-combinatorial bandits"
-        chosen_actions_idx = chosen_actions.argmax(dim=1)  # TODO: this only works for non-combinatorial bandits!
-
         # Update Z_t using g(x_t,a_t; θ_t-1)
         for b in range(batch_size):
-            a_t = chosen_actions_idx[b]
-            self.Z_t += all_gradients[b, a_t] * all_gradients[b, a_t]
+            chosen_arms = chosen_actions[b].nonzero().squeeze(1)
+            for arm_idx in chosen_arms:
+                self.Z_t += all_gradients[b, arm_idx] * all_gradients[b, arm_idx]
 
         # Return chosen actions and
         return chosen_actions, torch.ones(batch_size, device=self.device)
@@ -233,7 +230,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             self.should_train_network = False
 
         if (
-            self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
+            cast(int, self.hparams["initial_train_steps"] > 0)
+            and self._total_samples_count > self.hparams["initial_train_steps"]
             and self._total_samples_count - contextualized_actions.size(0) <= self.hparams["initial_train_steps"]
         ):
             logger.info(
@@ -283,10 +281,10 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             required_samples = self.hparams["min_samples_required_for_training"]
             if num_samples <= required_samples and not self.is_initial_training_stage():
                 logger.warning(
-                    f"The train_dataloader passed to trainer.fit() contains {num_samples}"
-                    f"which is less than min_samples_required_for_training={required_samples}."
+                    f"The train_dataloader passed to trainer.fit() contains {num_samples} "
+                    f"which is less than min_samples_required_for_training={required_samples}. "
                     f"Even though the initial training stage is over and not enough data samples were passed, "
-                    "the network will still be trained."
+                    "the network will still be trained. "
                     "Consider passing more data or decreasing min_samples_required_for_training."
                 )
 
@@ -337,13 +335,13 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
     def _train_network(
         self,
-        context: torch.Tensor,
-        reward: torch.Tensor,
+        context: torch.Tensor,  # shape: (batch_size, n_arms, n_features)
+        reward: torch.Tensor,  # shape: (batch_size, n_arms)
     ) -> torch.Tensor:
         """Train the neural network on the given data by computing the loss."""
         # Compute f(x_i,a_i; θ)
-        f_theta = self.theta_t(context)
-        predicted_reward = f_theta.squeeze(-1)
+        f_theta = self.theta_t(context)  # shape: (batch_size, n_arms, 1)
+        predicted_reward = f_theta.squeeze(-1)  # shape: (batch_size, n_arms)
         L_theta = self._compute_loss(predicted_reward, reward)
 
         # Compute the average loss

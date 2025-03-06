@@ -4,14 +4,8 @@ import torch
 import torch.nn as nn
 
 from calvera.bandits.abstract_bandit import AbstractBandit
-from calvera.bandits.linear_ts_bandit import (
-    DiagonalPrecApproxLinearTSBandit,
-    LinearTSBandit,
-)
-from calvera.bandits.linear_ucb_bandit import (
-    DiagonalPrecApproxLinearUCBBandit,
-    LinearUCBBandit,
-)
+from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
+from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit

@@ -9,11 +9,7 @@ import torch.nn as nn
 from torch.nn import Sequential
 
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
-from calvera.utils.data_storage import (
-    AllDataBufferStrategy,
-    InMemoryDataBuffer,
-    SlidingWindowBufferStrategy,
-)
+from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
 
 
 @pytest.fixture(autouse=True)
@@ -122,7 +118,7 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
     # assert that the correct action is selected
     assert torch.all(output == torch.tensor([[0, 1]]))
 
-    # TODO: test output probabilities are correct
+    # TODO: test output probabilities are correct. See issue #72.
 
 
 def test_neural_linear_bandit_checkpoint_save_load(
@@ -715,7 +711,7 @@ def test_neural_linear_bandit_tuple_input(
     )
     # Call it once in record. This is unnecessary if we know that we will update the network but
     # required if we want to update the head.
-    # TODO: We could refactor to only compute the embeddings in the update step of the head.
+    # TODO: We could refactor to only compute the embeddings in the update step of the head. See issue #149.
     assert network.forward.call_count == 1
     trainer.fit(bandit)
     # Call it two more times in the training loop. Once during training and once after training

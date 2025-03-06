@@ -1,12 +1,12 @@
 # Calvera
 
-Calvera is a Python library offering a collection of multi-armed bandit algorithms, designed to integrate seamlessly with PyTorch and PyTorch Lightning. Whether you're exploring contextual bandits or developing new strategies, Calvera provides a flexible, easy-to-use interface.
+Calvera is a Python library offering a collection of neural multi-armed bandit algorithms, designed to integrate seamlessly with PyTorch and PyTorch Lightning. Whether you're exploring contextual bandits or developing new strategies, Calvera provides a flexible, easy-to-use interface. You can bring your own neural networks and datasets while Calvera focuses on the implementation of the bandit algorithms.
 
 ## Features
 
 - **Multi-Armed Bandit Algorithms:**
-  - Linear Thompson Sampling
-  - Linear UCB
+  - (Approximate + Standard) Linear Thompson Sampling
+  - (Approximate + Standard) Linear UCB
   - Neural Linear
   - Neural Thompson Sampling
   - Neural UCB

@@ -43,8 +43,6 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
             lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
-                Sometimes also called lambda but we already use lambda for the regularization parameter
-                of the neural networks in NeuralLinear, NeuralUCB and NeuralTS.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step.
             clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
@@ -75,6 +73,9 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
 
         self._init_linear_params()
 
+        # Please don't ask. Lightning requires any parameter to be registered in order to train it on cuda.
+        self.register_parameter("_", None)
+
     def _init_linear_params(self) -> None:
         n_features = cast(int, self.hparams["n_features"])
         lambda_ = cast(float, self.hparams["lambda_"])
@@ -93,10 +94,8 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         chosen_actions, p = self._predict_action_hook(contextualized_actions, **kwargs)
         if not self.hparams["lazy_uncertainty_update"]:
             assert isinstance(contextualized_actions, torch.Tensor), "contextualized_actions must be a torch.Tensor"
-            chosen_contextualized_actions = contextualized_actions[
-                torch.arange(contextualized_actions.shape[0], device=self.device),
-                chosen_actions.argmax(dim=1),
-            ]
+            indices = chosen_actions.nonzero(as_tuple=True)
+            chosen_contextualized_actions = contextualized_actions[indices[0], indices[1]]
             self._update_precision_matrix(chosen_contextualized_actions)
 
         return chosen_actions, p
@@ -168,8 +167,6 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         )
         chosen_actions = chosen_actions.squeeze(1)
         realized_rewards = realized_rewards.squeeze(1)
-        # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial
-        #   Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
         if self.hparams["lazy_uncertainty_update"]:
             self._update_precision_matrix(chosen_actions)

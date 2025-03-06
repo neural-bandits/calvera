@@ -1,59 +1,65 @@
+import argparse
+import copy
 import inspect
 import logging
 import os
 import random
 from collections.abc import Callable
+from functools import reduce
 from typing import Any, Generic
 
 import lightning as pl
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import yaml
 from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 
 from calvera.bandits.abstract_bandit import AbstractBandit
 from calvera.bandits.action_input_type import ActionInputType
-from calvera.bandits.linear_ts_bandit import (
-    DiagonalPrecApproxLinearTSBandit,
-    LinearTSBandit,
-)
-from calvera.bandits.linear_ucb_bandit import (
-    DiagonalPrecApproxLinearUCBBandit,
-    LinearUCBBandit,
-)
+from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
+from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+from calvera.benchmark.analyzer import BenchmarkAnalyzer
 from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 from calvera.benchmark.datasets.covertype import CovertypeDataset
 from calvera.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from calvera.benchmark.datasets.mnist import MNISTDataset
 from calvera.benchmark.datasets.movie_lens import MovieLensDataset
 from calvera.benchmark.datasets.statlog import StatlogDataset
+from calvera.benchmark.datasets.synthetic import (
+    CubicSyntheticDataset,
+    LinearCombinationSyntheticDataset,
+    LinearSyntheticDataset,
+    QuadraticSyntheticDataset,
+    SinSyntheticDataset,
+)
+from calvera.benchmark.datasets.synthetic_combinatorial import SyntheticCombinatorialDataset
+from calvera.benchmark.datasets.tiny_imagenet import TinyImageNetDataset
 from calvera.benchmark.datasets.wheel import WheelBanditDataset
 from calvera.benchmark.environment import BanditBenchmarkEnvironment
 from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     DataBufferStrategy,
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
 )
-from calvera.utils.selectors import (
-    AbstractSelector,
-    ArgMaxSelector,
-    EpsilonGreedySelector,
-    TopKSelector,
-)
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, EpsilonGreedySelector, TopKSelector
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 try:
     from transformers import BertModel
 except Exception as e:
-    logging.warning("Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly.")
-    logging.warning(e)
+    logger.warning("Importing BertModel failed. Make sure transformers is installed and cuda is set up correctly.")
+    logger.warning(e)
     pass
 
 bandits: dict[str, type[AbstractBandit[Any]]] = {
@@ -71,8 +77,15 @@ datasets: dict[str, type[AbstractDataset[Any]]] = {
     "mnist": MNISTDataset,
     "statlog": StatlogDataset,
     "wheel": WheelBanditDataset,
+    "synthetic_linear": LinearSyntheticDataset,
+    "synthetic_quadratic": QuadraticSyntheticDataset,
+    "synthetic_cubic": CubicSyntheticDataset,
+    "synthetic_sin": SinSyntheticDataset,
+    "synthetic_linear_comb": LinearCombinationSyntheticDataset,  # not combinatorial!
+    "synthetic_combinatorial": SyntheticCombinatorialDataset,
     "imdb": ImdbMovieReviews,
     "movielens": MovieLensDataset,
+    "tiny_imagenet": TinyImageNetDataset,
 }
 
 data_strategies: dict[str, Callable[[dict[str, Any]], DataBufferStrategy]] = {
@@ -98,33 +111,33 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
     "small_mlp": lambda in_size, out_size: torch.nn.Sequential(
         torch.nn.Linear(in_size, 128),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 128),
+        torch.nn.Linear(128, 128),
         torch.nn.ReLU(),
         torch.nn.Linear(128, out_size),
     ),
     "large_mlp": lambda in_size, out_size: torch.nn.Sequential(
         torch.nn.Linear(in_size, 256),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 256),
+        torch.nn.Linear(256, 256),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 256),
+        torch.nn.Linear(256, 256),
         torch.nn.ReLU(),
         torch.nn.Linear(256, out_size),
     ),
     "deep_mlp": lambda in_size, out_size: torch.nn.Sequential(
         torch.nn.Linear(in_size, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
-        torch.nn.Linear(in_size, 64),
+        torch.nn.Linear(64, 64),
         torch.nn.ReLU(),
         torch.nn.Linear(64, out_size),
     ),
@@ -165,6 +178,8 @@ class BanditBenchmark(Generic[ActionInputType]):
                     For the specific selectors, additional parameters can be passed:
                     - epsilon: For the EpsilonGreedySelector.
                     - k: Number of actions to select for the TopKSelector (Combinatorial Bandits).
+                - data_sampler: The name of the data sampler to use.
+                    Currently only "sorted" is supported. Default is None (random).
                 - data_strategy: The name of the data strategy to initialize the Buffer with.
                 - bandit_hparams: A dictionary of bandit hyperparameters.
                     These will be filled and passed to the bandit's constructor.
@@ -184,11 +199,27 @@ class BanditBenchmark(Generic[ActionInputType]):
             An instantiated BanditBenchmark instance.
         """
         bandit_name = config["bandit"]
-        dataset = datasets[config["dataset"]]()
+        DatasetClass = datasets[config["dataset"]]
+        dataset_hparams = config.get("dataset_hparams", {})
+        if "seed" not in dataset_hparams:
+            dataset_hparams["seed"] = config.get("seed", 42)
+        dataset = DatasetClass(**filter_kwargs(DatasetClass, dataset_hparams))
 
         training_params = config
         bandit_hparams: dict[str, Any] = config.get("bandit_hparams", {})
         bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")](training_params)
+
+        def key_fn(idx: int) -> int:
+            return dataset.sort_key(idx)
+
+        training_params["data_sampler"] = (
+            SortedDataSampler(
+                dataset,
+                key_fn=key_fn,
+            )
+            if training_params.get("data_sampler") == "sorted"
+            else None
+        )
 
         assert dataset.context_size > 0, "Dataset must have a fix context size."
         bandit_hparams["n_features"] = dataset.context_size
@@ -205,7 +236,10 @@ class BanditBenchmark(Generic[ActionInputType]):
             bandit_hparams["network"] = networks[training_params["network"]](network_input_size, network_output_size)
 
             data_strategy = data_strategies[training_params["data_strategy"]](training_params)
-            bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](data_strategy)
+            bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](
+                data_strategy,
+                max_size=training_params.get("max_buffer_size", None),
+            )
 
         BanditClass = bandits[bandit_name]
         bandit = BanditClass(**filter_kwargs(BanditClass, bandit_hparams))
@@ -233,10 +267,13 @@ class BanditBenchmark(Generic[ActionInputType]):
             logger: Optional Lightning logger to record metrics.
         """
         self.bandit = bandit
+        self.device = training_params.get("device", "cpu")
+        bandit.to(self.device)
+        print(f"Bandit moved to device: {self.device}")
 
         self.training_params = training_params
-        self.training_params["seed"] = training_params.get("seed", 42)
-        pl.seed_everything(training_params["seed"])
+        self.training_params["seed"] = self.training_params.get("seed", 42)
+        pl.seed_everything(self.training_params["seed"])
 
         self.logger: OnlineBanditLoggerDecorator | None = (
             OnlineBanditLoggerDecorator(logger, enable_console_logging=False) if logger is not None else None
@@ -246,7 +283,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         self.dataset = dataset
         self.dataloader: DataLoader[tuple[ActionInputType, torch.Tensor]] = self._initialize_dataloader(dataset)
         # Wrap the dataloader in an environment to simulate delayed feedback.
-        self.environment = BanditBenchmarkEnvironment(self.dataloader)
+        self.environment = BanditBenchmarkEnvironment(self.dataloader, self.device)
 
         self.regrets = np.array([])
         self.rewards = np.array([])
@@ -262,10 +299,10 @@ class BanditBenchmark(Generic[ActionInputType]):
             subset_indices = indices[:max_samples]
             subset = Subset(dataset, subset_indices)
 
-        # TODO: Add a non-iid data loader as a special setting. Then we need to load a special DataLoader.
         return DataLoader(
             subset,
             batch_size=self.training_params.get("feedback_delay", 1),
+            sampler=self.training_params.get("data_sampler", None),
         )
 
     def run(self) -> None:
@@ -285,7 +322,6 @@ class BanditBenchmark(Generic[ActionInputType]):
         self.regrets = np.array([])
         self.rewards = np.array([])
 
-        train_batch_size = self.training_params.get("train_batch_size", 1)
         # Iterate over one epoch (or limited iterations) from the environment.
         progress_bar = tqdm(iter(self.environment), total=len(self.environment))
         for contextualized_actions in progress_bar:
@@ -295,31 +331,42 @@ class BanditBenchmark(Generic[ActionInputType]):
             chosen_contextualized_actions, realized_rewards = self.environment.get_feedback(chosen_actions)
 
             regrets = self.environment.compute_regret(chosen_actions)
-            self.regrets = np.append(self.regrets, regrets)
-            self.rewards = np.append(self.rewards, realized_rewards)
+            self.regrets = np.append(self.regrets, regrets.to(self.regrets.device))
+            self.rewards = np.append(self.rewards, realized_rewards.to(self.rewards.device))
             progress_bar.set_postfix(
                 regret=regrets.mean().item(),
                 reward=realized_rewards.mean().item(),
+                avg_reward=self.rewards.mean(),
                 avg_regret=self.regrets.mean(),
+                acc_regret=self.regrets.sum(),
             )
 
-            assert train_batch_size <= chosen_actions.size(
-                0
-            ), "train_batch_size must be lower than or equal to the data loaders batch_size (feedback_delay)."
+            optional_kwargs = {}
+            bandit_name = self.bandit.__class__.__name__.lower()
+            # Only NeuralUCB and NeuralTS can handle gradient clipping. Others will throw an error!
+            if "Neural" in bandit_name and "Linear" not in bandit_name:
+                optional_kwargs["gradient_clip_val"] = self.training_params.get("gradient_clip_val", None)
+
             trainer = pl.Trainer(
                 max_epochs=1,
                 max_steps=self.training_params.get("max_steps", -1),
-                gradient_clip_val=self.training_params.get("gradient_clip_val", 0.0),
                 logger=self.logger,
                 enable_progress_bar=False,
                 enable_checkpointing=False,
                 enable_model_summary=False,
                 log_every_n_steps=self.training_params.get("log_every_n_steps", 1),
+                accelerator=self.device,
+                **optional_kwargs,
             )
 
             self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards)
             # Train the bandit on the current feedback.
             trainer.fit(self.bandit)
+            trainer.save_checkpoint(os.path.join(self.log_dir, "checkpoint.ckpt"))
+
+            # Unfortunately, after each training run the model is moved to the CPU by lightning.
+            # We need to move it back to the device.
+            self.bandit = self.bandit.to(self.device)
 
         df = pd.DataFrame(
             {
@@ -370,140 +417,10 @@ class BanditBenchmark(Generic[ActionInputType]):
             raise ValueError("forward_batch_size must be smaller than the data loaders batch_size (feedback_delay).")
 
 
-class BenchmarkAnalyzer:
-    """Separates out the analysis of CSV logs produced during benchmark training.
-
-    This class reads the CSV logs output by the logger (for example, a CSVLogger)
-    and produces metrics, plots, or statistics exactly as you need.
-
-    Keeping analysis separate from training improves modularity.
-    """
-
-    def __init__(
-        self,
-        log_path: str,
-        bandit_logs_file: str = "metrics.csv",
-        metrics_file: str = "env_metrics.csv",
-        suppress_plots: bool = False,
-    ) -> None:
-        """Initializes the BenchmarkAnalyzer.
-
-        Args:
-            log_path: Path to the log data.
-                Will also be output directory for plots.
-                Most likely the log_dir where metrics.csv from your CSV logger is located.
-            bandit_logs_file: Name of the metrics file of the CSV Logger.
-            metrics_file: Name of the metrics file.
-
-            suppress_plots: If True, plots will not be automatically shown.
-        """
-        self.log_path = log_path
-        self.bandit_logs_file = bandit_logs_file
-        self.metrics_file = metrics_file
-        self.suppress_plots = suppress_plots
-        self.df = self.load_metrics()
-
-    def load_metrics(self) -> pd.DataFrame | None:
-        """Loads the logs from the log path.
-
-        Returns:
-            A pandas DataFrame containing the logs.
-        """
-        # Load CSV data (e.g., using pandas)
-        try:
-            bandits_df = pd.read_csv(os.path.join(self.log_path, self.bandit_logs_file))
-        except FileNotFoundError:
-            logging.warning(f"Could not find metrics file {self.bandit_logs_file} in {self.log_path}.")
-            bandits_df = None
-
-        try:
-            metrics_df = pd.read_csv(os.path.join(self.log_path, self.metrics_file))
-        except FileNotFoundError:
-            logging.warning(f"Could not find metrics file {self.metrics_file} in {self.log_path}.")
-            metrics_df = None
-
-        if bandits_df is not None and metrics_df is not None:
-            return pd.merge(bandits_df, metrics_df, on="step")
-        elif bandits_df is not None:
-            return bandits_df
-        elif metrics_df is not None:
-            return metrics_df
-        else:
-            return None
-
-    def plot_accumulated_metric(self, metric_name: str) -> None:
-        """Plots the accumulated metric over training steps.
-
-        Args:
-            metric_name: The name of the metric to plot.
-        """
-        if self.df is None:
-            return
-
-        if metric_name not in self.df.columns:
-            print(f"\nNo {metric_name} data found in logs.")
-            return
-
-        accumulated_metric = self.df[metric_name].fillna(0).cumsum()
-
-        plt.figure(figsize=(10, 5))
-        plt.plot(accumulated_metric)
-        plt.xlabel("Step")
-        plt.ylabel(metric_name)
-        plt.title(f"Accumulated {metric_name} over training steps")
-
-        if not self.suppress_plots:
-            plt.show()
-
-    def plot_average_metric(self, metric_name: str) -> None:
-        """Plots the average metric over training steps.
-
-        Args:
-            metric_name: The name of the metric to plot.
-        """
-        if self.df is None:
-            return
-
-        if metric_name not in self.df.columns:
-            print(f"\nNo {metric_name} data found in logs.")
-            return
-
-        # Print average metrics
-        valid_idx = self.df[metric_name].dropna().index
-        accumulated_metric = self.df.loc[valid_idx, metric_name].cumsum()
-        steps = self.df.loc[valid_idx, "step"]
-
-        # Plot how average changes over time
-        plt.figure(figsize=(10, 5))
-        plt.plot(accumulated_metric / steps)
-        plt.xlabel("Step")
-        plt.ylabel(metric_name)
-        plt.title(f"Average {metric_name} over training steps")
-
-        if not self.suppress_plots:
-            plt.show()
-
-    def plot_loss(self) -> None:
-        """Plots the loss over training steps."""
-        # Generate a plot for the loss
-        if self.df is None:
-            return
-        if "loss" not in self.df.columns:
-            print("\nNo loss data found in logs.")
-            return
-
-        plt.figure(figsize=(10, 5))
-        plt.plot(self.df["loss"].dropna())
-        plt.xlabel("Step")
-        plt.ylabel("Loss")
-        plt.title("Loss over training steps")
-
-        if not self.suppress_plots:
-            plt.show()
-
-
 def run(
     config: dict[str, Any],
+    log_dir: str = "logs",
+    save_plots: bool = False,
     suppress_plots: bool = False,
 ) -> None:
     """Runs the benchmark training on a single given bandit.
@@ -511,38 +428,188 @@ def run(
     Args:
         config: Contains the `bandit`, `dataset`, `bandit_hparams`
             and other parameters necessary for setting up the benchmark and bandit.
-        suppress_plots: If True, plots will not be automatically shown.
+        log_dir: Directory where the logs are stored/outputted to. Default is "logs".
+        save_plots: If True, plots be saved on disk. Default is False.
+        suppress_plots: If True, plots will not be automatically shown. Default is False.
     """
-    logger = CSVLogger("logs/")
+    logger = CSVLogger(log_dir)
     benchmark = BanditBenchmark.from_config(config, logger)
     print(f"Running benchmark for {config['bandit']} on {config['dataset']} dataset.")
     print(f"Config: {config}")
     print(
-        f"Dataset {config['dataset']}:"
-        f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
+        f"Dataset {config['dataset']}: \n"
+        f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features "
         f"and {benchmark.dataset.num_actions} actions."
     )
     benchmark.run()
 
-    analyzer = BenchmarkAnalyzer(logger.log_dir, "metrics.csv", "env_metrics.csv", suppress_plots)
-    analyzer.plot_accumulated_metric("reward")
-    analyzer.plot_accumulated_metric("regret")
+    analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
+    analyzer.load_metrics(logger.log_dir)
+    analyzer.log_metrics()
+    analyzer.plot_accumulated_metric(["reward", "regret"])
     analyzer.plot_average_metric("reward")
     analyzer.plot_average_metric("regret")
     analyzer.plot_loss()
 
 
+def deep_get(dictionary: dict[str, Any], keys: str, default: Any = None) -> Any:
+    """Get a value in a nested dictionary.
+
+    Args:
+        dictionary: The dictionary to get the value from.
+        keys: The keys to traverse the dictionary. Use "/" to separate keys.
+        default: The default value to return if the key is not found.
+
+    Returns:
+        The value at the given key or the default value if the key is not found.
+    """
+    return reduce(lambda d, key: d.get(key, default) if isinstance(d, dict) else default, keys.split("/"), dictionary)
+
+
+def deep_set(dictionary: dict[str, Any], keys: str, value: Any) -> None:
+    """Set a value in a nested dictionary.
+
+    Args:
+        dictionary: The dictionary to set the value in.
+        keys: The keys to traverse the dictionary. Use "/" to separate keys.
+        value: The value to set.
+    """
+    keys_list = keys.split("/")
+    for key in keys_list[:-1]:
+        dictionary = dictionary.setdefault(key, {})
+    dictionary[keys_list[-1]] = value
+
+
+def run_comparison(
+    config: dict[str, Any],
+    log_dir: str = "logs",
+    save_plots: bool = False,
+    suppress_plots: bool = False,
+) -> None:
+    """Runs the benchmark training on multiple bandits.
+
+    Args:
+        config: Contains the `bandit`, `dataset`, `bandit_hparams`
+            and other parameters necessary for setting up the benchmark and bandit.
+            Must contain a `comparison_key` which specifies which parameter to run the comparison over.
+            This parameter must be a list of values to compare.
+        log_dir: Directory where the logs are stored/outputted to. Default is "logs".
+        save_plots: If True, plots be saved on disk. Default is False.
+        suppress_plots: If True, plots will not be automatically shown. Default is False.
+    """
+    assert "comparison_key" in config, "To run a comparison a comparison key must be specified."
+
+    if isinstance(config["comparison_key"], list):
+        assert (
+            len(config["comparison_key"]) == 1
+        ), "To run a comparison exactly one valid comparison type must be specified."
+        comparison_key = config["comparison_key"][
+            0
+        ]  # for now only one comparison type is supported. but you could extend it.
+    else:
+        comparison_key = config["comparison_key"]
+    # comparison_values = bandit_config[comparison_type] but comparison_type can be nested by using "/"
+    comparison_values = deep_get(config, comparison_key)
+
+    assert comparison_values is not None, f"Could not find comparison values for {comparison_key}."
+    assert isinstance(comparison_values, list), f"Comparison values for {comparison_key} must be a list."
+
+    analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
+
+    for comparison_value in comparison_values:
+        try:
+            experiment_id = str(comparison_value)
+            print("==============================================")
+            # deep copy the config to avoid overwriting the original but comparison_type can be nested by using "/"
+            bandit_config = copy.deepcopy(config)
+            # bandit_config[comparison_type] = comparison_value
+            deep_set(bandit_config, comparison_key, comparison_value)
+
+            csv_logger = CSVLogger(os.path.join(log_dir, experiment_id), version=0)
+            benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
+            print(f"Running benchmark for {bandit_config['bandit']} with {bandit_config['dataset']} dataset.")
+            print(f"Setting {comparison_key}={experiment_id}.")
+            print(f"Config: {bandit_config}")
+            print(
+                f"Dataset {bandit_config['dataset']}: "
+                f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features "
+                f"and {benchmark.dataset.num_actions} actions."
+            )
+            benchmark.run()
+
+            analyzer.load_metrics(csv_logger.log_dir, experiment_id)
+            analyzer.log_metrics(experiment_id)
+        except Exception as e:
+            print(
+                f"Failed to run benchmark for {comparison_key}={comparison_value}. "
+                "It might not be part of the final analysis."
+            )
+            print(e)
+
+    for comparison_value in config.get("load_previous_result", []):
+        experiment_id = str(comparison_value)
+        print("==============================================")
+        print(f"Loading previous result for {comparison_key}={experiment_id}.")
+        csv_log_dir = os.path.join(log_dir, experiment_id, "lightning_logs", "version_0")
+        try:
+            analyzer.load_metrics(csv_log_dir, experiment_id)
+            analyzer.log_metrics(experiment_id)
+        except Exception as e:
+            print(f"Failed to load previous result for {comparison_key}={experiment_id} from {csv_log_dir}.")
+            print(e)
+
+    title = comparison_key.replace("bandit_hparams/", "")
+    analyzer.plot_accumulated_metric("reward", title)
+    analyzer.plot_accumulated_metric("regret", title)
+    analyzer.plot_average_metric("reward", title)
+    analyzer.plot_average_metric("regret", title)
+    analyzer.plot_loss()
+
+    if suppress_plots:
+        print("Plots were suppressed. Set suppress_plots to False to show plots.")
+    if save_plots:
+        print(f"Plots were saved to {analyzer.results_dir}. Set save_plots to False to suppress saving.")
+    else:
+        print("Plots were not saved. Set save_plots to True to save plots.")
+
+
+def run_from_yaml(
+    config_path: str,
+    save_plots: bool = False,
+    suppress_plots: bool = False,
+) -> None:
+    """Runs the benchmark training from a yaml file.
+
+    Args:
+        config_path: Path to the configuration file.
+        save_plots: If True, plots will be saved to the results directory. Default is False.
+        suppress_plots: If True, plots will not be automatically shown. Default is False.
+    """
+    log_dir = os.path.dirname(config_path)
+
+    # Load the configuration from the passed yaml file
+    with open(config_path) as file:
+        config: dict[str, Any] = yaml.safe_load(file)
+
+    if config.get("comparison_key") is not None:
+        run_comparison(config, log_dir, save_plots, suppress_plots)
+    else:
+        run(config, log_dir, save_plots, suppress_plots)
+
+
+"""Runs the benchmark training from the command line.
+    
+    Args:
+        config: Path to the configuration file.
+
+    Usage:
+        ``python src/neural_bandits/benchmark/benchmark.py experiments/datasets/covertype.yaml``
+"""
 if __name__ == "__main__":
-    run(
-        {
-            "bandit": "lin_ucb",
-            "dataset": "covertype",
-            "max_samples": 5000,
-            "feedback_delay": 1,
-            "train_batch_size": 1,
-            "forward_batch_size": 1,
-            "bandit_hparams": {
-                "exploration_rate": 1.0,
-            },
-        }
-    )
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Run a bandit benchmark.")
+    parser.add_argument("config", type=str, help="Path to the configuration file.")
+
+    args = parser.parse_args()
+
+    run_from_yaml(args.config, save_plots=True, suppress_plots=True)

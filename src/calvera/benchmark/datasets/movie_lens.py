@@ -29,6 +29,7 @@ def _download_movielens(
 
     zip_file = os.path.join(dest_path, file_name)
     if not os.path.exists(zip_file):
+        os.makedirs(dest_path, exist_ok=True)
         logger.info("Downloading dataset...")
         urllib.request.urlretrieve(url, zip_file)
         logger.info("Download completed.")

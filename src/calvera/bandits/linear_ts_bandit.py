@@ -34,8 +34,6 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
             lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
-                Sometimes also called lambda but we already use lambda for the regularization parameter
-                of the neural networks in NeuralLinear, NeuralUCB and NeuralTS.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step.
             clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
@@ -74,9 +72,16 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
         batch_size = contextualized_actions.shape[0]
 
-        theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample(  # type: ignore
-            (batch_size,)
-        )
+        try:
+            theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample(  # type: ignore
+                (batch_size,)
+            )
+        except ValueError as e:
+            # TODO: Could improve this case. See issue #158.
+            raise ValueError(
+                "The precision_matrix is not invertible anymore because it is not positive definite. "
+                "This can happen due to numerical imprecisions. Try to increase the `eps` hyperparameter."
+            ) from e
 
         expected_rewards = torch.einsum("ijk,ik->ij", contextualized_actions, theta_tilde)
 
@@ -96,12 +101,12 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
             The probability of the chosen actions. For now we always return 1 but we might return the actual probability
                 in the future. Shape: (batch_size, ).
         """
-        # TODO: Implement the actual probability computation for Thompson Sampling.
+        # TODO: Implement the actual probability computation for Thompson Sampling. See issue #72.
         return torch.ones(contextualized_actions.shape[0], device=contextualized_actions.device)
 
 
 class DiagonalPrecApproxLinearTSBandit(LinearTSBandit[torch.Tensor]):
-    """LinearUCB but the precision matrix is updated using a diagonal approximation.
+    """LinearTS but the precision matrix is updated using a diagonal approximation.
 
     Instead of doing a full update,
     only diag(Σ⁻¹)⁻¹ = diag(X X^T)⁻¹ is used. For compatibility reasons the precision matrix is still stored as a full
