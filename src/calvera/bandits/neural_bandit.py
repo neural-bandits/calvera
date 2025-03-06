@@ -51,7 +51,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         learning_rate_decay: float = 1.0,
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: float | None = 1e-3,
-        min_samples_required_for_training: int | None = 64,
+        min_samples_required_for_training: int = 1024,
         initial_train_steps: int = 1024,
         warm_start: bool = True,
     ) -> None:
@@ -81,8 +81,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 Must be greater equal 0.
             min_samples_required_for_training: If less samples have been added via `record_feedback`
                 than this value, the network is not trained.
-                If None, the network is trained every time `trainer.fit` is called.
-                Must be greater 0.
+                Must be greater 0. Default is 1024.
             initial_train_steps: For the first `initial_train_steps` samples, the network is always trained even if
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
@@ -97,8 +96,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         assert learning_rate_decay >= 0, "The learning rate decay must be greater equal 0."
         assert learning_rate_scheduler_step_size > 0, "Learning rate must be greater than 0."
         assert (
-            min_samples_required_for_training is None or min_samples_required_for_training > 0
-        ), "Training interval must be greater than 0."
+            min_samples_required_for_training is not None or min_samples_required_for_training > 0
+        ), "min_samples_required_for_training must not be None and must be greater than 0."
         assert (
             early_stop_threshold is None or early_stop_threshold >= 0
         ), "Early stop threshold must be greater than or equal to 0."
@@ -226,14 +225,15 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         if (
             self.is_initial_training_stage()
-            or self._new_samples_count >= self.hparams["min_samples_required_for_training"]
+            and self._new_samples_count >= self.hparams["min_samples_required_for_training"]
         ):
             self.should_train_network = True
         else:
             self.should_train_network = False
 
         if (
-            self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
+            cast(int, self.hparams["initial_train_steps"] > 0)
+            and self._total_samples_count > self.hparams["initial_train_steps"]
             and self._total_samples_count - contextualized_actions.size(0) <= self.hparams["initial_train_steps"]
         ):
             logger.info(

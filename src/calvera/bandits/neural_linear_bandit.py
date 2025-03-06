@@ -108,6 +108,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             train_batch_size: The batch size for the neural network update. Must be greater than 0.
             min_samples_required_for_training: The interval (in steps) at which the neural network is updated.
                 None means the neural network is never updated. If not None, it must be greater than 0.
+                Must Default is 1024.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step.
             lambda_: The regularization parameter for the linear head. Must be greater than 0.
@@ -384,16 +385,17 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         # _total_samples_count is managed by the AbstractBandit
         self._samples_without_training_network += rewards.shape[0]
 
-        if (
-            self._total_samples_count <= self.hparams["initial_train_steps"]
-            or self._samples_without_training_network >= self.hparams["min_samples_required_for_training"]
+        if self._total_samples_count <= self.hparams["initial_train_steps"] or (
+            self.hparams["min_samples_required_for_training"] is not None
+            and self._samples_without_training_network >= self.hparams["min_samples_required_for_training"]
         ):
             self.should_train_network = True
         else:
             self.should_train_network = False
 
         if (
-            self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
+            cast(int, self.hparams["initial_train_steps"] > 0)
+            and self._total_samples_count > self.hparams["initial_train_steps"]
             and self._total_samples_count - rewards.size(0) <= self.hparams["initial_train_steps"]
         ):
             logger.info(
@@ -438,7 +440,11 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
             num_samples = len(self.trainer.train_dataloader.dataset)
             required_samples = self.hparams["min_samples_required_for_training"]
-            if num_samples <= required_samples and not self.is_initial_training_stage():
+            if (
+                required_samples is not None
+                and num_samples <= required_samples
+                and not self.is_initial_training_stage()
+            ):
                 logger.warning(
                     f"The train_dataloader passed to trainer.fit() contains {num_samples} "
                     f"which is less than min_samples_required_for_training={required_samples}. "
