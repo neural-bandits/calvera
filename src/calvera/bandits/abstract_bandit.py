@@ -16,7 +16,7 @@ from calvera.utils.data_storage import (
     InMemoryDataBuffer,
     ListDataBuffer,
 )
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, RandomSelector
 
 
 def _collate_fn(
@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
     """Defines the interface for all Bandit algorithms by implementing pytorch Lightning Module methods."""
 
+    selector: AbstractSelector
     buffer: AbstractBanditDataBuffer[ActionInputType, Any]
     _custom_data_loader_passed = (
         True  # If no train_dataloader is passed on trainer.fit(bandit), then this will be set to False.
@@ -455,7 +456,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         Returns:
             The loss value. In most cases, it makes sense to return the negative reward.
-                Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
+                Shape: (1,). If we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """
         pass
@@ -529,3 +530,50 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         if "selector_state" in checkpoint:
             self.selector = AbstractSelector.from_state_dict(checkpoint["selector_state"])
+
+
+class DummyBandit(AbstractBandit[ActionInputType]):
+    """A dummy bandit that always selects random actions."""
+
+    def __init__(self, n_features: int, selector: AbstractSelector | None = None) -> None:
+        """Initializes a DummyBandit with a RandomSelector."""
+        if selector is None:
+            selector = RandomSelector()
+        super().__init__(
+            selector=RandomSelector(),
+            n_features=n_features,
+        )
+        self.automatic_optimization = False
+        # Please don't ask. Lightning requires any parameter to be registered in order to train it on cuda.
+        self.register_parameter("_", None)
+
+    def _predict_action(
+        self,
+        contextualized_actions: ActionInputType,
+        **kwargs: Any,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass, computed batch-wise. Does nothing but call the selector."""
+        context_tensor = (
+            contextualized_actions if isinstance(contextualized_actions, torch.Tensor) else contextualized_actions[0]
+        )
+        batch_size = context_tensor.shape[0]
+        n_arms = context_tensor.shape[1]
+
+        selected_actions_one_hot = self.selector(torch.ones((batch_size, n_arms), device=context_tensor.device))
+
+        if isinstance(self.selector, RandomSelector):
+            p = torch.ones((batch_size,), device=context_tensor.device) / n_arms
+        else:
+            selected_actions_indices = selected_actions_one_hot.argmax(dim=1)
+            p = torch.zeros((batch_size,), device=context_tensor.device)
+            p[selected_actions_indices] = 1.0
+
+        return selected_actions_one_hot, p
+
+    def _update(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        """Dummy implementation of the update method."""
+        return torch.tensor(0.0)
