@@ -94,10 +94,8 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         chosen_actions, p = self._predict_action_hook(contextualized_actions, **kwargs)
         if not self.hparams["lazy_uncertainty_update"]:
             assert isinstance(contextualized_actions, torch.Tensor), "contextualized_actions must be a torch.Tensor"
-            chosen_contextualized_actions = contextualized_actions[
-                torch.arange(contextualized_actions.shape[0], device=self.device),
-                chosen_actions.argmax(dim=1),
-            ]
+            indices = chosen_actions.nonzero(as_tuple=True)
+            chosen_contextualized_actions = contextualized_actions[indices[0], indices[1]]
             self._update_precision_matrix(chosen_contextualized_actions)
 
         return chosen_actions, p
