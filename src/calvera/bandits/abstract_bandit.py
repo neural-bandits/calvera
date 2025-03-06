@@ -258,7 +258,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             ), "Batch size and number of actions must match number of rewards"
             # For now the data buffer only supports non-combinatorial bandits. so we have to reshape.
             contextualized_actions_reshaped = cast(
-                ActionInputType, contextualized_actions.squeeze(1)  # remove the action dimension
+                ActionInputType, contextualized_actions.reshape(-1, *contextualized_actions.shape[2:])  # remove the action dimension
             )
         elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"

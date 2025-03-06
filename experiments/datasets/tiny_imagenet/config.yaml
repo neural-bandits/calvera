@@ -26,8 +26,8 @@ bandit_hparams:
   exploration_rate: 0.1
   lr: 1e-4
   weight_decay: 0.00001
-  min_samples_required_for_training: 16
-  initial_train_steps: 16
+  min_samples_required_for_training: 64
+  initial_train_steps: 32
   n_embedding_size: 128
   contextualization_after_network: True
   n_arms: 20

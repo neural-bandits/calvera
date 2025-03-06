@@ -1,7 +1,6 @@
 dataset: imdb
 
-bandit:
-  - neural_linear
+bandit: neural_linear
 
 max_samples: 1000
 

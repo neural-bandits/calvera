@@ -566,7 +566,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.rewards = torch.empty(0, device=self.device)  # shape: (n,)
 
 
-# TODO(rob2u): statedict
+# TODO(rob2u): add statedict (storing and saving functionality)
 class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """A list-based implementation of the bandit data buffer.
 

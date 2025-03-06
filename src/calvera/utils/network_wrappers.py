@@ -6,6 +6,8 @@ import torch
 from torch import nn
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
+from torchvision.transforms import Compose, Resize, CenterCrop
+from torchvision.transforms.functional import InterpolationMode
 
 class BertWrapper(nn.Module):
     """Wrapper for BERT-like models from the `transformers` library."""
@@ -40,9 +42,14 @@ class ResNetWrapper(nn.Module):
         super().__init__(*args, **kwargs)
 
         self.network = network.eval()
-
-        data_config = timm.data.resolve_model_data_config(network)  # type: ignore
-        self.transforms = timm.data.create_transform(**data_config, is_training=False)  # type: ignore
+        
+        # See timm: https://huggingface.co/timm/resnet18.a1_in1k
+        # We excluded the normalization layer, as it is already performed in the dataset.
+        self.transforms = Compose([
+            Resize(size=235, interpolation=InterpolationMode.BICUBIC, max_size=None, antialias=True),
+            CenterCrop(size=(224, 224))
+        ])
+        
         self.dim_reduction = nn.Linear(512, 128)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
