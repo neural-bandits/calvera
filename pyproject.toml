@@ -50,6 +50,7 @@ benchmark = [
     "matplotlib",
     "pandas",
     "ucimlrepo",
+    "timm",
     "transformers",
     "scikit-learn",
 ]
