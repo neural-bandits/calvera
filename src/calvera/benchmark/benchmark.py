@@ -794,10 +794,11 @@ def run_comparison(
             print(f"Failed to load previous result for {comparison_key}={experiment_id} from {csv_log_dir}.")
             print(e)
 
-    analyzer.plot_accumulated_metric("reward", comparison_key)
-    analyzer.plot_accumulated_metric("regret", comparison_key)
-    analyzer.plot_average_metric("reward", comparison_key)
-    analyzer.plot_average_metric("regret", comparison_key)
+    title = comparison_key.replace("bandit_hparams/", "")
+    analyzer.plot_accumulated_metric("reward", title)
+    analyzer.plot_accumulated_metric("regret", title)
+    analyzer.plot_average_metric("reward", title)
+    analyzer.plot_average_metric("regret", title)
     analyzer.plot_loss()
 
     if suppress_plots:
