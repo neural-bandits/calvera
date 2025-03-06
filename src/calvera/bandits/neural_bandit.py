@@ -223,7 +223,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
 
         if (
             self.is_initial_training_stage()
-            and self._new_samples_count >= self.hparams["min_samples_required_for_training"]
+            or self._new_samples_count >= self.hparams["min_samples_required_for_training"]
         ):
             self.should_train_network = True
         else:

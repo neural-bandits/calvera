@@ -385,7 +385,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         # _total_samples_count is managed by the AbstractBandit
         self._samples_without_training_network += rewards.shape[0]
 
-        if self._total_samples_count <= self.hparams["initial_train_steps"] or (
+        if self.is_initial_training_stage() or (
             self.hparams["min_samples_required_for_training"] is not None
             and self._samples_without_training_network >= self.hparams["min_samples_required_for_training"]
         ):
