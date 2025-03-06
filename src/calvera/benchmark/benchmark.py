@@ -40,11 +40,13 @@ from calvera.benchmark.datasets.synthetic import (
     CubicSyntheticDataset,
     LinearCombinationSyntheticDataset,
     LinearSyntheticDataset,
+    QuadraticSyntheticDataset,
     SinSyntheticDataset,
 )
 from calvera.benchmark.datasets.wheel import WheelBanditDataset
 from calvera.benchmark.environment import BanditBenchmarkEnvironment
 from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     DataBufferStrategy,
@@ -84,6 +86,7 @@ datasets: dict[str, type[AbstractDataset[Any]]] = {
     "statlog": StatlogDataset,
     "wheel": WheelBanditDataset,
     "synthetic_linear": LinearSyntheticDataset,
+    "synthetic_quadratic": QuadraticSyntheticDataset,
     "synthetic_cubic": CubicSyntheticDataset,
     "synthetic_sin": SinSyntheticDataset,
     "synthetic_linear_comb": LinearCombinationSyntheticDataset,
@@ -181,6 +184,8 @@ class BanditBenchmark(Generic[ActionInputType]):
                     For the specific selectors, additional parameters can be passed:
                     - epsilon: For the EpsilonGreedySelector.
                     - k: Number of actions to select for the TopKSelector (Combinatorial Bandits).
+                - data_sampler: The name of the data sampler to use.
+                    Currently only "sorted" is supported. Default is None (random).
                 - data_strategy: The name of the data strategy to initialize the Buffer with.
                 - bandit_hparams: A dictionary of bandit hyperparameters.
                     These will be filled and passed to the bandit's constructor.
@@ -206,6 +211,18 @@ class BanditBenchmark(Generic[ActionInputType]):
         training_params = config
         bandit_hparams: dict[str, Any] = config.get("bandit_hparams", {})
         bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")](training_params)
+
+        def key_fn(idx: int) -> int:
+            return dataset.sort_key(idx)
+
+        bandit_hparams["data_sampler"] = (
+            SortedDataSampler(
+                dataset,
+                key_fn=key_fn,
+            )
+            if training_params.get("data_sampler") == "sorted"
+            else None
+        )
 
         assert dataset.context_size > 0, "Dataset must have a fix context size."
         bandit_hparams["n_features"] = dataset.context_size
@@ -289,6 +306,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         return DataLoader(
             subset,
             batch_size=self.training_params.get("feedback_delay", 1),
+            sampler=self.training_params.get("data_sampler", None),
         )
 
     def run(self) -> None:
@@ -444,15 +462,13 @@ class BenchmarkAnalyzer:
         self.env_metrics_df = pd.DataFrame()
         self.bandit_logs_df = pd.DataFrame()
 
-    def load_metrics(self, log_path: str | None = None, bandit: str = "bandit") -> None:
+    def load_metrics(self, log_path: str, bandit: str = "bandit") -> None:
         """Loads the logs from the log path.
 
         Args:
             log_path: Path to the log data.
             bandit: A name of the bandit. Default is "bandit".
         """
-        if log_path is None:
-            log_path = self.log_dir
         new_metrics_df = self._load_df(log_path, self.env_metrics_file)
 
         if new_metrics_df is not None:
@@ -591,6 +607,9 @@ class BenchmarkAnalyzer:
         Args:
             bandit: The name of the bandit. Default is "bandit".
         """
+        if self.env_metrics_df.empty:
+            raise ValueError("No metrics found in logs. Please call load_metrics() first.")
+
         bandit_df = self.env_metrics_df[self.env_metrics_df["bandit"] == bandit]
 
         if bandit_df.empty:
@@ -662,7 +681,7 @@ def run(
     benchmark.run()
 
     analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
-    analyzer.load_metrics()
+    analyzer.load_metrics(logger.log_dir)
     analyzer.log_metrics()
     analyzer.plot_accumulated_metric(["reward", "regret"])
     analyzer.plot_average_metric("reward")

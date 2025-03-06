@@ -5,6 +5,7 @@ from calvera.benchmark.datasets.synthetic import (
     CubicSyntheticDataset,
     LinearCombinationSyntheticDataset,
     LinearSyntheticDataset,
+    QuadraticSyntheticDataset,
     SinSyntheticDataset,
     SyntheticDataset,
 )
@@ -16,7 +17,9 @@ from calvera.benchmark.datasets.synthetic import (
         # For a dataset with n_features=2:
         # LinearSyntheticDataset: bias + x → 1 + 2 = 3
         (LinearSyntheticDataset, 3),
-        # CubicSyntheticDataset: bias + x + x^2 + x^3 → 1 + 2 + 2 + 2 = 7
+        # CubicSyntheticDataset: bias + x + x^2 → 1 + 2 + 2 = 5
+        (QuadraticSyntheticDataset, 5),
+        # CubicSyntheticDataset: bias + x + x^2 → 1 + 2 + 2 + 2 = 7
         (CubicSyntheticDataset, 7),
         # SinSyntheticDataset: bias + x + sin(x) → 1 + 2 + 2 = 5
         (SinSyntheticDataset, 5),
@@ -43,7 +46,7 @@ def test_phi(DatasetClass: type[SyntheticDataset], expected_phi_dim: int) -> Non
     "DatasetClass",
     [
         LinearSyntheticDataset,
-        CubicSyntheticDataset,
+        QuadraticSyntheticDataset,
         SinSyntheticDataset,
         LinearCombinationSyntheticDataset,
     ],
@@ -74,7 +77,7 @@ def test_initialization(DatasetClass: type[SyntheticDataset]) -> None:
     "DatasetClass",
     [
         LinearSyntheticDataset,
-        CubicSyntheticDataset,
+        QuadraticSyntheticDataset,
         SinSyntheticDataset,
         LinearCombinationSyntheticDataset,
     ],
