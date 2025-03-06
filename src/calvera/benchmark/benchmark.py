@@ -507,6 +507,7 @@ class BenchmarkAnalyzer:
 
         Args:
             metric_name: The name(s) of the metric(s) to plot.
+            comparison_key: The key to compare the metrics by. Default is None.
         """
         if isinstance(metric_name, str):
             metric_name = [metric_name]
@@ -544,11 +545,12 @@ class BenchmarkAnalyzer:
         if not self.suppress_plots:
             plt.show()
 
-    def plot_average_metric(self, metric_name: str) -> None:
+    def plot_average_metric(self, metric_name: str, comparison_key: str | None = None) -> None:
         """Plots the average metric over training steps.
 
         Args:
             metric_name: The name of the metric to plot.
+            comparison_key: The key to compare the metrics by. Default is None.
         """
         if metric_name not in self.env_metrics_df.columns:
             logger.warning(f"\nNo {metric_name} data found in logs.")
@@ -567,7 +569,10 @@ class BenchmarkAnalyzer:
 
         plt.ylabel(f"Average {metric_name}")
         plt.xlabel("Step")
-        plt.legend()
+        if comparison_key is not None:
+            plt.legend(title=comparison_key)
+        else:
+            plt.legend()
         plt.title(f"Average {metric_name} over training steps")
 
         if self.save_plots:
@@ -801,8 +806,8 @@ def run_comparison(
 
     analyzer.plot_accumulated_metric("reward", comparison_key)
     analyzer.plot_accumulated_metric("regret", comparison_key)
-    analyzer.plot_average_metric("reward")
-    analyzer.plot_average_metric("regret")
+    analyzer.plot_average_metric("reward", comparison_key)
+    analyzer.plot_average_metric("regret", comparison_key)
     analyzer.plot_loss()
 
     if suppress_plots:
