@@ -72,9 +72,17 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
         ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
         batch_size = contextualized_actions.shape[0]
 
-        theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample(  # type: ignore
-            (batch_size,)
-        )
+        try:
+            theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample(  # type: ignore
+                (batch_size,)
+            )
+        except RuntimeError as e:
+            # TODO: Could improve this case. See issue #158.
+            raise RuntimeError(
+                "The precision matrix is not invertible. This can happen due to numerical imprecisions. "
+                "Try to increase the `eps` hyperparameter."
+            ) from e
+            
 
         expected_rewards = torch.einsum("ijk,ik->ij", contextualized_actions, theta_tilde)
 
