@@ -499,7 +499,9 @@ class DummyBandit(AbstractBandit[ActionInputType]):
         **kwargs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass, computed batch-wise. Does nothing but call the selector."""
-        context_tensor = contextualized_actions if isinstance(contextualized_actions, torch.Tensor) else contextualized_actions[0]
+        context_tensor = (
+            contextualized_actions if isinstance(contextualized_actions, torch.Tensor) else contextualized_actions[0]
+        )
         batch_size = context_tensor.shape[0]
         n_arms = context_tensor.shape[1]
 
