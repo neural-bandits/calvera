@@ -17,7 +17,7 @@ from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 
-from calvera.bandits.abstract_bandit import AbstractBandit
+from calvera.bandits.abstract_bandit import AbstractBandit, DummyBandit
 from calvera.bandits.action_input_type import ActionInputType
 from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
 from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
@@ -50,7 +50,16 @@ from calvera.utils.data_storage import (
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
 )
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, EpsilonGreedySelector, TopKSelector
+from calvera.utils.selectors import (
+    AbstractSelector,
+    ArgMaxSelector,
+    EpsilonGreedySelector,
+    RandomSelector,
+    TopKSelector,
+)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -70,6 +79,7 @@ bandits: dict[str, type[AbstractBandit[Any]]] = {
     "neural_linear": NeuralLinearBandit,
     "neural_ucb": NeuralUCBBandit,
     "neural_ts": NeuralTSBandit,
+    "random": DummyBandit,
 }
 
 datasets: dict[str, type[AbstractDataset[Any]]] = {
@@ -98,6 +108,7 @@ selectors: dict[str, Callable[[dict[str, Any]], AbstractSelector]] = {
     "argmax": lambda params: ArgMaxSelector(),
     "epsilon_greedy": lambda params: EpsilonGreedySelector(params.get("epsilon", 0.1), seed=params["seed"]),
     "top_k": lambda params: TopKSelector(params.get("k", 1)),
+    "random": lambda params: RandomSelector(params.get("k", 1), seed=params["seed"]),
 }
 
 networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
