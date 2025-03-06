@@ -168,7 +168,7 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
             dest_path=dest_path,
             split=split,
         )
-        
+
         if max_classes < 200:
             self.image_dataset.classes = self.image_dataset.classes[:max_classes]
             self.image_dataset.class_to_idx = {c: i for i, c in enumerate(self.image_dataset.classes)}
@@ -178,7 +178,6 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
             ]
             self.y = self.y[self.y < max_classes]
             self.num_actions = max_classes
-            
 
         self.idx_to_class = {v: k for k, v in self.image_dataset.class_to_idx.items()}
 
@@ -217,7 +216,7 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
         image_tensor, _ = self.image_dataset[idx]
 
         # Flatten the image tensor from (C, H, W) to (C*H*W)
-        context = image_tensor.view(1,-1)  # shape: (1, 3*64*64)
+        context = image_tensor.view(1, -1)  # shape: (1, 3*64*64)
 
         rewards = torch.tensor(
             [self.reward(idx, action) for action in range(self.num_actions)],

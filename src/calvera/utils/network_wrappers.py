@@ -38,7 +38,7 @@ class ResNetWrapper(nn.Module):
     def __init__(self, network: nn.Module, *args: Any, **kwargs: Any) -> None:
         """Initializes the ResNetWrapper."""
         super().__init__(*args, **kwargs)
-        
+
         self.network = network.eval()
 
         data_config = timm.data.resolve_model_data_config(network)  # type: ignore
@@ -48,7 +48,7 @@ class ResNetWrapper(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the network."""
         assert isinstance(x, torch.Tensor), "Input must be a tensor"
-        
+
         w = int(math.sqrt(x.shape[-1] / 3))
         x = x.reshape(-1, 3, w, w)
 
