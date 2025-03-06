@@ -393,65 +393,141 @@ The main difference between NeuralUCB and NeuralTS is how they calculate action 
 
 ## Combinatorial Bandits
 
-## Benchmarking
+Combinatorial bandits extend the standard multi-armed bandit framework by allowing the selection of multiple arms simultaneously. This is particularly useful in settings where actions are combinations (e.g., recommending a slate of items) and the reward depends on the joint selection.
 
-Calvera provides a benchmarking module to easily compare different bandit algorithms on various datasets. Here's how to use it:
+### Combinatorial Neural Thompson Sampling
+
+Combinatorial Neural Thompson Sampling adapts the neural network-based Thompson Sampling algorithm to the combinatorial setting.
+
+Let's explore an example using a synthetic dataset and Neural Thompson Sampling:
 
 ```python
-from calvera.benchmark.benchmark import run
+from calvera.benchmark.datasets.synthetic_combinatorial import SyntheticCombinatorialDataset
+from calvera.bandits.neural_ts_bandit import NeuralTSBandit
+from calvera.utils.selectors import TopKSelector
 
-# Benchmark a Linear UCB bandit on the Covertype dataset
-run(
-    {
-        "bandit": "lin_ucb",
-        "dataset": "covertype",
-        "max_samples": 5000,
-        "feedback_delay": 1,
-        "train_batch_size": 1,
-        "forward_batch_size": 1,
-        "bandit_hparams": {
-            "alpha": 1.0,
-        },
-    }
-)
 
-# Benchmark a Neural Linear bandit on the Covertype dataset
-run(
-    {
-        "bandit": "neural_linear",
-        "dataset": "covertype",
-        "network": "tiny_mlp",
-        "max_samples": 5000,
-        "feedback_delay": 1,
-        "train_batch_size": 1,
-        "forward_batch_size": 1,
-        "data_strategy": "sliding_window",
-        "sliding_window_size": 1,
-        "bandit_hparams": {
-            "n_embedding_size": 128,
-        },
-    }
+# Define a Neural Network for the Combinatorial Bandit
+class Network(nn.Module):
+    def __init__(self, dim, hidden_size=100):
+        super().__init__()
+        self.fc1 = nn.Linear(dim, hidden_size)
+        self.activate = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        return self.fc2(self.activate(self.fc1(x)))
+
+# Create a Synthetic Combinatorial Dataset
+dataset = SyntheticCombinatorialDataset(
+    n_samples=2000,
+    num_actions=20,
+    context_size=40,
+    function_type="quadratic",
+    noise_std=0,
+    seed=42
 )
 ```
 
-The benchmark module supports the following bandits:
+Now, let's set up the Combinatorial Neural Thompson Sampling bandit:
 
-- `lin_ucb`: Linear UCB
-- `approx_lin_ucb`: Diagonal Precision Approximation Linear UCB
-- `lin_ts`: Linear Thompson Sampling
-- `approx_lin_ts`: Diagonal Precision Approximation Linear Thompson Sampling
-- `neural_linear`: Neural Linear
-- `neural_ucb`: Neural UCB
-- `neural_ts`: Neural Thompson Sampling
+```python
+# Set up the environment
+train_loader = DataLoader(Subset(dataset, range(2000)), batch_size=100, shuffle=True)
+env = BanditBenchmarkEnvironment(train_loader)
 
-And the following datasets:
+# Create a data buffer
+buffer = InMemoryDataBuffer(
+    buffer_strategy=AllDataBufferStrategy(),
+    max_size=None,
+)
 
-- `covertype`: Covertype dataset from UCI
-- `mnist`: MNIST dataset
-- `statlog`: Statlog dataset from UCI
-- `wheel`: Synthetic Wheel Bandit dataset
-- `imdb`: IMDB movie reviews dataset
-- `movielens`: MovieLens dataset
+# Initialize the Neural TS bandit with TopK selector
+bandit_module = NeuralTSBandit(
+    n_features=dataset.context_size,
+    network=Network(dataset.context_size, hidden_size=100),
+    selector=TopKSelector(k=K),
+    buffer=buffer,
+    train_batch_size=32,
+    early_stop_threshold=1e-4,
+    weight_decay=1e-4,
+    exploration_rate=1,
+    learning_rate=1e-2,
+    min_samples_required_for_training=16,
+    initial_train_steps=1024,
+    num_samples_per_arm=10,
+)
+
+# Training Loop
+rewards = np.array([])
+regrets = np.array([])
+progress_bar = tqdm(enumerate(env), total=len(env))
+
+for i, contextualized_actions in progress_bar:
+    # Select actions
+    chosen_actions, _ = bandit_module.forward(contextualized_actions)
+
+    # Create a trainer
+    trainer = pl.Trainer(
+        max_epochs=1,
+        max_steps=1000,
+        gradient_clip_val=20.0,
+        log_every_n_steps=1,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        enable_checkpointing=False,
+    )
+
+    # Get feedback from environment
+    chosen_contextualized_actions, realized_scores = env.get_feedback(chosen_actions)
+    realized_rewards = realized_scores.sum(dim=1)
+    batch_regret = env.compute_regret(chosen_actions)
+
+    # Track metrics
+    rewards = np.append(rewards, realized_rewards.cpu().numpy())
+    regrets = np.append(regrets, batch_regret.cpu().numpy())
+    progress_bar.set_postfix(
+        reward=realized_rewards.mean().item(),
+        regret=batch_regret.mean().item(),
+        avg_regret=np.mean(regrets),
+        acc_regret=np.sum(regrets),
+    )
+
+    # Update the bandit
+    bandit_module.record_feedback(chosen_contextualized_actions, realized_scores)
+    trainer.fit(bandit_module)
+```
+
+Note that we are defining a NeuralTSBandit module here, and the key difference is the use of a TopKSelector, which enables the selection of multiple actions simultaneously. This selector can be customized based on your specific requirements to match your particular use case. (See [Customization](#customization) for more details on adapting selectors.)
+
+[View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/combinatorial_neuralts.ipynb)
+
+### Combinatorial Neural UCB
+
+Similar to Combinatorial Neural Thompson Sampling, the Combinatorial Neural UCB (NeuralUCB) approach can be applied to combinatorial action spaces:
+
+```python
+from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+
+# Initialize the Neural UCB bandit
+bandit_module = NeuralUCBBandit(
+    n_features=dataset.context_size,
+    network=Network(dataset.context_size, hidden_size=100),
+    selector=TopKSelector(k=K),
+    buffer=buffer,
+    train_batch_size=32,
+    early_stop_threshold=1e-4,
+    weight_decay=1e-4,
+    exploration_rate=1,
+    learning_rate=1e-2,
+    min_samples_required_for_training=16,
+    initial_train_steps=1024,
+)
+
+# The training loop remains the same as the Neural Thompson Sampling example
+```
+
+[View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/combinatorial_neuralucb.ipynb)
 
 ## Customization
 
@@ -653,11 +729,11 @@ for batch in dataloader:
 
 This approach is useful for curriculum learning or when you want to train first on samples with certain characteristics.
 
-### Checkpointing
+## Checkpointing
 
 Calvera supports checkpointing via PyTorch Lightning's checkpoint system. This allows you to save and resume training, which is especially valuable for long-running experiments or when deploying models to production.
 
-#### Saving Checkpoints
+### Saving Checkpoints
 
 Here's how to enable checkpointing:
 
@@ -700,7 +776,7 @@ best_model_path = checkpoint_callback.best_model_path
 print(f"Best checkpoint saved at: {best_model_path}")
 ```
 
-#### Loading Checkpoints
+### Loading Checkpoints
 
 You can load a model from a checkpoint to resume training or for inference:
 
@@ -726,7 +802,7 @@ trainer = pl.Trainer(
 trainer.fit(loaded_bandit)
 ```
 
-#### What Gets Checkpointed
+### What Gets Checkpointed
 
 When a Calvera bandit is checkpointed, the following components are saved:
 
@@ -737,7 +813,7 @@ When a Calvera bandit is checkpointed, the following components are saved:
 5. **Training State**: Counters and flags related to training progress
 6. **Hyperparameters**: The hyperparameters used to initialize the model
 
-#### Checkpoint Management
+### Checkpoint Management
 
 For managing checkpoints over long experiments:
 
@@ -772,7 +848,7 @@ trainer = pl.Trainer(
 
 This setup ensures you always have the best-performing model saved, as well as regular snapshots of recent training progress.
 
-## Working with Custom Datasets
+<!-- ## Working with Custom Datasets
 
 Calvera allows you to use your own datasets by implementing the `AbstractDataset` interface. This is useful when you want to apply bandit algorithms to your specific domain or problem.
 
@@ -926,7 +1002,70 @@ for contextualized_actions in env:
 # After training, analyze your custom metrics
 results = pd.read_csv(f"{logger._logger_wrappee.log_dir}/metrics.csv")
 domain_metric_over_time = results["domain_specific_metric"]
+``` -->
+
+## Benchmarking
+
+Calvera provides a benchmarking module to easily compare different bandit algorithms on various datasets. Here's how to use it:
+
+```python
+from calvera.benchmark.benchmark import run
+
+# Benchmark a Linear UCB bandit on the Covertype dataset
+run(
+    {
+        "bandit": "lin_ucb",
+        "dataset": "covertype",
+        "max_samples": 5000,
+        "feedback_delay": 1,
+        "train_batch_size": 1,
+        "forward_batch_size": 1,
+        "bandit_hparams": {
+            "alpha": 1.0,
+        },
+    }
+)
+
+# Benchmark a Neural Linear bandit on the Covertype dataset
+run(
+    {
+        "bandit": "neural_linear",
+        "dataset": "covertype",
+        "network": "tiny_mlp",
+        "max_samples": 5000,
+        "feedback_delay": 1,
+        "train_batch_size": 1,
+        "forward_batch_size": 1,
+        "data_strategy": "sliding_window",
+        "sliding_window_size": 1,
+        "bandit_hparams": {
+            "n_embedding_size": 128,
+        },
+    }
+)
 ```
+
+The benchmark module supports the following bandits:
+
+- `lin_ucb`: Linear UCB
+- `approx_lin_ucb`: Diagonal Precision Approximation Linear UCB
+- `lin_ts`: Linear Thompson Sampling
+- `approx_lin_ts`: Diagonal Precision Approximation Linear Thompson Sampling
+- `neural_linear`: Neural Linear
+- `neural_ucb`: (Combinatorial + Standard) Neural UCB
+- `neural_ts`: (Combinatorial + Standard) Neural Thompson Sampling
+
+And the following datasets:
+
+- `covertype`: Covertype dataset from UCI
+- `mnist`: MNIST dataset
+- `statlog`: Statlog dataset from UCI
+- `wheel`: Synthetic Wheel Bandit dataset
+- `imdb`: IMDB movie reviews dataset
+- `movielens`: MovieLens dataset
+- `tiny_imagenet`: Tiny ImaneNet dataset
+- `synthetic`: A binary classification synthetic dataset
+- `synthetic_combinatorial`: Synthetic dataset for Combinatorial Bandit experiments
 
 ## Further Resources
 
