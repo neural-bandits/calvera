@@ -2,15 +2,16 @@ comparison_key: bandit
 
 dataset: mnist
 bandit:
-  - approx_lin_ts
-  - approx_lin_ucb
-  - lin_ts
   - lin_ucb
   - neural_linear
   - neural_ts
   - neural_ucb
+  - approx_lin_ts
+  - approx_lin_ucb
+  - lin_ts
 
 max_samples: 4096
+
 
 selector: argmax
 
@@ -39,5 +40,6 @@ bandit_hparams:
   min_samples_required_for_training: 128
   initial_train_steps: 1024
   n_embedding_size: 64
+  eps: 0.2
 
 seed: 52
