@@ -66,6 +66,7 @@ def test_run_comparison() -> None:
             "bandit": ["neural_ucb", "neural_ts"],
             "dataset": "covertype",
             "network": "tiny_mlp",
+            "data_sampler": "sorted",
             "max_samples": 100,
             "feedback_delay": 1,
             "train_batch_size": 1,
