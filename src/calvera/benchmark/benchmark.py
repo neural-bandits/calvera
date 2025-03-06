@@ -31,6 +31,7 @@ from calvera.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from calvera.benchmark.datasets.mnist import MNISTDataset
 from calvera.benchmark.datasets.movie_lens import MovieLensDataset
 from calvera.benchmark.datasets.statlog import StatlogDataset
+from calvera.benchmark.datasets.tiny_imagenet import TinyImageNetDataset
 from calvera.benchmark.datasets.synthetic import (
     CubicSyntheticDataset,
     LinearCombinationSyntheticDataset,
@@ -82,6 +83,7 @@ datasets: dict[str, type[AbstractDataset[Any]]] = {
     "synthetic_linear_comb": LinearCombinationSyntheticDataset,
     "imdb": ImdbMovieReviews,
     "movielens": MovieLensDataset,
+    "tiny_imagenet": TinyImageNetDataset,
 }
 
 data_strategies: dict[str, Callable[[dict[str, Any]], DataBufferStrategy]] = {
