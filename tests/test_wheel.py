@@ -28,7 +28,7 @@ def test_wheel() -> None:
     assert torch.allclose(ds[0][1], ds.rewards[0])
 
     # assert that 5 actions exist
-    assert ds.rewards.argmax(dim=1).unique().shape[0] == 5
+    assert ds.rewards.argmax(dim=1).unique().shape[0] == 5  # type: ignore
     num_medium_reward_1 = (ds.rewards.argmax(dim=1) == 4).sum()
 
     # Test that the dataset is reproducible
