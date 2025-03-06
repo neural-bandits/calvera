@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
     """Defines the interface for all Bandit algorithms by implementing pytorch Lightning Module methods."""
 
+    selector: AbstractSelector
     buffer: AbstractBanditDataBuffer[ActionInputType, Any]
     _custom_data_loader_passed = (
         True  # If no train_dataloader is passed on trainer.fit(bandit), then this will be set to False.
@@ -497,9 +498,17 @@ class DummyBandit(AbstractBandit[ActionInputType]):
         contextualized_actions: ActionInputType,
         **kwargs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass, computed batch-wise. Does nothing but call the RandomSelector."""
-        selected_actions = self.selector
-        return torch.zeros_like(contextualized_actions[:, :, 0]), torch.ones(contextualized_actions.shape[0])
+        """Forward pass, computed batch-wise. Does nothing but call the selector."""
+        selected_actions_one_hot = self.selector(contextualized_actions)
+
+        if isinstance(self.selector, RandomSelector):
+            uniform_p = 1 / self.selector.k
+            p = torch.ones((contextualized_actions.shape[0], )) * uniform_p
+        else:
+            p = torch.zeros((contextualized_actions.shape[0], ))
+            p[selected_actions_one_hot.argmax(dim=1)] = 1.0
+
+        return selected_actions_one_hot, p
 
     def _update(
         self,
