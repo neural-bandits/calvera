@@ -81,7 +81,7 @@ datasets: dict[str, type[AbstractDataset[Any]]] = {
     "synthetic_quadratic": QuadraticSyntheticDataset,
     "synthetic_cubic": CubicSyntheticDataset,
     "synthetic_sin": SinSyntheticDataset,
-    "synthetic_linear_comb": LinearCombinationSyntheticDataset, # not combinatorial!
+    "synthetic_linear_comb": LinearCombinationSyntheticDataset,  # not combinatorial!
     "synthetic_combinatorial": SyntheticCombinatorialDataset,
     "imdb": ImdbMovieReviews,
     "movielens": MovieLensDataset,
