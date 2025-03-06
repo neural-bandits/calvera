@@ -212,7 +212,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         bandit_hparams: dict[str, Any] = config.get("bandit_hparams", {})
         bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")](training_params)
         def key_fn(idx: int) -> int:
-            return dataset.label_at(idx)
+            return dataset.sort_key(idx)
         bandit_hparams["data_sampler"] = SortedDataSampler(
             dataset,
             key_fn=key_fn,
@@ -237,7 +237,6 @@ class BanditBenchmark(Generic[ActionInputType]):
                 data_strategy,
                 max_size=training_params.get("max_buffer_size", None),
             )
-            
 
         BanditClass = bandits[bandit_name]
         bandit = BanditClass(**filter_kwargs(BanditClass, bandit_hparams))
