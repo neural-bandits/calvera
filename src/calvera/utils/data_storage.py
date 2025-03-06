@@ -221,7 +221,7 @@ class AbstractBanditDataBuffer(
         pass
 
 
-# TODO(rob2u): Adapt the buffer accordingly
+# TODO(rob2u): `InMemoryDataBuffer` can not store and provide `chosen_actions`. See #166
 class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """In-memory implementation of bandit data buffer.
 
@@ -566,7 +566,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.rewards = torch.empty(0, device=self.device)  # shape: (n,)
 
 
-# TODO(rob2u): add statedict (storing and saving functionality)
+# TODO(rob2u): add statedict (storing and saving functionality). See #168 for more details.
 class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """A list-based implementation of the bandit data buffer.
 
