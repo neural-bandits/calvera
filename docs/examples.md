@@ -49,9 +49,9 @@ Linear bandits model the expected reward as a linear function of the context. Ca
 
 ### Linear Thompson Sampling
 
-Linear Thompson Sampling (LinTS) maintains a Bayesian posterior over the model parameters and samples from this posterior to select actions.
+Linear Thompson Sampling (LinTS) maintains a Bayesian posterior over the model parameters and, at each time step, plays an arm according to its posterior probability of being the best arm.
 
-Let's look at a practical example using the StatLog dataset:
+Let's look at a practical example using the [StatLog](https://archive.ics.uci.edu/dataset/148/statlog+shuttle) dataset:
 
 ```python
 import torch
@@ -82,7 +82,7 @@ bandit_module = LinearTSBandit(
 ).to(accelerator)
 ```
 
-Now we can run the online learning loop:
+Now we can run the training loop:
 
 ```python
 import numpy as np
@@ -136,8 +136,8 @@ We can then analyze and visualize our results:
 import matplotlib.pyplot as plt
 
 # Calculate cumulative metrics
-cumulative_reward = np.cumsum(metrics["reward"][:5000])
-cumulative_regret = np.cumsum(metrics["regret"][:5000].dropna())
+cumulative_reward = np.cumsum(metrics["reward"])
+cumulative_regret = np.cumsum(metrics["regret"])
 
 # Plot results
 plt.figure(figsize=(10, 5))
@@ -182,7 +182,7 @@ bandit_module = LinearUCBBandit(
 
 ## Neural Linear
 
-Neural Linear uses a neural network for feature extraction followed by a Bayesian linear head.
+Neural Linear performs a Bayesian linear regression on top of the representation of the last layer of a neural network.
 
 Let's see an example:
 
@@ -285,7 +285,7 @@ The key differences in Neural Linear compared to linear bandits:
 2. We use a buffer to store interaction data
 3. The training process involves both updating the neural network and the linear head
 
-Neural Linear periodically updates the neural network based on accumulated data, which makes it computationally efficient compared to updating after every interaction.
+In Neural Linear, the neural network and the Bayesian linear regression components are updated at different time scales
 
 [View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear.ipynb)
 
@@ -295,7 +295,7 @@ Neural bandits use neural networks to model the expected reward function, which 
 
 ### Neural Thompson Sampling
 
-Neural Thompson Sampling (NeuralTS) extends Thompson Sampling to neural networks by using a Bayesian linear approximation in the final layer.
+Neural Thompson Sampling (NeuralTS) uses deep neural networks for both exploration and exploitation by sampling rewards from a posterior distribution based on the network's uncertainty.
 
 Here's how to use it:
 
@@ -358,7 +358,7 @@ logger = OnlineBanditLoggerDecorator(
 
 ### Neural UCB
 
-Neural UCB (NeuralUCB) combines neural networks with Upper Confidence Bound exploration.
+Neural UCB (NeuralUCB) uses neural networks to estimate rewards and guides exploration through upper confidence bounds based on the network's uncertainty.
 
 Here's how to use it:
 
@@ -390,6 +390,8 @@ The main difference between NeuralUCB and NeuralTS is how they calculate action 
 - NeuralTS samples from an approximated posterior over the neural network outputs
 
 [View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/neuralucb.ipynb)
+
+## Combinatorial Bandits
 
 ## Benchmarking
 
