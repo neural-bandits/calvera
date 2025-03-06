@@ -76,7 +76,7 @@ def sample_rewards(
         a = x > 0
         b = y > 0
 
-        if round(3 - 2 * a.float() - b.float()) == actions[i]:
+        if (3 - 2 * a.float() - b.float()).round() == actions[i]:
             rewards[i] = r_big[i]
 
     # if below delta, assign medium reward when action 4 is taken
