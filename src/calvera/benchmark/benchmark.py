@@ -156,22 +156,12 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
     "bert": lambda in_size, out_size: BertWrapper(
         BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2", output_hidden_states=True)
     ),
-    "bert_frozen": lambda in_size, out_size: BertWrapper(
-        BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2", output_hidden_states=True)
-    ),
     "resnet18": lambda in_size, out_size: ResNetWrapper(
         network=timm.create_model(
             "resnet18.a1_in1k",
             pretrained=True,
             num_classes=0,  # remove classifier nn.Linear
         )
-    ),
-    "resnet18_frozen": lambda in_size, out_size: ResNetWrapper(
-        network=timm.create_model(
-            "resnet18.a1_in1k",
-            pretrained=True,
-            num_classes=0,  # remove classifier nn.Linear
-        ).eval()
     ),
 }
 
@@ -301,7 +291,6 @@ class BanditBenchmark(Generic[ActionInputType]):
                 if bandit_name == "neural_linear"
                 else 1  # in neural ucb/ts we predict the reward directly
             )
-            print(f"Network input size: {network_input_size}, output size: {network_output_size}")
             bandit_hparams["network"] = networks[training_params["network"]](network_input_size, network_output_size)
 
             data_strategy = data_strategies[training_params["data_strategy"]](training_params)
@@ -318,7 +307,6 @@ class BanditBenchmark(Generic[ActionInputType]):
                 )
 
         BanditClass = bandits[bandit_name]
-        print(bandit_hparams)
         bandit = BanditClass(**filter_kwargs(BanditClass, bandit_hparams))
 
         return BanditBenchmark(

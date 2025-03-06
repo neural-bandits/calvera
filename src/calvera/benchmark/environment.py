@@ -181,10 +181,6 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
             "Mismatched batch size of chosen_actions and contextualized_actions tensors."
             "Received {chosen_actions.size(0)} and {batch_size}."
         )
-        # assert chosen_actions.size(1) == num_actions, (
-        #     f"Mismatched number of actions in chosen_actions and contextualized_actions tensors."
-        #     f"Received {chosen_actions.size(1)} and {num_actions}."
-        # )
 
         assert (chosen_actions.sum(dim=1) > 0).all(), "No actions were chosen in some rows."
         assert (

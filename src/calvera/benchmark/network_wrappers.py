@@ -27,8 +27,6 @@ class BertWrapper(nn.Module):
         input[1] = input[1].float()
         input[2] = input[2].long()
         output: BaseModelOutputWithPoolingAndCrossAttentions = self.network(*input)
-        # else:
-        #     output: BaseModelOutputWithPoolingAndCrossAttentions = self.network(x.squeeze(1))
 
         return output.last_hidden_state[:, 0, :]
 

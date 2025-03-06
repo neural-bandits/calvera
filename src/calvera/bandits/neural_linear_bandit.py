@@ -515,8 +515,6 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 not supported.
             batch_idx: The index of the batch.
         """
-        # Assertions are happening in AbstractBandit
-
         assert len(batch) == 4, (
             "For head updates, batch must be three tensors: "
             "(contextualized_actions, embedded_actions, rewards, chosen_actions)."
@@ -543,7 +541,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             chosen_contextualized_actions: ActionInputType = batch[0]  # shape: (batch_size, n_chosen_arms, n_features)
             chosen_actions = batch[3]
 
-            # Asserting shapes of the input data
+            # Asserting shapes of the input data.
             loss = self._train_network(chosen_contextualized_actions, realized_rewards, chosen_actions=chosen_actions)
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=False)
             return loss
@@ -551,15 +549,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             assert batch[1] is not None, "The embedded actions must be provided for updating the head."
             embedded_actions: torch.Tensor = batch[1]  # shape: (batch_size, n_chosen_arms, n_embedding_size)
 
-            # if self.hparams["contextualization_after_network"]:
-            #     chosen_actions: None | torch.Tensor = batch[3]
-            #     assert chosen_actions is not None, ("Chosen actions are needed when "
-            #             "`contextualization_after_network is True")
-            #     chosen_actions_idx = chosen_actions.argmax(dim=1)
-            #     embedded_actions = embedded_actions[torch.arange(embedded_actions.shape[0]), :, chosen_actions_idx]
-
             self._train_head(embedded_actions, realized_rewards)
-            # Since we are not training the network, we return a dummy loss
+            # Since we are not training the network, we return a dummy loss.
             return torch.tensor(0.0, device=self.device)
 
     def _train_network(
