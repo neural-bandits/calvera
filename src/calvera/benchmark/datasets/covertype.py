@@ -69,3 +69,16 @@ class CovertypeDataset(AbstractDataset[torch.Tensor]):
             1.0 if the action is the correct cover type, 0.0 otherwise.
         """
         return float(self.y[idx] == action + 1)
+
+    def sort_key(self, idx: int) -> int:
+        """Return the label for a given index.
+
+        This is only required as the sort key in the  SortedDataSampler in the benchmark.
+
+        Args:
+            idx: The index of the context in this dataset.
+
+        Returns:
+            The label for the given index.
+        """
+        return self.y[idx].item()
