@@ -160,16 +160,16 @@ class TestMovieLensDataset:
 class TestTinyImageNetDataset:
     @pytest.fixture
     def dataset(self) -> TinyImageNetDataset:
-        return TinyImageNetDataset()
+        return TinyImageNetDataset(max_classes=100)
 
     def test_len(self, dataset: TinyImageNetDataset) -> None:
-        assert len(dataset) == 100000
+        assert len(dataset) == 100 * 500
 
     def test_getitem(self, dataset: TinyImageNetDataset) -> None:
         for _ in range(10):
             X, rewards = dataset[0]
-            assert X.shape == torch.Size([3 * 64 * 64])
-            assert rewards.shape == (200,)
+            assert X.shape == torch.Size([1, 3 * 64 * 64])
+            assert rewards.shape == (1, 200)
 
     def test_reward(self, dataset: TinyImageNetDataset) -> None:
         for i in range(10):
