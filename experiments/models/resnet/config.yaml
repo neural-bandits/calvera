@@ -1,3 +1,5 @@
+comparison_key: bandit_hparams/min_samples_required_for_training
+
 dataset: tiny_imagenet
 bandit: neural_linear
 
@@ -27,7 +29,11 @@ bandit_hparams:
   exploration_rate: 0.1
   lr: 0.0001
   weight_decay: 0.00001
-  min_samples_required_for_training: 128
+  min_samples_required_for_training:
+    - null  # not training the network at all
+    - 512
+    - 32
+    - 1
   initial_train_steps: 1024
   n_embedding_size: 64 # TODO: set correctly
 
