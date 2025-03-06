@@ -82,7 +82,6 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
                 "The precision_matrix is not invertible anymore because it is not positive definite. "
                 "This can happen due to numerical imprecisions. Try to increase the `eps` hyperparameter."
             ) from e
-            
 
         expected_rewards = torch.einsum("ijk,ik->ij", contextualized_actions, theta_tilde)
 
