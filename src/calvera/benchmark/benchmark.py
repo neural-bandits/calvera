@@ -429,15 +429,17 @@ class BanditBenchmark(Generic[ActionInputType]):
                 **optional_kwargs,
             )
 
-            self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards, chosen_actions)
-            # Train the bandit on the current feedback
-            collate_fn = (
-                partial(custom_collate, data_collator=self.dataset.get_data_collator())  # type: ignore
-                if isinstance(self.dataset, ImdbMovieReviews)
+            # Only provide the `chosen_action` if necessary.
+            chosen_actions_pass = (
+                chosen_actions
+                if "contextualization_after_network" in self.bandit.hparams
+                and self.bandit.hparams["contextualization_after_network"]
                 else None
             )
-            dataloader = self.bandit.train_dataloader(custom_collate_fn=collate_fn)
-            trainer.fit(self.bandit, dataloader)
+
+            self.bandit.record_feedback(chosen_contextualized_actions, realized_rewards, chosen_actions_pass)
+            # Train the bandit on the current feedback
+            trainer.fit(self.bandit)
             trainer.save_checkpoint(os.path.join(self.log_dir, "checkpoint.ckpt"))
 
             # Unfortunately, after each training run the model is moved to the CPU by lightning.

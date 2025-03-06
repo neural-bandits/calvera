@@ -396,6 +396,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
                 torch.empty(0, 0, device=self.device),  # type: ignore
                 None,
                 torch.empty(0, device=self.device),
+                None,
             )
 
     def get_batch(
