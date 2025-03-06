@@ -11,7 +11,7 @@ from torch import optim
 
 from calvera.bandits.abstract_bandit import AbstractBandit
 from calvera.utils.data_storage import AbstractBanditDataBuffer
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         learning_rate_decay: float = 1.0,
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: float | None = 1e-3,
-        min_samples_required_for_training: int | None = 64,
+        min_samples_required_for_training: int = 1024,
         initial_train_steps: int = 1024,
         warm_start: bool = True,
     ) -> None:
@@ -61,7 +61,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             n_features: Number of input features. Must be greater 0.
             network: Neural network module for function approximation.
             buffer: Buffer for storing bandit interaction data. See superclass for further information.
-            selector: Action selector for the bandit. Defaults to ArgMaxSelector (if None).
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             exploration_rate: Exploration parameter for UCB. Called gamma_t=nu in the original paper.
                 Must be greater 0.
             train_batch_size: Size of mini-batches for training. Must be greater 0.
@@ -81,8 +81,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 Must be greater equal 0.
             min_samples_required_for_training: If less samples have been added via `record_feedback`
                 than this value, the network is not trained.
-                If None, the network is trained every time `trainer.fit` is called.
-                Must be greater 0.
+                Must be greater 0. Default is 1024.
             initial_train_steps: For the first `initial_train_steps` samples, the network is always trained even if
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only
                 required if `min_samples_required_for_training` is set. Set to 0 to disable this feature.
@@ -97,8 +96,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         assert learning_rate_decay >= 0, "The learning rate decay must be greater equal 0."
         assert learning_rate_scheduler_step_size > 0, "Learning rate must be greater than 0."
         assert (
-            min_samples_required_for_training is None or min_samples_required_for_training > 0
-        ), "Training interval must be greater than 0."
+            min_samples_required_for_training is not None and min_samples_required_for_training > 0
+        ), "min_samples_required_for_training must not be None and must be greater than 0."
         assert (
             early_stop_threshold is None or early_stop_threshold >= 0
         ), "Early stop threshold must be greater than or equal to 0."
@@ -108,6 +107,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             n_features=n_features,
             buffer=buffer,
             train_batch_size=train_batch_size,
+            selector=selector,
         )
 
         self.save_hyperparameters(
@@ -124,8 +124,6 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
                 "warm_start": warm_start,
             }
         )
-
-        self.selector = selector if selector is not None else ArgMaxSelector()
 
         # Model parameters: Initialize θ_t
         self.theta_t = network.to(self.device)
@@ -196,13 +194,11 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         # Select a_t = argmax_a U_t,a
         chosen_actions = self.selector(self._score(f_t_a, exploration_terms))
 
-        assert (chosen_actions.sum(dim=1) == 1).all(), "Currently only supports non-combinatorial bandits"
-        chosen_actions_idx = chosen_actions.argmax(dim=1)  # TODO: this only works for non-combinatorial bandits!
-
         # Update Z_t using g(x_t,a_t; θ_t-1)
         for b in range(batch_size):
-            a_t = chosen_actions_idx[b]
-            self.Z_t += all_gradients[b, a_t] * all_gradients[b, a_t]
+            chosen_arms = chosen_actions[b].nonzero().squeeze(1)
+            for arm_idx in chosen_arms:
+                self.Z_t += all_gradients[b, arm_idx] * all_gradients[b, arm_idx]
 
         # Return chosen actions and
         return chosen_actions, torch.ones(batch_size, device=self.device)
@@ -238,7 +234,8 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             self.should_train_network = False
 
         if (
-            self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
+            cast(int, self.hparams["initial_train_steps"] > 0)
+            and self._total_samples_count > self.hparams["initial_train_steps"]
             and self._total_samples_count - contextualized_actions.size(0) <= self.hparams["initial_train_steps"]
         ):
             logger.info(
@@ -288,10 +285,10 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             required_samples = self.hparams["min_samples_required_for_training"]
             if num_samples <= required_samples and not self.is_initial_training_stage():
                 logger.warning(
-                    f"The train_dataloader passed to trainer.fit() contains {num_samples}"
-                    f"which is less than min_samples_required_for_training={required_samples}."
+                    f"The train_dataloader passed to trainer.fit() contains {num_samples} "
+                    f"which is less than min_samples_required_for_training={required_samples}. "
                     f"Even though the initial training stage is over and not enough data samples were passed, "
-                    "the network will still be trained."
+                    "the network will still be trained. "
                     "Consider passing more data or decreasing min_samples_required_for_training."
                 )
 
@@ -400,3 +397,40 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         super().on_train_end()
         if not self._training_skipped:
             self.should_train_network = False
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle saving custom NeuralBandit state.
+
+        Args:
+            checkpoint: Dictionary to save the state into.
+        """
+        super().on_save_checkpoint(checkpoint)
+
+        checkpoint["Z_t"] = self.Z_t
+
+        checkpoint["network_state"] = self.theta_t.state_dict()
+
+        if self.theta_t_init is not None:
+            checkpoint["init_network_state"] = self.theta_t_init
+
+        checkpoint["_should_train_network"] = self._should_train_network
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle loading custom NeuralBandit state.
+
+        Args:
+            checkpoint: Dictionary containing the state to load.
+        """
+        super().on_load_checkpoint(checkpoint)
+
+        if "Z_t" in checkpoint:
+            self.register_buffer("Z_t", checkpoint["Z_t"])
+
+        if "network_state" in checkpoint:
+            self.theta_t.load_state_dict(checkpoint["network_state"])
+
+        if "init_network_state" in checkpoint and not self.hparams["warm_start"]:
+            self.theta_t_init = checkpoint["init_network_state"]
+
+        if "_should_train_network" in checkpoint:
+            self._should_train_network = checkpoint["_should_train_network"]

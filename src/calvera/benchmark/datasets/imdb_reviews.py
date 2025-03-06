@@ -4,7 +4,7 @@ import pathlib
 import re
 import tarfile
 import urllib.request
-from typing import Literal
+from typing import Literal, cast
 
 import pandas as pd
 import torch
@@ -214,3 +214,7 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
             A data collator for token classification tasks.
         """
         return DataCollatorForTokenClassification(tokenizer=self.tokenizer, padding=padding)
+    
+    def sort_key(self, idx: int) -> int:
+        """Return the label for a given index."""
+        return cast(int, self.data["sentiment"][idx])

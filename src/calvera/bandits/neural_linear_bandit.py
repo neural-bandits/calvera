@@ -48,6 +48,7 @@ class HelperNetwork(torch.nn.Module):
         Returns:
             The output of the linear head.
         """
+        # TODO: Do we pass kwargs to the network? See issue #148.
         z = self.network.forward(*x)
         if self.contextualizer is not None:
             z = self.contextualizer(z)
@@ -113,6 +114,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             train_batch_size: The batch size for the neural network update. Must be greater than 0.
             min_samples_required_for_training: The interval (in steps) at which the neural network is updated.
                 None means the neural network is never updated. If not None, it must be greater than 0.
+                Must Default is 1024.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step.
             lambda_: The regularization parameter for the linear head. Must be greater than 0.
@@ -334,8 +336,8 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             flattened_actions = contextualized_actions.view(
                 batch_size * n_arms, *contextualized_actions.shape[2:]
             )  # shape: (batch_size * n_arms, n_network_input_size)
-            print(flattened_actions.shape)
-            # TODO: We should probably pass the kwargs here but then we would need to pass them in the update method.
+
+            # TODO: Do we pass kwargs to the network? See issue #148.
             embedded_actions: torch.Tensor = self.network.forward(
                 flattened_actions,
             )  # shape: (batch_size * n_arms, n_embedding_size)
@@ -361,6 +363,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 # and not (batch_size, sequence_length, hidden_size)
                 flattened_actions_list.append(input_part.view(batch_size * n_arms, *input_part.shape[2:]))
 
+            # TODO: Do we pass kwargs to the network? See issue #148.
             embedded_actions = self.network.forward(
                 *tuple(flattened_actions_list),
             )  # shape: (batch_size * n_arms, n_embedding_size)
@@ -398,6 +401,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             chosen_actions: The chosen actions one-hot encoded. Size: (batch_size, n_actions). Should only be provided
                 if there is only a single contextualized action (see `contextualization_after_network`).
         """
+        # TODO: embedding actions is unnecessary if we will update the network later anyways. See issue #149.
         embedded_actions = self._get_contextualized_actions(
             contextualized_actions
         )  # shape: (batch_size, n_actions, n_embedding_size)
@@ -418,16 +422,17 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         # _total_samples_count is managed by the AbstractBandit
         self._samples_without_training_network += rewards.shape[0]
 
-        if (
-            self._total_samples_count <= self.hparams["initial_train_steps"]
-            or self._samples_without_training_network >= self.hparams["min_samples_required_for_training"]
+        if self.is_initial_training_stage() or (
+            self.hparams["min_samples_required_for_training"] is not None
+            and self._samples_without_training_network >= self.hparams["min_samples_required_for_training"]
         ):
             self.should_train_network = True
         else:
             self.should_train_network = False
 
         if (
-            self._total_samples_count > cast(int, self.hparams["initial_train_steps"])
+            cast(int, self.hparams["initial_train_steps"] > 0)
+            and self._total_samples_count > self.hparams["initial_train_steps"]
             and self._total_samples_count - rewards.size(0) <= self.hparams["initial_train_steps"]
         ):
             logger.info(
@@ -472,7 +477,11 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
             num_samples = len(self.trainer.train_dataloader.dataset)
             required_samples = self.hparams["min_samples_required_for_training"]
-            if num_samples <= required_samples and not self.is_initial_training_stage():
+            if (
+                required_samples is not None
+                and num_samples <= required_samples
+                and not self.is_initial_training_stage()
+            ):
                 logger.warning(
                     f"The train_dataloader passed to trainer.fit() contains {num_samples} "
                     f"which is less than min_samples_required_for_training={required_samples}. "
@@ -666,7 +675,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
     def update_embeddings(self) -> None:
         """Update all of the embeddings stored in the replay buffer."""
-        # TODO: possibly do lazy updates of the embeddings as computing all at once will take forever
+        # TODO: recomputing all embeddings at once takes forever. See issue #149.
         contexts, _, _, chosen_actions = self.buffer.get_all_data()  # shape: (num_samples, n_network_input_size)
 
         num_samples = contexts.shape[0] if isinstance(contexts, torch.Tensor) else contexts[0].shape[0]
@@ -759,3 +768,56 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 z_batch.to(self.device),  # shape: (num_samples, 1, n_embedding_size)
                 y_batch.to(self.device),  # shape: (num_samples, 1)
             )
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle saving custom NeuralLinearBandit state.
+
+        Args:
+            checkpoint: Dictionary to save the state into.
+        """
+        super().on_save_checkpoint(checkpoint)
+
+        checkpoint["network_state"] = self.network.state_dict()
+        checkpoint["helper_network_state"] = self._helper_network.state_dict()
+        if self._helper_network_init is not None:
+            checkpoint["init_helper_network_state"] = self._helper_network_init
+
+        checkpoint["_should_train_network"] = self._should_train_network
+        checkpoint["_samples_without_training_network"] = self._samples_without_training_network
+
+        checkpoint["contextualized_actions"] = self.contextualized_actions
+        checkpoint["embedded_actions"] = self.embedded_actions
+        checkpoint["rewards"] = self.rewards
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle loading custom NeuralLinearBandit state.
+
+        Args:
+            checkpoint: Dictionary containing the state to load.
+        """
+        super().on_load_checkpoint(checkpoint)
+
+        if "network_state" in checkpoint:
+            self.network.load_state_dict(checkpoint["network_state"])
+
+        if "helper_network_state" in checkpoint:
+            self._helper_network.load_state_dict(checkpoint["helper_network_state"])
+
+        if "init_helper_network_state" in checkpoint and not self.hparams["warm_start"]:
+            self._helper_network_init = checkpoint["init_helper_network_state"]
+
+        if "_should_train_network" in checkpoint:
+            self._should_train_network = checkpoint["_should_train_network"]
+            self.automatic_optimization = self._should_train_network
+
+        if "_samples_without_training_network" in checkpoint:
+            self._samples_without_training_network = checkpoint["_samples_without_training_network"]
+
+        if "contextualized_actions" in checkpoint:
+            self.register_buffer("contextualized_actions", checkpoint["contextualized_actions"])
+
+        if "embedded_actions" in checkpoint:
+            self.register_buffer("embedded_actions", checkpoint["embedded_actions"])
+
+        if "rewards" in checkpoint:
+            self.register_buffer("rewards", checkpoint["rewards"])

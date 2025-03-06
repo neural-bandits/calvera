@@ -6,6 +6,7 @@ import torch
 from calvera.bandits.abstract_bandit import AbstractBandit
 from calvera.bandits.action_input_type import ActionInputType
 from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
+from calvera.utils.selectors import AbstractSelector
 
 
 class LinearBandit(AbstractBandit[ActionInputType], ABC):
@@ -23,6 +24,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         self,
         n_features: int,
         buffer: AbstractBanditDataBuffer[Any, Any] | None = None,
+        selector: AbstractSelector | None = None,
         train_batch_size: int = 32,
         eps: float = 1e-2,
         lambda_: float = 1.0,
@@ -37,6 +39,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             buffer: The buffer used for storing the data for continuously updating the neural network.
                 For the linear bandit, it should always be an InMemoryDataBuffer with an AllDataBufferStrategy
                 because the buffer is cleared after each update.
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
             lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
@@ -52,6 +55,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             n_features=n_features,
             buffer=buffer,
             train_batch_size=train_batch_size,
+            selector=selector,
         )
 
         self.save_hyperparameters(
@@ -68,6 +72,9 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         self.automatic_optimization = False
 
         self._init_linear_params()
+
+        # Please don't ask. Lightning requires any parameter to be registered in order to train it on cuda.
+        self.register_parameter("_", None)
 
     def _init_linear_params(self) -> None:
         n_features = cast(int, self.hparams["n_features"])
@@ -165,8 +172,6 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         )
         chosen_actions = chosen_actions.squeeze(1)
         realized_rewards = realized_rewards.squeeze(1)
-        # TODO: Implement linear combinatorial bandits according to Efficient Learning in Large-Scale Combinatorial
-        #   Semi-Bandits (https://arxiv.org/pdf/1406.7443)
 
         if self.hparams["lazy_uncertainty_update"]:
             self._update_precision_matrix(chosen_actions)
@@ -221,3 +226,32 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         super().on_train_end()
         if self.hparams["clear_buffer_after_train"]:
             self.buffer.clear()
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle saving custom LinearBandit state.
+
+        Args:
+            checkpoint: Dictionary to save the state into.
+        """
+        super().on_save_checkpoint(checkpoint)
+
+        checkpoint["precision_matrix"] = self.precision_matrix
+        checkpoint["b"] = self.b
+        checkpoint["theta"] = self.theta
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle loading custom LinearBandit state.
+
+        Args:
+            checkpoint: Dictionary containing the state to load.
+        """
+        super().on_load_checkpoint(checkpoint)
+
+        if "precision_matrix" in checkpoint:
+            self.register_buffer("precision_matrix", checkpoint["precision_matrix"])
+
+        if "b" in checkpoint:
+            self.register_buffer("b", checkpoint["b"])
+
+        if "theta" in checkpoint:
+            self.register_buffer("theta", checkpoint["theta"])

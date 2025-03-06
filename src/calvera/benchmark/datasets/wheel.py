@@ -1,3 +1,5 @@
+from typing import cast
+
 import torch
 
 from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
@@ -63,10 +65,10 @@ def sample_rewards(
 
     # Determine optimal actions based on context quadrant when norm > delta
     # Quadrants mapping:
-    # If contexts[i,0] > 0 and contexts[i,1] > 0 -> action 0
-    # If contexts[i,0] > 0 and contexts[i,1] < 0 -> action 1
-    # If contexts[i,0] < 0 and contexts[i,1] > 0 -> action 2
-    # If contexts[i,0] < 0 and contexts[i,1] < 0 -> action 3
+    # If contexts[i,0] > 0 and contexts[i,1] > 0 -> action 0 (= 3 - 2 * 1 - 1)
+    # If contexts[i,0] > 0 and contexts[i,1] < 0 -> action 1 (= 3 - 2 * 1 - 0)
+    # If contexts[i,0] < 0 and contexts[i,1] > 0 -> action 2 (= 3 - 2 * 0 - 1)
+    # If contexts[i,0] < 0 and contexts[i,1] < 0 -> action 3 (= 3 - 2 * 0 - 0)
     # Otherwise (norm <= delta) best action is argmax(mean_v).
 
     # if above delta, assign large reward to optimal action else assign small reward
@@ -76,7 +78,7 @@ def sample_rewards(
         a = x > 0
         b = y > 0
 
-        if (3 - 2 * a.float() - b.float()).bool() == actions[i]:
+        if (3 - 2 * a.float() - b.float()).round() == actions[i]:
             rewards[i] = r_big[i]
 
     # if below delta, assign medium reward when action 4 is taken
@@ -211,3 +213,8 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
     def reward(self, idx: int, action: int) -> float:
         """Return the reward of the given action for the context at index idx in this dataset."""
         return self.rewards[idx, action].item()
+
+    def sort_key(self, idx: int) -> int:
+        """Return the action with the highest reward for the context at index idx in this dataset."""
+        max_idx = self.rewards[idx].argmax()
+        return cast(int, max_idx.item())

@@ -1,14 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sized
-from typing import (
-    Any,
-    Generic,
-    Protocol,
-    TypedDict,
-    TypeVar,
-    cast,
-)
+from typing import Any, Generic, Protocol, TypedDict, TypeVar, cast
 
 import torch
 
@@ -19,8 +12,6 @@ StateDictType = TypeVar("StateDictType", bound=Mapping[str, Any])
 BufferDataFormat = tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]
 
 
-# TODO: Fix DocStrings
-# TODO: Move some classes to a separate file
 class BanditStateDict(TypedDict):
     """Type definition for bandit state dictionary.
 
@@ -30,9 +21,11 @@ class BanditStateDict(TypedDict):
     Attributes:
         contextualized_actions: Tensor storing all contextualized actions in buffer.
             Shape: (buffer_size, num_items, n_features).
-        embedded_actions: Tensor storing all embedded action representations. Shape: (buffer_size, n_embedding_size).
-        rewards: Tensor storing all received rewards. Shape: (buffer_size,).
-        buffer_strategy: Strategy object controlling how data is managed
+        embedded_actions: Tensor storing all embedded action representations.
+            Shape: (buffer_size, n_embedding_size).
+        rewards: Tensor storing all received rewards.
+            Shape: (buffer_size,).
+        buffer_strategy: Strategy object controlling how data is managed in the buffer.
         max_size: Optional maximum size limit of the buffer. None means no size limit.
     """
 
@@ -44,7 +37,12 @@ class BanditStateDict(TypedDict):
 
 
 class DataBufferStrategy(Protocol):
-    """Protocol defining how training data should be managed in the buffer."""
+    """Protocol defining how training data should be managed in the buffer.
+
+    This protocol represents a strategy for determining which data points from the buffer
+    should be used during training. Different implementations can select data in various ways
+    (e.g., all data, most recent data, etc.).
+    """
 
     def get_training_indices(self, total_samples: int) -> torch.Tensor:
         """Get indices of data points to use for training.
@@ -52,10 +50,11 @@ class DataBufferStrategy(Protocol):
         For the `InMemoryDataBuffer` this has to be deterministic.
 
         Args:
-            total_samples: Total number of samples in the buffer
+            total_samples: Total number of samples in the buffer.
 
         Returns:
-            Tensor of indices to use for training, shape: (n_selected_samples,)
+            Tensor of indices to use for training.
+            Shape: (n_selected_samples,).
         """
         ...
 
@@ -67,10 +66,10 @@ class AllDataBufferStrategy(DataBufferStrategy):
         """Returns indices for all samples in the buffer.
 
         Args:
-            total_samples: Total number of samples in the buffer
+            total_samples: Total number of samples in the buffer.
 
         Returns:
-            Tensor containing indices [0, ..., total_samples-1]
+            Tensor containing indices [0, ..., total_samples-1].
         """
         return torch.arange(total_samples)
 
@@ -82,7 +81,7 @@ class SlidingWindowBufferStrategy(DataBufferStrategy):
         """Initialize the sliding window strategy.
 
         Args:
-            window_size: Number of most recent samples to use for training
+            window_size: Number of most recent samples to use for training.
         """
         self.window_size = window_size
 
@@ -90,10 +89,10 @@ class SlidingWindowBufferStrategy(DataBufferStrategy):
         """Returns indices for the last window_size samples.
 
         Args:
-            total_samples: Total number of samples in the buffer
+            total_samples: Total number of samples in the buffer.
 
         Returns:
-            Tensor containing the last window_size indices
+            Tensor containing the last window_size indices.
         """
         start_idx = max(0, total_samples - self.window_size)
         return torch.arange(start_idx, total_samples)
@@ -105,13 +104,18 @@ class AbstractBanditDataBuffer(
     Generic[ActionInputType, StateDictType],
     Sized,
 ):
-    """Abstract base class for bandit data buffer management."""
+    """Abstract base class for bandit data buffer management.
+
+    A data buffer stores contextualized actions, optional embedded actions (depending on
+    the bandit algorithm), and corresponding rewards. It also implements a strategy for
+    selecting which data points to use during training.
+    """
 
     def __init__(self, buffer_strategy: DataBufferStrategy):
         """Initialize the data buffer.
 
         Args:
-            buffer_strategy: Strategy for managing training data selection
+            buffer_strategy: Strategy for managing training data selection.
         """
         self.buffer_strategy = buffer_strategy
 
@@ -126,12 +130,15 @@ class AbstractBanditDataBuffer(
         """Add a batch of data points to the buffer.
 
         Args:
-            contextualized_actions: Tensor of contextualized actions of shape: (buffer_size, n_features) or n_items
-                tuple of tensors of shape (buffer_size, n_features)
-            embedded_actions: Optional tensor of embedded actions. Shape: (buffer_size, n_embedding_size).
-            rewards: Tensor of rewards received for each action. Shape: (buffer_size,).
-            chosen_actions: The chosen actions one-hot encoded. Size: (batch_size, n_actions). Should only be provided
+            contextualized_actions: Tensor of contextualized actions.
+                Shape: (buffer_size, n_features) or n_items tuple of tensors of shape (buffer_size, n_features).
+            embedded_actions: Optional tensor of embedded actions.
+                Shape: (buffer_size, n_embedding_size).
+            rewards: Tensor of rewards received for each action.
+                Shape: (buffer_size,).
+            chosen_actions: The chosen actions one-hot encoded. Should only be provided
                 if there is only a single context (e.g. NeuralLinear).
+                Shape: (batch_size, n_actions).
         """
         pass
 
@@ -157,14 +164,18 @@ class AbstractBanditDataBuffer(
         """Get batches of training data according to buffer strategy.
 
         Args:
-            batch_size: Size of each batch to return
+            batch_size: Size of the batch to return.
 
         Returns:
-            Iterator yielding tuples of (contextualized_actions, embedded_actions, rewards, chosen_actions)
-            batches where total samples across all batches equals num_samples
+            Tuple of (contextualized_actions, embedded_actions, rewards, chosen_actions) for the batch.
+            contextualized_actions: ActionInputType - Either a tensor of shape (batch_size, n_features)
+                or a tuple of tensors.
+            embedded_actions: Optional tensor of shape (batch_size, n_embedding_size), or None if not used.
+            rewards: Tensor of shape (batch_size,).
+            chosen_actions: Optional tensor of one-hot encoded chosen actions. Shape: (batch_size, n_actions).
 
         Raises:
-            ValueError: If requested batch_size is larger than available data
+            ValueError: If requested batch_size is larger than available data.
         """
         pass
 
@@ -173,7 +184,8 @@ class AbstractBanditDataBuffer(
         """Update the embedded actions in the buffer.
 
         Args:
-            embedded_actions: New embeddings for all contexts in buffer
+            embedded_actions: New embeddings for all contexts in buffer.
+                Shape: (buffer_size, n_embedding_size).
         """
         pass
 
@@ -184,7 +196,7 @@ class AbstractBanditDataBuffer(
         """Get state dictionary for checkpointing.
 
         Returns:
-            Dictionary containing all necessary state information
+            Dictionary containing all necessary state information for restoring the buffer.
         """
         pass
 
@@ -196,13 +208,16 @@ class AbstractBanditDataBuffer(
         """Load state from checkpoint dictionary.
 
         Args:
-            state_dict: Dictionary containing state information
+            state_dict: Dictionary containing state information for restoring the buffer.
         """
         pass
 
     @abstractmethod
     def clear(self) -> None:
-        """Clear the complete buffer."""
+        """Clear the complete buffer.
+
+        This removes all stored data points, effectively resetting the buffer to an empty state.
+        """
         pass
 
 
@@ -212,7 +227,6 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
     Known limitations:
     - It can't handle a varying amount of actions over time.
-    - It can't handle multiple actions (i.e. combinatorial bandits).
     """
 
     def __init__(
@@ -224,9 +238,9 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         """Initialize the in-memory buffer.
 
         Args:
-            buffer_strategy: Strategy for managing training data selection
-            max_size: Optional maximum number of samples to store
-            device: Device to store data on (default: CPU)
+            buffer_strategy: Strategy for managing training data selection.
+            max_size: Optional maximum number of samples to store. None means unlimited.
+            device: Device to store data on (default: CPU).
         """
         super().__init__(buffer_strategy)
 
@@ -244,14 +258,20 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         rewards: torch.Tensor,
         chosen_actions: torch.Tensor | None = None,
     ) -> None:
-        """Add each point from the batch to the buffer.
+        """Add a batch of data points to the buffer.
 
         Args:
-            contextualized_actions: Tensor of contextualized actions of shape: (batch_size, n_features) or n_items tuple
-                of tensors of shape (batch_size, n_features)
-            rewards: Tensor of rewards, shape: (batch_size,)
-            embedded_actions: Optional tensor of embedded actions, shape: (batch_size, n_embedding_size)
+            contextualized_actions: Tensor of contextualized actions.
+                Shape: (batch_size, n_features) or n_items tuple of tensors of shape (batch_size, n_features).
+            embedded_actions: Optional tensor of embedded actions.
+                Shape: (batch_size, n_embedding_size).
+            rewards: Tensor of rewards received for each action.
+                Shape: (batch_size,).
             chosen_actions: The chosen actions one-hot encoded. NOT SUPPORTED YET!
+                (once supported shape: (batch_size, n_actions))
+
+        Raises:
+            ValueError: If input shapes are inconsistent.
         """
         assert chosen_actions is None, "NOT SUPPORTED YET!. Use `ListDataBuffer` if you want to train NeuralLinear."
 
@@ -340,13 +360,14 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
     def __getitem__(self, index: int) -> BufferDataFormat[ActionInputType]:
         """Get contextualized actions and rewards for a specific index.
 
-        Implements the torch Dataset protocol.
+        Implements the torch Dataset protocol for accessing data by index.
 
         Args:
-            index: Index of the data point to retrieve
+            index: Index of the data point to retrieve.
 
         Returns:
-            Tuple of (contextualized_actions, rewards) for the given index.
+            Tuple of (contextualized_actions, rewards) or (contextualized_actions, embedded_actions, rewards)
+            for the given index. The actual return type depends on whether embedded_actions are present.
         """
         available_indices = self._get_available_indices()
         available_index = available_indices[index]
@@ -363,16 +384,19 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
         Returns:
             Tuple of (contextualized_actions, embedded_actions, rewards) for all available data in the buffer.
+            contextualized_actions: ActionInputType - Either a tensor of shape (n, n_features) or a tuple of tensors.
+            embedded_actions: Optional tensor of shape (n, n_embedding_size), or None if not used.
+            rewards: Tensor of shape (n,).
         """
         num_items = self.contextualized_actions.shape[0]
         if num_items > 0:
             return self._get_data(torch.arange(num_items, device=self.device))
         else:
             return (
-                torch.empty(0, 0, device=self.device),
+                torch.empty(0, 0, device=self.device),  # type: ignore
                 None,
                 torch.empty(0, device=self.device),
-            )  # type: ignore
+            )
 
     def get_batch(
         self,
@@ -381,11 +405,14 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         """Get a random batch of training data from the buffer. Uses the buffer strategy to select data.
 
         Args:
-            batch_size: Number of samples in each batch
+            batch_size: Number of samples to include in the batch.
 
         Returns:
-            Iterator of (contextualized_actions, embedded_actions, rewards) batches. Contextualized actions can be a
-            single tensor or a tuple of tensors.
+            Tuple of (contextualized_actions, embedded_actions, rewards) for the batch.
+            contextualized_actions: ActionInputType - Either a tensor of shape (batch_size, n_features)
+                or a tuple of tensors.
+            embedded_actions: Optional tensor of shape (batch_size, n_embedding_size), or None if not used.
+            rewards: Tensor of shape (batch_size,).
 
         Raises:
             ValueError: If batch_size exceeds available data.
@@ -414,6 +441,12 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
         Returns:
             Tuple of (contextualized_actions, embedded_actions, rewards) for the given indices.
+            contextualized_actions: ActionInputType - Either a tensor or a tuple of tensors.
+            embedded_actions: Optional tensor, or None if not used.
+            rewards: Tensor of rewards.
+
+        Raises:
+            AssertionError: If indices is not a 1D tensor or is empty.
         """
         assert indices.ndim == 1, "Indices must be a 1D tensor"
         assert indices.size(0) > 0, "Indices must not be empty"
@@ -444,7 +477,11 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         """Update the embedded actions in the buffer.
 
         Args:
-            embedded_actions: New embeddings for all contexts in buffer. Shape: (buffer_size, n_embedding_size)
+            embedded_actions: New embeddings for all contexts in buffer.
+                Shape: (buffer_size, n_embedding_size).
+
+        Raises:
+            AssertionError: If the shape of embedded_actions doesn't match the buffer's expected shape.
         """
         assert embedded_actions.shape[0] == self.embedded_actions.shape[0], (
             f"Number of embeddings to update must match buffer size. "
@@ -463,19 +500,24 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         """Get number of samples that the buffer strategy considers for training.
 
         Returns:
-            Number of samples for the buffer strategy.
+            Number of samples available for training according to the buffer strategy.
         """
         available_indices = self._get_available_indices()
         return len(available_indices)
 
     def _get_available_indices(self) -> torch.Tensor:
+        """Get indices of samples available for training according to buffer strategy.
+
+        Returns:
+            Tensor of indices that the buffer strategy considers for training.
+        """
         return self.buffer_strategy.get_training_indices(len(self.contextualized_actions)).to(self.device)
 
     def len_of_all_data(self) -> int:
-        """Get number of samples in the buffer.
+        """Get the total number of samples in the buffer.
 
         Returns:
-            Number of samples in the buffer.
+            Total number of samples stored in the buffer.
         """
         return len(self.contextualized_actions)
 
@@ -485,7 +527,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         """Create a state dictionary for checkpointing.
 
         Returns:
-            Dictionary containing all necessary state information.
+            Dictionary containing all necessary state information for restoring the buffer.
         """
         return {
             "contextualized_actions": self.contextualized_actions,
@@ -502,7 +544,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         """Load state from a checkpoint dictionary.
 
         Args:
-            state_dict: Dictionary containing state information.
+            state_dict: Dictionary containing state information for restoring the buffer.
 
         Raises:
             ValueError: If the state dictionary is missing required keys.
@@ -514,7 +556,10 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.max_size = state_dict["max_size"]
 
     def clear(self) -> None:
-        """Clear the complete buffer."""
+        """Clear the complete buffer.
+
+        All tensors are reinitialized as empty tensors with appropriate dimensions.
+        """
         self.contextualized_actions = torch.empty(0, 0, 0, device=self.device)  # shape: (n, input_items, n_features)
         self.embedded_actions = torch.empty(0, 0, device=self.device)  # shape: (n, n_embedding_size)
         self.rewards = torch.empty(0, device=self.device)  # shape: (n,)

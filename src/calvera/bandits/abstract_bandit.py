@@ -15,6 +15,7 @@ from calvera.utils.data_storage import (
     BufferDataFormat,
     InMemoryDataBuffer,
 )
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
 def _collate_fn(
@@ -62,6 +63,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         n_features: int,
         buffer: AbstractBanditDataBuffer[ActionInputType, Any] | None = None,
         train_batch_size: int = 32,
+        selector: AbstractSelector | None = None,
     ):
         """Initializes the Bandit.
 
@@ -69,6 +71,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             n_features: The number of features in the contextualized actions.
             buffer: The buffer used for storing the data for continuously updating the neural network.
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
+            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
         """
         assert n_features > 0, "The number of features must be greater than 0."
         assert train_batch_size > 0, "The batch_size for training must be greater than 0."
@@ -83,6 +86,8 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             )
         else:
             self.buffer = buffer
+
+        self.selector = selector if selector is not None else ArgMaxSelector()
 
         self.save_hyperparameters(
             {
@@ -224,10 +229,6 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         batch_size = realized_rewards.shape[0]
 
-        assert (
-            realized_rewards.shape[1] == 1
-        ), "Combinatorial 'data batches' are not yet supported for addition to buffer."
-
         assert realized_rewards.shape[0] == batch_size and (
             embedded_actions is None or embedded_actions.shape[0] == batch_size
         ), "The batch sizes of the input tensors must match."
@@ -281,7 +282,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 f"Received {type(contextualized_actions)}."
             )
 
-        realized_rewards_reshaped = realized_rewards.squeeze(1)
+        realized_rewards_reshaped = realized_rewards.reshape(-1)
 
         self.buffer.add_batch(
             contextualized_actions=contextualized_actions_reshaped,
@@ -480,3 +481,43 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
     def on_test_start(self) -> None:
         """Hook called by PyTorch Lightning."""
         raise ValueError("Testing the bandit via the lightning Trainer is not supported.")
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle saving AbstractBandit state.
+
+        Args:
+            checkpoint: Dictionary to save the state into.
+        """
+        checkpoint["buffer_state"] = self.buffer.state_dict()
+
+        checkpoint["_new_samples_count"] = self._new_samples_count
+        checkpoint["_total_samples_count"] = self._total_samples_count
+
+        checkpoint["_custom_data_loader_passed"] = self._custom_data_loader_passed
+        checkpoint["_training_skipped"] = self._training_skipped
+
+        checkpoint["selector_state"] = self.selector.get_state_dict()
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Handle loading AbstractBandit state.
+
+        Args:
+            checkpoint: Dictionary containing the state to load.
+        """
+        if "buffer_state" in checkpoint:
+            self.buffer.load_state_dict(checkpoint["buffer_state"])
+
+        if "_new_samples_count" in checkpoint:
+            self._new_samples_count = checkpoint["_new_samples_count"]
+
+        if "_total_samples_count" in checkpoint:
+            self._total_samples_count = checkpoint["_total_samples_count"]
+
+        if "_custom_data_loader_passed" in checkpoint:
+            self._custom_data_loader_passed = checkpoint["_custom_data_loader_passed"]
+
+        if "_training_skipped" in checkpoint:
+            self._training_skipped = checkpoint["_training_skipped"]
+
+        if "selector_state" in checkpoint:
+            self.selector = AbstractSelector.from_state_dict(checkpoint["selector_state"])

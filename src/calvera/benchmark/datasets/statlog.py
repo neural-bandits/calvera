@@ -1,3 +1,5 @@
+from typing import cast
+
 import torch
 from ucimlrepo import fetch_ucirepo
 
@@ -59,3 +61,16 @@ class StatlogDataset(AbstractDataset[torch.Tensor]):
             action: The action for which the reward is requested.
         """
         return float(self.y[idx] == action + 1)
+
+    def sort_key(self, idx: int) -> int:
+        """Return the label for a given index.
+
+        This is only required as the sort key in the  SortedDataSampler in the benchmark.
+
+        Args:
+            idx: The index of the context in this dataset.
+
+        Returns:
+            The label for the given index.
+        """
+        return cast(int, self.y[idx].item())

@@ -58,6 +58,22 @@ class AbstractDataset(ABC, Generic[ActionInputType], Dataset[tuple[ActionInputTy
         """Returns the reward for a given index and action."""
         pass
 
+    def sort_key(self, idx: int) -> int:
+        """Return the sort key for a given index.
+
+        This is only required as the sort key in the  SortedDataSampler in the benchmark,
+        i.e. in a special setting where the data is passed sorted to the model.
+
+        Therefore, we don't require this method to be implemented in all subclasses.
+
+        Args:
+            idx: The index of the context in this dataset.
+
+        Returns:
+            The sort key for the given index.
+        """
+        raise NotImplementedError()
+
     def __repr__(self) -> str:
         """Return a string representation of the dataset."""
         return f"{self.__class__.__name__}()"
