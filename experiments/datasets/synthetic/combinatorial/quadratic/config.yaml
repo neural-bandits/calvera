@@ -1,6 +1,6 @@
 comparison_key: bandit
 
-dataset: synthetic_comb
+dataset: synthetic_combinatorial
 dataset_hparams:
   n_samples: 20480
   function_type: quadratic
@@ -8,10 +8,10 @@ dataset_hparams:
 
 bandit:
   - random
-  # - lin_ts
-  # - approx_lin_ts
-  # - lin_ucb
-  # - approx_lin_ucb
+  - lin_ts
+  - approx_lin_ts
+  - lin_ucb
+  - approx_lin_ucb
   - neural_ts
   - neural_ucb
 
