@@ -7,10 +7,10 @@ dataset_hparams:
 
 bandit:
   - dummy
-  # - lin_ts
-  # - approx_lin_ts
-  # - lin_ucb
-  # - approx_lin_ucb
+  - lin_ts
+  - approx_lin_ts
+  - lin_ucb
+  - approx_lin_ucb
   - neural_ts
   - neural_ucb
 
