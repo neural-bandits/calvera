@@ -566,7 +566,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.rewards = torch.empty(0, device=self.device)  # shape: (n,)
 
 
-# TODO(rob2u): check if interface used uniformly
+# TODO(rob2u): statedict
 class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """A list-based implementation of the bandit data buffer.
 
@@ -583,10 +583,10 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         """
         super().__init__(buffer_strategy)
         self.max_size = max_size
-        self.contextualized_actions: list[Any] = []
-        self.embedded_actions: list[Any] = []  # Can store embeddings if provided
+        self.contextualized_actions: list[ActionInputType] = []
+        self.embedded_actions: list[torch.Tensor] = []  # Can store embeddings if provided
         self.rewards: list[float] = []
-        self.chosen_actions: list[Any] = []
+        self.chosen_actions: list[torch.Tensor] = []
 
     def add_batch(
         self,
@@ -611,7 +611,7 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
             assert contextualized_actions.shape[0] == batch_size, "Number of actions must match number of rewards"
 
             for i in range(batch_size):
-                self.contextualized_actions.append(contextualized_actions[i])
+                self.contextualized_actions.append(cast(ActionInputType, contextualized_actions[i]))
                 self.embedded_actions.append(embedded_actions[i]) if embedded_actions is not None else None
                 self.rewards.append(rewards[i].item())
                 self.chosen_actions.append(chosen_actions[i]) if chosen_actions is not None else None
@@ -623,7 +623,9 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
             ), "Number of actions must match number of rewards"
 
             for i in range(batch_size):
-                self.contextualized_actions.append(tuple(elem[i] for elem in contextualized_actions))
+                self.contextualized_actions.append(
+                    cast(ActionInputType, tuple(elem[i] for elem in contextualized_actions))
+                )
                 self.embedded_actions.append(embedded_actions[i]) if embedded_actions is not None else None
                 self.rewards.append(rewards[i].item())
                 self.chosen_actions.append(chosen_actions[i]) if chosen_actions is not None else None
@@ -679,7 +681,7 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
             )
         else:
             return (
-                cast(ActionInputType, torch.stack(self.contextualized_actions)),
+                cast(ActionInputType, torch.stack(cast(list[torch.Tensor], self.contextualized_actions))),
                 torch.stack(embeddings) if embeddings is not None and len(embeddings) else None,
                 torch.tensor(self.rewards),
                 (
@@ -727,7 +729,9 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
                 ),
             )
         else:
-            batch_contextualized = cast(ActionInputType, torch.stack(self.contextualized_actions))
+            batch_contextualized = cast(
+                ActionInputType, torch.stack(cast(list[torch.Tensor], self.contextualized_actions))
+            )
 
         # Only return embedded actions if at least one entry is not None
         if any(self.embedded_actions[i] is not None for i in batch_indices):
@@ -786,7 +790,7 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
                 for i in range(len(self.contextualized_actions[actual_index]))
             )
         else:
-            action = self.contextualized_actions[actual_index].unsqueeze(0)
+            action = cast(torch.Tensor, self.contextualized_actions[actual_index]).unsqueeze(0)
 
         reward = torch.tensor(self.rewards[actual_index]).unsqueeze(0)
         embedding = (
