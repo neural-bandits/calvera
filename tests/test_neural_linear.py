@@ -9,11 +9,7 @@ import torch.nn as nn
 from torch.nn import Sequential
 
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
-from calvera.utils.data_storage import (
-    AllDataBufferStrategy,
-    InMemoryDataBuffer,
-    SlidingWindowBufferStrategy,
-)
+from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
 
 
 @pytest.fixture(autouse=True)
