@@ -214,7 +214,7 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
             A data collator for token classification tasks.
         """
         return DataCollatorForTokenClassification(tokenizer=self.tokenizer, padding=padding)
-    
+
     def sort_key(self, idx: int) -> int:
         """Return the label for a given index."""
         return cast(int, self.data["sentiment"][idx])

@@ -294,10 +294,16 @@ class BanditBenchmark(Generic[ActionInputType]):
             data_strategy = data_strategies[training_params["data_strategy"]](training_params)
 
             if "bert" in training_params["network"] or "resnet" in training_params["network"]:
-                bandit_hparams["buffer"] = ListDataBuffer(data_strategy, max_size=training_params.get("max_buffer_size", None),)
+                bandit_hparams["buffer"] = ListDataBuffer(
+                    data_strategy,
+                    max_size=training_params.get("max_buffer_size", None),
+                )
             else:
-                bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](data_strategy, max_size=training_params.get("max_buffer_size", None),)
-        
+                bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](
+                    data_strategy,
+                    max_size=training_params.get("max_buffer_size", None),
+                )
+
         BanditClass = bandits[bandit_name]
         print(bandit_hparams)
         bandit = BanditClass(**filter_kwargs(BanditClass, bandit_hparams))

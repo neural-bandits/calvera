@@ -1,5 +1,5 @@
-from typing import Any, cast
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 import lightning as pl

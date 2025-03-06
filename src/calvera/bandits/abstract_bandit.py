@@ -19,7 +19,7 @@ from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
 
 
 def _collate_fn(
-    batch: list[tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]]
+    batch: list[tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]],
 ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]:
     batch_contexts: ActionInputType
     if isinstance(batch[0][0], torch.Tensor):
