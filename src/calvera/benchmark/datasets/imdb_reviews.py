@@ -203,3 +203,7 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
             action: The action to evaluate.
         """
         return 1.0 if action == self.data["sentiment"][idx] else 0.0
+
+    def sort_key(self, idx):
+        """Return the label for a given index."""
+        return self.data["sentiment"][idx]

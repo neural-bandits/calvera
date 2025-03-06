@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import cast
 
 import torch
 
@@ -67,7 +68,7 @@ class SyntheticDataset(AbstractDataset[torch.Tensor]):
 
     def sort_key(self, idx: int) -> int:
         """Return the label for a given index."""
-        return self.y[idx].item()
+        return cast(int, self.y[idx].item())
 
 
 class LinearSyntheticDataset(SyntheticDataset):

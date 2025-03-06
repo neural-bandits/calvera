@@ -1,3 +1,5 @@
+from typing import cast
+
 import numpy as np
 import torch
 from sklearn.datasets import fetch_openml
@@ -79,4 +81,4 @@ class MNISTDataset(AbstractDataset[torch.Tensor]):
         Returns:
             The label for the given index.
         """
-        return self.y[idx].item()
+        return cast(int, self.y[idx].item())

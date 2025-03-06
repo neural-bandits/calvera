@@ -1,3 +1,5 @@
+from typing import cast
+
 import torch
 from ucimlrepo import fetch_ucirepo
 
@@ -71,4 +73,4 @@ class StatlogDataset(AbstractDataset[torch.Tensor]):
         Returns:
             The label for the given index.
         """
-        return self.y[idx].item()
+        return cast(int, self.y[idx].item())
