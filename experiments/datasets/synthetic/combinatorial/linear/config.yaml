@@ -18,7 +18,7 @@ bandit:
 max_samples: 20480
 
 selector: top_k
-k: 10
+k: 4
 
 # Setting
 feedback_delay: 1

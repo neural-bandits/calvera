@@ -3,7 +3,7 @@ comparison_key: bandit
 dataset: synthetic_combinatorial
 dataset_hparams:
   n_samples: 20480
-  function_type: quadratic
+  function_type: cosine
   noise_std: 0.1
 
 bandit:
@@ -46,4 +46,4 @@ bandit_hparams:
   n_embedding_size: 64
   eps: 1.0
 
-seed: 52
+seed: 42
