@@ -76,11 +76,11 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
             theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample(  # type: ignore
                 (batch_size,)
             )
-        except RuntimeError as e:
+        except ValueError as e:
             # TODO: Could improve this case. See issue #158.
-            raise RuntimeError(
-                "The precision matrix is not invertible. This can happen due to numerical imprecisions. "
-                "Try to increase the `eps` hyperparameter."
+            raise ValueError(
+                "The precision_matrix is not invertible anymore because it is not positive definite. "
+                "This can happen due to numerical imprecisions. Try to increase the `eps` hyperparameter."
             ) from e
             
 
