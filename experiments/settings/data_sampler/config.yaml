@@ -4,6 +4,7 @@ dataset: statlog
 data_sampler:
   - random
   - sorted_sampler
+max_samples: 20480
 
 bandit: neural_linear
 

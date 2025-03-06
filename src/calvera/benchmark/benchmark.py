@@ -216,7 +216,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         def key_fn(idx: int) -> int:
             return dataset.sort_key(idx)
 
-        bandit_hparams["data_sampler"] = (
+        training_params["data_sampler"] = (
             SortedDataSampler(
                 dataset,
                 key_fn=key_fn,
@@ -303,7 +303,6 @@ class BanditBenchmark(Generic[ActionInputType]):
             subset_indices = indices[:max_samples]
             subset = Subset(dataset, subset_indices)
 
-        # TODO: Add a non-iid data loader as a special setting. Then we need to load a special DataLoader.
         return DataLoader(
             subset,
             batch_size=self.training_params.get("feedback_delay", 1),
@@ -777,8 +776,8 @@ def run_comparison(
             print(f"Setting {comparison_key}={experiment_id}.")
             print(f"Config: {bandit_config}")
             print(
-                f"Dataset {bandit_config['dataset']}:"
-                f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features"
+                f"Dataset {bandit_config['dataset']}: "
+                f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features "
                 f"and {benchmark.dataset.num_actions} actions."
             )
             benchmark.run()
@@ -787,7 +786,7 @@ def run_comparison(
             analyzer.log_metrics(experiment_id)
         except Exception as e:
             print(
-                f"Failed to run benchmark for {comparison_key}={comparison_value}."
+                f"Failed to run benchmark for {comparison_key}={comparison_value}. "
                 "It might not be part of the final analysis."
             )
             print(e)

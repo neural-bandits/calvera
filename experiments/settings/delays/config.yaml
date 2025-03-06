@@ -1,6 +1,8 @@
 comparison_key: feedback_delay
 
 dataset: statlog
+max_samples: 20480
+
 bandit: neural_ucb
 
 selector: argmax
@@ -13,7 +15,6 @@ feedback_delay:
   - 256
   - 1024
 
-max_samples: 16
 
 forward_batch_size: 1
 

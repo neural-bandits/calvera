@@ -1,6 +1,8 @@
-comparison_key: hparams/initial_train_steps
+comparison_key: bandit_hparams/initial_train_steps
 
 dataset: statlog
+max_samples: 20480
+
 bandit: neural_ucb
 
 selector: argmax
@@ -8,6 +10,7 @@ selector: argmax
 # Setting
 feedback_delay: 1
 forward_batch_size: 1
+
 
 # Trainer arguments
 max_steps: 1024
@@ -18,7 +21,7 @@ gradient_clip_val: 20.0
 network: small_mlp  # 3 hidden layer with 128 units
 
 # Buffer
-data_strategy: sliding
+data_strategy: all
 
 max_buffer_size: 10240
 
