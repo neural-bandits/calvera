@@ -1,25 +1,20 @@
-comparison_key: bandit
+comparison_key: delay
 
-dataset: wheel
-dataset_hparams:
-  num_samples: 20480
-  delta: 0.9
-
-load_previous_result:
-  - approx_lin_ucb
-  - lin_ts
-  - lin_ucb
-  - approx_lin_ts
-
-bandit:
-  - neural_linear
-  - neural_ts
-  - neural_ucb
+dataset: statlog
+bandit: neural_ucb
 
 selector: argmax
 
 # Setting
-feedback_delay: 1
+feedback_delay:
+  - 1
+  - 32
+  - 128
+  - 256
+  - 1024
+
+max_samples: 16
+
 forward_batch_size: 1
 
 # Trainer arguments

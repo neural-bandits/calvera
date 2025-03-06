@@ -1,20 +1,7 @@
-comparison_key: bandit
+comparison_key: hparams/min_samples_required_for_training
 
-dataset: wheel
-dataset_hparams:
-  num_samples: 20480
-  delta: 0.9
-
-load_previous_result:
-  - approx_lin_ucb
-  - lin_ts
-  - lin_ucb
-  - approx_lin_ts
-
-bandit:
-  - neural_linear
-  - neural_ts
-  - neural_ucb
+dataset: statlog
+bandit: neural_ucb
 
 selector: argmax
 
@@ -32,6 +19,7 @@ network: small_mlp  # 3 hidden layer with 128 units
 
 # Buffer
 data_strategy: all
+
 max_buffer_size: 10240
 
 # Bandit arguments
@@ -39,7 +27,11 @@ bandit_hparams:
   exploration_rate: 0.1
   lr: 0.0001
   weight_decay: 0.00001
-  min_samples_required_for_training: 128
+  min_samples_required_for_training:
+    - 32
+    - 128
+    - 256
+    - 1024
   initial_train_steps: 1024
   n_embedding_size: 64
 

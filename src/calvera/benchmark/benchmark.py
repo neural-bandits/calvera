@@ -729,23 +729,28 @@ def run_comparison(
     Args:
         config: Contains the `bandit`, `dataset`, `bandit_hparams`
             and other parameters necessary for setting up the benchmark and bandit.
-            The `bandit` must be a list of bandits to compare.
+            Must contain a `comparison_key` which specifies which parameter to run the comparison over.
+            This parameter must be a list of values to compare.
         log_dir: Directory where the logs are stored/outputted to. Default is "logs".
         save_plots: If True, plots be saved on disk. Default is False.
         suppress_plots: If True, plots will not be automatically shown. Default is False.
     """
     assert "comparison_key" in config, "To run a comparison a comparison key must be specified."
-    assert (
-        len(config["comparison_key"]) == 1
-    ), "To run a comparison exactly one valid comparison type must be specified."
-    comparison_type = config["comparison_key"][
-        0
-    ]  # for now only one comparison type is supported. but you could extend it.
-    # comparison_values = bandit_config[comparison_type] but comparison_type can be nested by using "/"
-    comparison_values = deep_get(config, comparison_type)
 
-    assert comparison_values is not None, f"Could not find comparison values for {comparison_type}."
-    assert isinstance(comparison_values, list), f"Comparison values for {comparison_type} must be a list."
+    if isinstance(config["comparison_key"], list):
+        assert (
+            len(config["comparison_key"]) == 1
+        ), "To run a comparison exactly one valid comparison type must be specified."
+        comparison_key = config["comparison_key"][
+            0
+        ]  # for now only one comparison type is supported. but you could extend it.
+    else:
+        comparison_key = config["comparison_key"]
+    # comparison_values = bandit_config[comparison_type] but comparison_type can be nested by using "/"
+    comparison_values = deep_get(config, comparison_key)
+
+    assert comparison_values is not None, f"Could not find comparison values for {comparison_key}."
+    assert isinstance(comparison_values, list), f"Comparison values for {comparison_key} must be a list."
 
     analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
 
@@ -756,12 +761,12 @@ def run_comparison(
             # deep copy the config to avoid overwriting the original but comparison_type can be nested by using "/"
             bandit_config = copy.deepcopy(config)
             # bandit_config[comparison_type] = comparison_value
-            deep_set(bandit_config, comparison_type, comparison_value)
+            deep_set(bandit_config, comparison_key, comparison_value)
 
             csv_logger = CSVLogger(os.path.join(log_dir, experiment_id), version=0)
             benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
             print(f"Running benchmark for {bandit_config['bandit']} with {bandit_config['dataset']} dataset.")
-            print(f"Setting {comparison_type}={experiment_id}.")
+            print(f"Setting {comparison_key}={experiment_id}.")
             print(f"Config: {bandit_config}")
             print(
                 f"Dataset {bandit_config['dataset']}:"
@@ -774,7 +779,7 @@ def run_comparison(
             analyzer.log_metrics(experiment_id)
         except Exception as e:
             print(
-                f"Failed to run benchmark for {comparison_type}={comparison_value}."
+                f"Failed to run benchmark for {comparison_key}={comparison_value}."
                 "It might not be part of the final analysis."
             )
             print(e)
@@ -782,13 +787,13 @@ def run_comparison(
     for comparison_value in config.get("load_previous_result", []):
         experiment_id = str(comparison_value)
         print("==============================================")
-        print(f"Loading previous result for {comparison_type}={experiment_id}.")
+        print(f"Loading previous result for {comparison_key}={experiment_id}.")
         csv_log_dir = os.path.join(log_dir, experiment_id, "lightning_logs", "version_0")
         try:
             analyzer.load_metrics(csv_log_dir, experiment_id)
             analyzer.log_metrics(experiment_id)
         except Exception as e:
-            print(f"Failed to load previous result for {comparison_type}={experiment_id} from {csv_log_dir}.")
+            print(f"Failed to load previous result for {comparison_key}={experiment_id} from {csv_log_dir}.")
             print(e)
 
     analyzer.plot_accumulated_metric("reward")

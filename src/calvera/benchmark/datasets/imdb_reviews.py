@@ -204,6 +204,6 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
         """
         return 1.0 if action == self.data["sentiment"][idx] else 0.0
 
-    def sort_key(self, idx):
+    def sort_key(self, idx: int) -> int:
         """Return the label for a given index."""
         return cast(int, self.data["sentiment"][idx])

@@ -1,3 +1,5 @@
+comparison_key: data_strategy
+
 dataset: statlog
 
 load_previous_result:

@@ -1,5 +1,6 @@
-dataset: mnist
+comparison_key: bandit
 
+dataset: mnist
 bandit:
   - approx_lin_ts
   - approx_lin_ucb

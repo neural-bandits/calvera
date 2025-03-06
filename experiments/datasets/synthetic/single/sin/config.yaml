@@ -1,3 +1,5 @@
+comparison_key: bandit
+
 dataset: synthetic_sin
 dataset_hparams:
   n_features: 40

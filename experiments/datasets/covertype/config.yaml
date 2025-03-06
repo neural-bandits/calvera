@@ -1,3 +1,5 @@
+comparison_key: bandit
+
 dataset: covertype
 
 load_previous_result:
