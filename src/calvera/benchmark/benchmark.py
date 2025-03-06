@@ -31,7 +31,6 @@ from calvera.benchmark.datasets.imdb_reviews import ImdbMovieReviews
 from calvera.benchmark.datasets.mnist import MNISTDataset
 from calvera.benchmark.datasets.movie_lens import MovieLensDataset
 from calvera.benchmark.datasets.statlog import StatlogDataset
-from calvera.benchmark.datasets.tiny_imagenet import TinyImageNetDataset
 from calvera.benchmark.datasets.synthetic import (
     CubicSyntheticDataset,
     LinearCombinationSyntheticDataset,
@@ -39,6 +38,7 @@ from calvera.benchmark.datasets.synthetic import (
     QuadraticSyntheticDataset,
     SinSyntheticDataset,
 )
+from calvera.benchmark.datasets.tiny_imagenet import TinyImageNetDataset
 from calvera.benchmark.datasets.wheel import WheelBanditDataset
 from calvera.benchmark.environment import BanditBenchmarkEnvironment
 from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
