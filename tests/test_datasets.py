@@ -169,7 +169,7 @@ class TestTinyImageNetDataset:
         for _ in range(10):
             X, rewards = dataset[0]
             assert X.shape == torch.Size([1, 3 * 64 * 64])
-            assert rewards.shape == (1, 200)
+            assert rewards.shape == (100,)
 
     def test_reward(self, dataset: TinyImageNetDataset) -> None:
         for i in range(10):

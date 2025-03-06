@@ -45,6 +45,7 @@ from calvera.benchmark.datasets.tiny_imagenet import TinyImageNetDataset
 from calvera.benchmark.datasets.wheel import WheelBanditDataset
 from calvera.benchmark.environment import BanditBenchmarkEnvironment
 from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.benchmark.network_wrappers import BertWrapper, ResNetWrapper
 from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
@@ -53,7 +54,6 @@ from calvera.utils.data_storage import (
     ListDataBuffer,
     SlidingWindowBufferStrategy,
 )
-from calvera.utils.network_wrappers import BertWrapper, ResNetWrapper
 from calvera.utils.selectors import (
     AbstractSelector,
     ArgMaxSelector,
