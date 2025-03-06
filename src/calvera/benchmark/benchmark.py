@@ -1,11 +1,11 @@
 import argparse
 import copy
-from functools import reduce
 import inspect
 import logging
 import os
 import random
 from collections.abc import Callable
+from functools import reduce
 from typing import Any, Generic
 
 import lightning as pl
