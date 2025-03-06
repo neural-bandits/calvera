@@ -64,6 +64,9 @@ from calvera.utils.selectors import (
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 try:
     from transformers import BertModel
 except Exception as e:

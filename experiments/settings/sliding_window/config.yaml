@@ -22,8 +22,8 @@ network: small_mlp  # 3 hidden layer with 128 units
 
 # Buffer
 data_strategy:
+- sliding_window
 - all
-- sliding
 window_size: 1024
 
 max_buffer_size: 10240

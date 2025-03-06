@@ -256,15 +256,9 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         embedded_actions = self._get_contextualized_actions(input_data)  # shape: (batch_size, n_arms, n_embedding_size)
 
-        print("Embedded actions given to LinearTS")
-        print(embedded_actions.shape)
-
         # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward
         # method here: because of inheriting it would call our forward and _predict_action method again.
         result, p = super()._predict_action(cast(ActionInputType, embedded_actions))  # shape: (batch_size, n_arms)
-
-        print("Result from LinearTS")
-        print(result.shape)
 
         return result, p
 
