@@ -1,0 +1,44 @@
+comparison_key: bandit
+
+dataset: synthetic_sin
+dataset_hparams:
+  n_features: 40
+  num_samples: 20480
+
+bandit:
+  - approx_lin_ucb
+  - lin_ts
+  - lin_ucb
+  - approx_lin_ts
+  - neural_linear
+  - neural_ts
+  - neural_ucb
+
+selector: argmax
+
+# Setting
+feedback_delay: 1
+forward_batch_size: 1
+
+# Trainer arguments
+max_steps: 1024
+train_batch_size: 32  # this is actually passed to the bandit but it needs to be here
+gradient_clip_val: 20.0
+
+# Network
+network: small_mlp  # 3 hidden layer with 128 units
+
+# Buffer
+data_strategy: all
+max_buffer_size: 10240
+
+# Bandit arguments
+bandit_hparams:
+  exploration_rate: 0.1
+  lr: 0.0001
+  weight_decay: 0.00001
+  min_samples_required_for_training: 128
+  initial_train_steps: 1024
+  n_embedding_size: 64
+
+seed: 52

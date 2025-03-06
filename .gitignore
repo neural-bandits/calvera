@@ -166,3 +166,7 @@ data/
 examples/logs/*
 examples/lightning_logs/*
 logs/*
+
+# slurm scripts
+batch.sh
+batch_gpu.sh

@@ -31,7 +31,7 @@ class NeuralTSBandit(NeuralBandit):
         learning_rate_decay: float = 1.0,
         learning_rate_scheduler_step_size: int = 1,
         early_stop_threshold: float | None = 1e-3,
-        min_samples_required_for_training: int | None = 64,
+        min_samples_required_for_training: int = 64,
         initial_train_steps: int = 1024,
         num_samples_per_arm: int = 1,
     ) -> None:
@@ -61,7 +61,6 @@ class NeuralTSBandit(NeuralBandit):
                 Defaults to 1e-3. Must be greater equal 0.
             min_samples_required_for_training: If less samples have been added via `record_feedback`
                 than this value, the network is not trained.
-                If None, the network is trained every time `trainer.fit` is called.
                 Defaults to 64. Must be greater 0.
             initial_train_steps: For the first `initial_train_steps` samples, the network is always trained even if
                 less new data than `min_samples_required_for_training` has been seen. Therefore, this value is only

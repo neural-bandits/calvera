@@ -155,7 +155,16 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
 
         best_action_rewards = self._get_best_action_rewards(chosen_actions).sum(dim=1)
         chosen_reward = self._get_realized_rewards(chosen_actions).sum(dim=1)
+
+        eps = 1e-4
+        assert torch.all(best_action_rewards >= chosen_reward - eps), (
+            "Best action rewards should be greater than chosen rewards. "
+            f"Best: {best_action_rewards}, Chosen: {chosen_reward}"
+        )
+
         regret = best_action_rewards - chosen_reward
+        # clamp to 0 to avoid negative regrets
+        regret = torch.clamp(regret, min=0.0)
         return regret
 
     def _validate_chosen_actions(self, chosen_actions: torch.Tensor) -> None:

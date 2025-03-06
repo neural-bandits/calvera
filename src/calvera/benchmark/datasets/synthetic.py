@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import cast
 
 import torch
 
@@ -65,6 +66,10 @@ class SyntheticDataset(AbstractDataset[torch.Tensor]):
         """
         pass
 
+    def sort_key(self, idx: int) -> int:
+        """Return the label for a given index."""
+        return cast(int, self.y[idx].item())
+
 
 class LinearSyntheticDataset(SyntheticDataset):
     """A linear synthetic dataset with bias.
@@ -85,12 +90,32 @@ class LinearSyntheticDataset(SyntheticDataset):
         )
 
 
+class QuadraticSyntheticDataset(SyntheticDataset):
+    """A synthetic dataset with bias and quadratic features.
+
+    In one dimensional case it would be:
+    `y = w_0 + sum_i w_{i,1}*x_i + w_{i,2}*x_i^2`
+    Per added feature, the bias and the features `x_i` and `x_i^2` are added.
+    """
+
+    def phi(self, x: torch.Tensor) -> torch.Tensor:
+        """Return the feature matrix for the given input."""
+        return torch.cat(
+            [
+                torch.ones(x.shape[0], 1),
+                x,
+                x**2,
+            ],
+            dim=1,
+        )
+
+
 class CubicSyntheticDataset(SyntheticDataset):
     """A synthetic dataset with bias and cubic features.
 
     In one dimensional case it would be:
     `y = w_0 + sum_i w_{i,1}*x_i + w_{i,2}*x_i^2 + w_{i,3}*x_i^3`
-    Per added feature, the features `x_i`, `x_i^2`, and `x_i^3` are added.
+    Per added feature, the bias and the features `x_i`, `x_i^2` and `x_i^3` are added.
     """
 
     def phi(self, x: torch.Tensor) -> torch.Tensor:
@@ -109,8 +134,9 @@ class CubicSyntheticDataset(SyntheticDataset):
 class SinSyntheticDataset(SyntheticDataset):
     """A non-linear synthetic dataset using `sin(x)`.
 
-    y = w_0 + sum_i w_i*x_i + sum_j w_j*sin(x_j)
+    `y = w_0 + sum_i w_i*x_i + sum_j w_j*sin(4*x_j)`
 
+    We increase the frequency of the sine function to make it more non-linear.
     """
 
     def phi(self, x: torch.Tensor) -> torch.Tensor:
@@ -119,7 +145,7 @@ class SinSyntheticDataset(SyntheticDataset):
             [
                 torch.ones(x.shape[0], 1),
                 x,
-                torch.sin(x),
+                torch.sin(5 * x),
             ],
             dim=1,
         )
@@ -129,7 +155,7 @@ class LinearCombinationSyntheticDataset(SyntheticDataset):
     """A synthetic dataset of a linear combination of the features.
 
     We use the outer product of the features as the feature matrix.
-    `y = w0 + sum_i w_i*x_i + sum_i sum_{j>i} w_{i,j}*x_i*x_j`
+    `y = w_0 + sum_i w_i*x_i + sum_i sum_{j>i} w_{i,j}*x_i*x_j`
     """
 
     def phi(self, x: torch.Tensor) -> torch.Tensor:

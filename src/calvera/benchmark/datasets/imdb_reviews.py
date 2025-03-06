@@ -4,7 +4,7 @@ import pathlib
 import re
 import tarfile
 import urllib.request
-from typing import Literal
+from typing import Literal, cast
 
 import pandas as pd
 import torch
@@ -203,3 +203,7 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
             action: The action to evaluate.
         """
         return 1.0 if action == self.data["sentiment"][idx] else 0.0
+
+    def sort_key(self, idx: int) -> int:
+        """Return the label for a given index."""
+        return cast(int, self.data["sentiment"][idx])

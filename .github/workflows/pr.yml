@@ -60,7 +60,7 @@ jobs:
         shell: bash
 
       - name: Run Mypy
-        run: make mypy
+        run: make mypy ARGS="--install-types --non-interactive"
         shell: bash
 
       - name: Run tests

@@ -43,8 +43,6 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
             lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
-                Sometimes also called lambda but we already use lambda for the regularization parameter
-                of the neural networks in NeuralLinear, NeuralUCB and NeuralTS.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step.
             clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
@@ -74,6 +72,9 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
         self.automatic_optimization = False
 
         self._init_linear_params()
+
+        # Please don't ask. Lightning requires any parameter to be registered in order to train it on cuda.
+        self.register_parameter("_", None)
 
     def _init_linear_params(self) -> None:
         n_features = cast(int, self.hparams["n_features"])

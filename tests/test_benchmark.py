@@ -1,4 +1,4 @@
-from calvera.benchmark.benchmark import filter_kwargs, run
+from calvera.benchmark.benchmark import filter_kwargs, run, run_comparison
 
 
 def test_lin_ucb_benchmark() -> None:
@@ -53,6 +53,70 @@ def test_neural_linear_benchmark() -> None:
             "sliding_window_size": 1,
             "bandit_hparams": {
                 "n_embedding_size": 128,
+            },
+        },
+        suppress_plots=True,
+    )
+
+
+def test_run_comparison() -> None:
+    run_comparison(
+        {
+            "comparison_key": "bandit",
+            "bandit": ["neural_ucb", "neural_ts"],
+            "dataset": "covertype",
+            "network": "tiny_mlp",
+            "data_sampler": "sorted",
+            "max_samples": 100,
+            "feedback_delay": 1,
+            "train_batch_size": 1,
+            "forward_batch_size": 1,
+            "data_strategy": "all",
+            "bandit_hparams": {
+                "n_embedding_size": 128,
+            },
+        },
+        suppress_plots=True,
+    )
+
+
+def test_run_comparison_data_strategy() -> None:
+    run_comparison(
+        {
+            "comparison_key": "data_strategy",
+            "bandit": "neural_linear",
+            "dataset": "covertype",
+            "network": "tiny_mlp",
+            "max_samples": 100,
+            "feedback_delay": 1,
+            "train_batch_size": 1,
+            "forward_batch_size": 1,
+            "data_strategy": ["all", "sliding_window"],
+            "sliding_window_size": 16,
+            "bandit_hparams": {
+                "n_embedding_size": 128,
+            },
+        },
+        suppress_plots=True,
+    )
+
+
+def test_run_comparison_hparams() -> None:
+    run_comparison(
+        {
+            "comparison_key": "bandit_hparams/min_samples_required_for_training",
+            "bandit": "neural_linear",
+            "dataset": "covertype",
+            "network": "tiny_mlp",
+            "max_samples": 100,
+            "feedback_delay": 1,
+            "train_batch_size": 1,
+            "forward_batch_size": 1,
+            "data_strategy": "all",
+            "sliding_window_size": 16,
+            "bandit_hparams": {
+                "n_embedding_size": 128,
+                "min_samples_required_for_training": [10, 20],
             },
         },
         suppress_plots=True,
