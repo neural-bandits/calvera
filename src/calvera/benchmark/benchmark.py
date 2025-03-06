@@ -1,5 +1,6 @@
 import argparse
 import copy
+from functools import reduce
 import inspect
 import logging
 import os
@@ -689,6 +690,34 @@ def run(
     analyzer.plot_loss()
 
 
+def deep_get(dictionary: dict[str, Any], keys: str, default: Any = None) -> Any:
+    """Get a value in a nested dictionary.
+
+    Args:
+        dictionary: The dictionary to get the value from.
+        keys: The keys to traverse the dictionary. Use "/" to separate keys.
+        default: The default value to return if the key is not found.
+
+    Returns:
+        The value at the given key or the default value if the key is not found.
+    """
+    return reduce(lambda d, key: d.get(key, default) if isinstance(d, dict) else default, keys.split("/"), dictionary)
+
+
+def deep_set(dictionary: dict[str, Any], keys: str, value: Any) -> None:
+    """Set a value in a nested dictionary.
+
+    Args:
+        dictionary: The dictionary to set the value in.
+        keys: The keys to traverse the dictionary. Use "/" to separate keys.
+        value: The value to set.
+    """
+    keys_list = keys.split("/")
+    for key in keys_list[:-1]:
+        dictionary = dictionary.setdefault(key, {})
+    dictionary[keys_list[-1]] = value
+
+
 def run_comparison(
     config: dict[str, Any],
     log_dir: str = "logs",
@@ -705,20 +734,34 @@ def run_comparison(
         save_plots: If True, plots be saved on disk. Default is False.
         suppress_plots: If True, plots will not be automatically shown. Default is False.
     """
-    assert isinstance(config["bandit"], list), "Bandit must be a list of bandits to compare."
+    assert "comparison_key" in config, "To run a comparison a comparison key must be specified."
+    assert (
+        len(config["comparison_key"]) == 1
+    ), "To run a comparison exactly one valid comparison type must be specified."
+    comparison_type = config["comparison_key"][
+        0
+    ]  # for now only one comparison type is supported. but you could extend it.
+    # comparison_values = bandit_config[comparison_type] but comparison_type can be nested by using "/"
+    comparison_values = deep_get(config, comparison_type)
+
+    assert comparison_values is not None, f"Could not find comparison values for {comparison_type}."
+    assert isinstance(comparison_values, list), f"Comparison values for {comparison_type} must be a list."
 
     analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
 
-    for bandit in config["bandit"]:
+    for comparison_value in comparison_values:
         try:
+            experiment_id = str(comparison_value)
             print("==============================================")
-            # deep copy the config to avoid overwriting the original
+            # deep copy the config to avoid overwriting the original but comparison_type can be nested by using "/"
             bandit_config = copy.deepcopy(config)
-            bandit_config["bandit"] = bandit
+            # bandit_config[comparison_type] = comparison_value
+            deep_set(bandit_config, comparison_type, comparison_value)
 
-            csv_logger = CSVLogger(os.path.join(log_dir, bandit), version=0)
+            csv_logger = CSVLogger(os.path.join(log_dir, experiment_id), version=0)
             benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
-            print(f"Running benchmark for {bandit} on {bandit_config['dataset']} dataset.")
+            print(f"Running benchmark for {bandit_config['bandit']} with {bandit_config['dataset']} dataset.")
+            print(f"Setting {comparison_type}={experiment_id}.")
             print(f"Config: {bandit_config}")
             print(
                 f"Dataset {bandit_config['dataset']}:"
@@ -727,21 +770,25 @@ def run_comparison(
             )
             benchmark.run()
 
-            analyzer.load_metrics(csv_logger.log_dir, bandit)
-            analyzer.log_metrics(bandit)
+            analyzer.load_metrics(csv_logger.log_dir, experiment_id)
+            analyzer.log_metrics(experiment_id)
         except Exception as e:
-            print(f"Failed to run benchmark for {bandit}. It might not be part of the final analysis.")
+            print(
+                f"Failed to run benchmark for {comparison_type}={comparison_value}."
+                "It might not be part of the final analysis."
+            )
             print(e)
 
-    for bandit in config.get("load_previous_result", []):
+    for comparison_value in config.get("load_previous_result", []):
+        experiment_id = str(comparison_value)
         print("==============================================")
-        print(f"Loading previous result for {bandit}.")
-        csv_log_dir = os.path.join(log_dir, bandit, "lightning_logs", "version_0")
+        print(f"Loading previous result for {comparison_type}={experiment_id}.")
+        csv_log_dir = os.path.join(log_dir, experiment_id, "lightning_logs", "version_0")
         try:
-            analyzer.load_metrics(csv_log_dir, bandit)
-            analyzer.log_metrics(bandit)
+            analyzer.load_metrics(csv_log_dir, experiment_id)
+            analyzer.log_metrics(experiment_id)
         except Exception as e:
-            print(f"Failed to load previous result for {bandit} from {csv_log_dir}.")
+            print(f"Failed to load previous result for {comparison_type}={experiment_id} from {csv_log_dir}.")
             print(e)
 
     analyzer.plot_accumulated_metric("reward")
@@ -774,15 +821,12 @@ def run_from_yaml(
 
     # Load the configuration from the passed yaml file
     with open(config_path) as file:
-        config = yaml.safe_load(file)
+        config: dict[str, Any] = yaml.safe_load(file)
 
-    assert "bandit" in config, "Configuration must contain a 'bandit' key."
-    if isinstance(config["bandit"], list):
+    if config.get("comparison_key") is not None:
         run_comparison(config, log_dir, save_plots, suppress_plots)
-    elif isinstance(config["bandit"], str):
-        run(config, log_dir, save_plots, suppress_plots)
     else:
-        raise ValueError("Bandit must be a string or a list of strings.")
+        run(config, log_dir, save_plots, suppress_plots)
 
 
 """Runs the benchmark training from the command line.
