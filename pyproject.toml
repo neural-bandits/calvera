@@ -71,7 +71,6 @@ where = ["src"]
 
 [tool.mypy]
 files = "src/calvera"
-exclude = ["examples/"]
 strict = true
 python_version = "3.10"
 
