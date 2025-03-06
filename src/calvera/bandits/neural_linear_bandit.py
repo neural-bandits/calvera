@@ -713,8 +713,6 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
                 new_embedded_actions[i : i + batch_size] = embedded_actions
 
-        self.network.train()
-
         self.buffer.update_embeddings(new_embedded_actions)
 
     def retrain_head(self) -> None:

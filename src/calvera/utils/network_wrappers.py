@@ -1,3 +1,4 @@
+import math
 from typing import Any, cast
 
 import timm
@@ -37,16 +38,19 @@ class ResNetWrapper(nn.Module):
     def __init__(self, network: nn.Module, *args: Any, **kwargs: Any) -> None:
         """Initializes the ResNetWrapper."""
         super().__init__(*args, **kwargs)
-
-        self.network = network
+        
+        self.network = network.eval()
 
         data_config = timm.data.resolve_model_data_config(network)  # type: ignore
         self.transforms = timm.data.create_transform(**data_config, is_training=False)  # type: ignore
+        self.dim_reduction = nn.Linear(512, 128)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the network."""
         assert isinstance(x, torch.Tensor), "Input must be a tensor"
-        x = x.repeat(1, 3, 1, 1)
+        
+        w = int(math.sqrt(x.shape[-1] / 3))
+        x = x.reshape(-1, 3, w, w)
 
         x = self.transforms(x)
 
@@ -54,5 +58,6 @@ class ResNetWrapper(nn.Module):
         # output is unpooled, a (1, 512, 7, 7) shaped tensor
 
         output = self.network.forward_head(output, pre_logits=True)  # type: ignore
+        output = self.dim_reduction(output)
 
         return cast(torch.Tensor, output)

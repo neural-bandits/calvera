@@ -156,12 +156,22 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
     "bert": lambda in_size, out_size: BertWrapper(
         BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2", output_hidden_states=True)
     ),
+    "bert_frozen": lambda in_size, out_size: BertWrapper(
+        BertModel.from_pretrained("google/bert_uncased_L-2_H-128_A-2", output_hidden_states=True)
+    ),
     "resnet18": lambda in_size, out_size: ResNetWrapper(
         network=timm.create_model(
             "resnet18.a1_in1k",
             pretrained=True,
             num_classes=0,  # remove classifier nn.Linear
         )
+    ),
+    "resnet18_frozen": lambda in_size, out_size: ResNetWrapper(
+        network=timm.create_model(
+            "resnet18.a1_in1k",
+            pretrained=True,
+            num_classes=0,  # remove classifier nn.Linear
+        ).eval()
     ),
 }
 

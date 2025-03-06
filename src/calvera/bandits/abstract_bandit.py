@@ -14,6 +14,7 @@ from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     BufferDataFormat,
     InMemoryDataBuffer,
+    ListDataBuffer,
 )
 from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
 
@@ -488,7 +489,11 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         Args:
             checkpoint: Dictionary to save the state into.
         """
-        checkpoint["buffer_state"] = self.buffer.state_dict()
+        if isinstance(self.buffer, ListDataBuffer):
+            logger.warning("Currently, the ListDataBuffer is not supported for saving the state. "
+                           "Therefore after saving and loading the bandit, the buffer will be empty.")
+        else:
+            checkpoint["buffer_state"] = self.buffer.state_dict()
 
         checkpoint["_new_samples_count"] = self._new_samples_count
         checkpoint["_total_samples_count"] = self._total_samples_count
