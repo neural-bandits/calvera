@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Generic, cast
+from typing import Any, Generic, Optional, cast
 
 import lightning as pl
 import torch
@@ -14,7 +14,7 @@ from calvera.utils.data_storage import (
     BufferDataFormat,
     InMemoryDataBuffer,
 )
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector
+from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, RandomSelector
 
 logger = logging.getLogger(__name__)
 
@@ -407,7 +407,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         Returns:
             The loss value. In most cases, it makes sense to return the negative reward.
-                Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
+                Shape: (1,). If we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """
         pass
@@ -475,3 +475,36 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         if "selector_state" in checkpoint:
             self.selector = AbstractSelector.from_state_dict(checkpoint["selector_state"])
+
+
+class DummyBandit(AbstractBandit[ActionInputType]):
+    """A dummy bandit that always selects random actions."""
+
+    def __init__(self, n_features: int, selector: Optional[AbstractSelector] = None) -> None:
+        """Initializes a DummyBandit with a RandomSelector."""
+        if selector is None:
+            selector = RandomSelector()
+        super().__init__(
+            selector=RandomSelector(),
+            n_features=n_features,
+        )
+        self.automatic_optimization = False
+        # Please don't ask. Lightning requires any parameter to be registered in order to train it on cuda.
+        self.register_parameter("_", None)
+
+    def _predict_action(
+        self,
+        contextualized_actions: ActionInputType,
+        **kwargs: Any,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass, computed batch-wise. Does nothing but call the RandomSelector."""
+        selected_actions = self.selector
+        return torch.zeros_like(contextualized_actions[:, :, 0]), torch.ones(contextualized_actions.shape[0])
+
+    def _update(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        """Dummy implementation of the update method."""
+        return torch.tensor(0.0)

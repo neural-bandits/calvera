@@ -17,7 +17,7 @@ from lightning.pytorch.loggers import CSVLogger, Logger
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 
-from calvera.bandits.abstract_bandit import AbstractBandit
+from calvera.bandits.abstract_bandit import AbstractBandit, DummyBandit
 from calvera.bandits.action_input_type import ActionInputType
 from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
 from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
@@ -50,7 +50,13 @@ from calvera.utils.data_storage import (
     InMemoryDataBuffer,
     SlidingWindowBufferStrategy,
 )
-from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, EpsilonGreedySelector, TopKSelector
+from calvera.utils.selectors import (
+    AbstractSelector,
+    ArgMaxSelector,
+    EpsilonGreedySelector,
+    RandomSelector,
+    TopKSelector,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -70,6 +76,7 @@ bandits: dict[str, type[AbstractBandit[Any]]] = {
     "neural_linear": NeuralLinearBandit,
     "neural_ucb": NeuralUCBBandit,
     "neural_ts": NeuralTSBandit,
+    "random": DummyBandit,
 }
 
 datasets: dict[str, type[AbstractDataset[Any]]] = {
@@ -98,6 +105,7 @@ selectors: dict[str, Callable[[dict[str, Any]], AbstractSelector]] = {
     "argmax": lambda params: ArgMaxSelector(),
     "epsilon_greedy": lambda params: EpsilonGreedySelector(params.get("epsilon", 0.1), seed=params["seed"]),
     "top_k": lambda params: TopKSelector(params.get("k", 1)),
+    "random": lambda params: RandomSelector(params.get("k", 1), seed=params["seed"]),
 }
 
 networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
@@ -517,34 +525,34 @@ def run_comparison(
     analyzer = BenchmarkAnalyzer(log_dir, "results", "metrics.csv", "env_metrics.csv", save_plots, suppress_plots)
 
     for comparison_value in comparison_values:
-        try:
-            experiment_id = str(comparison_value)
-            print("==============================================")
-            # deep copy the config to avoid overwriting the original but comparison_type can be nested by using "/"
-            bandit_config = copy.deepcopy(config)
-            # bandit_config[comparison_type] = comparison_value
-            deep_set(bandit_config, comparison_key, comparison_value)
+        # try:
+        experiment_id = str(comparison_value)
+        print("==============================================")
+        # deep copy the config to avoid overwriting the original but comparison_type can be nested by using "/"
+        bandit_config = copy.deepcopy(config)
+        # bandit_config[comparison_type] = comparison_value
+        deep_set(bandit_config, comparison_key, comparison_value)
 
-            csv_logger = CSVLogger(os.path.join(log_dir, experiment_id), version=0)
-            benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
-            print(f"Running benchmark for {bandit_config['bandit']} with {bandit_config['dataset']} dataset.")
-            print(f"Setting {comparison_key}={experiment_id}.")
-            print(f"Config: {bandit_config}")
-            print(
-                f"Dataset {bandit_config['dataset']}: "
-                f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features "
-                f"and {benchmark.dataset.num_actions} actions."
-            )
-            benchmark.run()
+        csv_logger = CSVLogger(os.path.join(log_dir, experiment_id), version=0)
+        benchmark = BanditBenchmark.from_config(bandit_config, csv_logger)
+        print(f"Running benchmark for {bandit_config['bandit']} with {bandit_config['dataset']} dataset.")
+        print(f"Setting {comparison_key}={experiment_id}.")
+        print(f"Config: {bandit_config}")
+        print(
+            f"Dataset {bandit_config['dataset']}: "
+            f"{len(benchmark.dataset)} samples with {benchmark.dataset.context_size} features "
+            f"and {benchmark.dataset.num_actions} actions."
+        )
+        benchmark.run()
 
-            analyzer.load_metrics(csv_logger.log_dir, experiment_id)
-            analyzer.log_metrics(experiment_id)
-        except Exception as e:
-            print(
-                f"Failed to run benchmark for {comparison_key}={comparison_value}. "
-                "It might not be part of the final analysis."
-            )
-            print(e)
+        analyzer.load_metrics(csv_logger.log_dir, experiment_id)
+        analyzer.log_metrics(experiment_id)
+    # except Exception as e:
+    # print(
+    # f"Failed to run benchmark for {comparison_key}={comparison_value}. "
+    # "It might not be part of the final analysis."
+    # )
+    # print(e)
 
     for comparison_value in config.get("load_previous_result", []):
         experiment_id = str(comparison_value)
