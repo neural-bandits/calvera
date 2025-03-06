@@ -1,4 +1,5 @@
 sources = src tests examples
+mypy_sources = src tests
 
 .PHONY: format
 format:
@@ -13,7 +14,7 @@ lint:
 
 .PHONY: mypy
 mypy:
-	mypy $(ARGS) $(sources)
+	mypy $(ARGS) $(mypy_sources)
 
 .PHONY: all
 all:
