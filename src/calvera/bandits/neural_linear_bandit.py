@@ -7,7 +7,7 @@ from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from calvera.bandits.action_input_type import ActionInputType
 from calvera.bandits.linear_ts_bandit import LinearTSBandit
 from calvera.benchmark.multiclass import MultiClassContextualizer
-from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
+from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat, ListDataBuffer
 from calvera.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
@@ -21,18 +21,22 @@ class HelperNetwork(torch.nn.Module):
     This allows for training an embedding which is useful for the linear head of the NeuralLinearBandit.
     """
 
-    def __init__(self, network: torch.nn.Module, output_size: int) -> None:
+    def __init__(
+        self, network: torch.nn.Module, output_size: int, contextualizer: MultiClassContextualizer | None = None
+    ) -> None:
         """Initialize the HelperNetwork.
 
         Args:
             network: The neural network to be used to encode the input data into an embedding.
             output_size: The size of the output of the neural network.
+            contextualizer: If provided disjoint model contextualization will be applied to the embeddings
         """
         super().__init__()
         self.network = network
         self.linear_head = torch.nn.Linear(
             output_size, 1
         )  # mock linear head so we can learn an embedding that is useful for the linear head
+        self.contextualizer = contextualizer
 
     def forward(self, *x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the HelperNetwork.
@@ -45,6 +49,8 @@ class HelperNetwork(torch.nn.Module):
             The output of the linear head.
         """
         z = self.network.forward(*x)
+        if self.contextualizer is not None:
+            z = self.contextualizer(z)
         return self.linear_head.forward(z)
 
     def reset_linear_head(self) -> None:
@@ -155,6 +161,10 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         ), "Early stop threshold must be greater than or equal to 0."
         assert initial_train_steps >= 0, "Initial training steps must be greater than or equal to 0."
 
+        if contextualization_after_network:
+            assert n_arms is not None, "`n_arms` need to be provided when performing `contextualization_after_network`."
+            n_embedding_size *= n_arms
+
         super().__init__(
             n_features=n_embedding_size,
             selector=selector,
@@ -185,13 +195,6 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         self.network = network.to(self.device)
 
-        # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder,
-        # hence the single output dimension.
-        self._helper_network = HelperNetwork(
-            self.network,
-            self.hparams["n_embedding_size"],
-        ).to(self.device)
-
         self.register_buffer(
             "contextualized_actions", torch.empty(0, device=self.device)
         )  # shape: (buffer_size, n_parts, n_network_input_size)
@@ -213,7 +216,19 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 "Therefore, `n_embedding_size` must be divisible by `n_arms`."
             )
 
+            assert isinstance(buffer, ListDataBuffer), (
+                "Currently only the `ListDataBuffer` supports" "`contextualization_after_network`."
+            )
+
             self.contextualizer = MultiClassContextualizer(n_arms=n_arms)
+
+        # We use this network to train the encoder model. We mock a linear head with the final layer of the encoder,
+        # hence the single output dimension.
+        self._helper_network = HelperNetwork(
+            self.network,
+            self.hparams["n_embedding_size"],
+            self.contextualizer,
+        ).to(self.device)
 
         self._helper_network_init = self._helper_network.state_dict().copy() if not self.hparams["warm_start"] else None
 
@@ -239,9 +254,15 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         embedded_actions = self._get_contextualized_actions(input_data)  # shape: (batch_size, n_arms, n_embedding_size)
 
+        print("Embedded actions given to LinearTS")
+        print(embedded_actions.shape)
+
         # Call the linear bandit to get the best action via Thompson Sampling. Unfortunately, we can't use its forward
         # method here: because of inheriting it would call our forward and _predict_action method again.
         result, p = super()._predict_action(cast(ActionInputType, embedded_actions))  # shape: (batch_size, n_arms)
+
+        print("Result from LinearTS")
+        print(result.shape)
 
         return result, p
 
@@ -267,11 +288,17 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             else:
                 raise ValueError("The contextualized_actions must be either a torch.Tensor or a tuple of torch.Tensor.")
 
-            assert sample.ndim == 3, "The input data must have shape (batch_size, n_arms, n_network_input_size)."
+            assert sample.ndim >= 2, "The input data must have shape (batch_size, n_arms, ...)."
 
-            assert sample.shape[1] == 1, "If `contextualization_after_network` is True, `n_arms` must be 1."
+            assert sample.shape[1] == 1, (
+                "If `contextualization_after_network` is True, `n_arms` must be 1. " f"But shape is {sample.shape}."
+            )
 
-            contextualized_embeddings = self.contextualizer(self.network.forward(input_data))
+            contextualized_embeddings: torch.Tensor = (
+                self.contextualizer(self.network.forward(input_data))
+                if isinstance(input_data, torch.Tensor)
+                else self.contextualizer(self.network.forward(*input_data))
+            )
             # Shape (batch_size, n_arms, model_output_size * n_arms)
             assert (
                 contextualized_embeddings.ndim == 3
@@ -295,7 +322,6 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         Returns:
             out: The embedded actions. Shape: (batch_size, n_arms, n_embedding_size)
         """
-        print("contextualized_actions", contextualized_actions)
         if isinstance(contextualized_actions, torch.Tensor):
             assert contextualized_actions.ndim >= 3, (
                 f"Contextualized actions must have shape (batch_size, n_chosen_arms, n_network_input_size)"
@@ -308,16 +334,17 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             flattened_actions = contextualized_actions.view(
                 batch_size * n_arms, *contextualized_actions.shape[2:]
             )  # shape: (batch_size * n_arms, n_network_input_size)
-
+            print(flattened_actions.shape)
             # TODO: We should probably pass the kwargs here but then we would need to pass them in the update method.
             embedded_actions: torch.Tensor = self.network.forward(
                 flattened_actions,
             )  # shape: (batch_size * n_arms, n_embedding_size)
         elif isinstance(contextualized_actions, tuple | list):
             # assert shape of all tensors
-            assert len(contextualized_actions) > 1 and contextualized_actions[0].ndim == 3, (
+            assert len(contextualized_actions) > 1 and contextualized_actions[0].ndim >= 3, (
                 "The tuple of contextualized_actions must contain more than one element and be of shape"
-                "(batch_size, n_chosen_arms, n_network_input_size)."
+                "(batch_size, n_chosen_arms, ...). "
+                f"Encountered shape {contextualized_actions[0].shape}"
             )
 
             batch_size, n_arms = contextualized_actions[0].shape[:2]
@@ -360,6 +387,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         self,
         contextualized_actions: ActionInputType,
         rewards: torch.Tensor,
+        chosen_actions: torch.Tensor | None = None,
     ) -> None:
         """Record a pair of actions and rewards for the bandit.
 
@@ -367,12 +395,25 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             contextualized_actions: The contextualized actions that were chosen by the bandit.
                 Size: (batch_size, n_actions, n_features).
             rewards: The rewards that were observed for the chosen actions. Size: (batch_size, n_actions).
+            chosen_actions: The chosen actions one-hot encoded. Size: (batch_size, n_actions). Should only be provided
+                if there is only a single contextualized action (see `contextualization_after_network`).
         """
         embedded_actions = self._get_contextualized_actions(
             contextualized_actions
         )  # shape: (batch_size, n_actions, n_embedding_size)
 
-        self._add_data_to_buffer(contextualized_actions, rewards, embedded_actions)
+        chosen_actions_idx = torch.argmax(chosen_actions, dim=1) if chosen_actions is not None else None
+        assert (
+            chosen_actions_idx is None or embedded_actions.shape[1] != 1
+        ), "If there is only a single action, the chosen_actions_idx must be provided."
+
+        embedded_actions = (
+            embedded_actions[torch.arange(embedded_actions.shape[0]), (chosen_actions_idx)].unsqueeze(1)
+            if chosen_actions_idx is not None
+            else embedded_actions
+        )
+
+        self._add_data_to_buffer(contextualized_actions, rewards, embedded_actions, chosen_actions)
 
         # _total_samples_count is managed by the AbstractBandit
         self._samples_without_training_network += rewards.shape[0]
@@ -472,7 +513,16 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             batch_idx: The index of the batch.
         """
         # Assertions are happening in AbstractBandit
-        realized_rewards: torch.Tensor = batch[-1]  # shape: (batch_size, n_chosen_arms)
+
+        assert len(batch) == 4, (
+            "For head updates, batch must be three tensors: "
+            "(contextualized_actions, embedded_actions, rewards, chosen_actions)."
+            "Either use the `record_feedback` method and do not pass a `train_dataloader`"
+            "to `trainer.fit` or make sure that enough data exists to train the network "
+            "or manually set `should_train_network` to `True`."
+        )
+
+        realized_rewards: torch.Tensor = batch[2]  # shape: (batch_size, n_chosen_arms)
 
         assert realized_rewards.shape[1] == 1, (
             "The neural linear bandit can only choose one action at a time."
@@ -488,20 +538,22 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
         if self.should_train_network:
             chosen_contextualized_actions: ActionInputType = batch[0]  # shape: (batch_size, n_chosen_arms, n_features)
+            chosen_actions = batch[3]
 
             # Asserting shapes of the input data
-            loss = self._train_network(chosen_contextualized_actions, realized_rewards)
+            loss = self._train_network(chosen_contextualized_actions, realized_rewards, chosen_actions=chosen_actions)
             self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=False)
             return loss
         else:  # update the head
-            assert len(batch) == 3, (
-                "For head updates, batch must be three tensors: (contextualized_actions, embedded_actions, rewards)."
-                "Either use the `record_feedback` method and do not pass a `train_dataloader`"
-                "to `trainer.fit` or make sure that enough data exists to train the network "
-                "or manually set `should_train_network` to `True`."
-            )
-
+            assert batch[1] is not None, "The embedded actions must be provided for updating the head."
             embedded_actions: torch.Tensor = batch[1]  # shape: (batch_size, n_chosen_arms, n_embedding_size)
+
+            # if self.hparams["contextualization_after_network"]:
+            #     chosen_actions: None | torch.Tensor = batch[3]
+            #     assert chosen_actions is not None, ("Chosen actions are needed when "
+            #             "`contextualization_after_network is True")
+            #     chosen_actions_idx = chosen_actions.argmax(dim=1)
+            #     embedded_actions = embedded_actions[torch.arange(embedded_actions.shape[0]), :, chosen_actions_idx]
 
             self._train_head(embedded_actions, realized_rewards)
             # Since we are not training the network, we return a dummy loss
@@ -511,6 +563,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         self,
         context: ActionInputType,
         reward: torch.Tensor,
+        chosen_actions: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Train the neural network on the given data by computing the loss."""
         assert self.automatic_optimization, "Automatic optimization must be enabled for training the network."
@@ -534,6 +587,14 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             predicted_reward = self._helper_network.forward(
                 *tuple(input_part.squeeze(1).to(self.device) for input_part in context)
             )  # shape: (batch_size,)
+
+        if self.hparams["contextualization_after_network"]:
+            assert (
+                chosen_actions is not None
+            ), "The `chosen_actions` are necessary if `contextualization_after_network` is True"
+
+            chosen_actions_idx = chosen_actions.argmax(dim=1)
+            predicted_reward = predicted_reward[torch.arange(predicted_reward.shape[0]), chosen_actions_idx]
 
         loss = self._compute_loss(predicted_reward, reward)
 
@@ -606,7 +667,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
     def update_embeddings(self) -> None:
         """Update all of the embeddings stored in the replay buffer."""
         # TODO: possibly do lazy updates of the embeddings as computing all at once will take forever
-        contexts, _, _ = self.buffer.get_all_data()  # shape: (num_samples, n_network_input_size)
+        contexts, _, _, chosen_actions = self.buffer.get_all_data()  # shape: (num_samples, n_network_input_size)
 
         num_samples = contexts.shape[0] if isinstance(contexts, torch.Tensor) else contexts[0].shape[0]
         if num_samples == 0:
@@ -634,11 +695,20 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                         "The contextualized_actions must be either a torch.Tensor or a tuple of torch.Tensors."
                     )
 
-                new_embedded_actions[i : i + batch_size] = self._get_contextualized_actions(
+                embedded_actions = self._get_contextualized_actions(
                     batch_input  # shape: (batch_size, 1, n_network_input_size)
-                ).squeeze(
-                    1
                 )  # shape: (batch_size, n_embedding_size)
+
+                if not self.hparams["contextualization_after_network"]:
+                    embedded_actions = embedded_actions.squeeze(1)
+                else:
+                    assert chosen_actions is not None, (
+                        "Chosen actions are needed when " "`contextualization_after_network is True"
+                    )
+                    chosen_actions_idx = chosen_actions[i : i + batch_size].argmax(dim=1)
+                    embedded_actions = embedded_actions[torch.arange(embedded_actions.shape[0]), chosen_actions_idx]
+
+                new_embedded_actions[i : i + batch_size] = embedded_actions
 
         self.network.train()
 
@@ -652,7 +722,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         # Retrieve training data.
         # We would like to retrain the head on the whole buffer.
         # We have to min with len(self.buffer) because the buffer might have deleted some of the old samples.
-        _, z, y = self.buffer.get_all_data()
+        _, z, y, _ = self.buffer.get_all_data()
 
         if y.shape[0] == 0:
             return

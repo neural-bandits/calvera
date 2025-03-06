@@ -8,7 +8,7 @@ from typing import Literal
 
 import pandas as pd
 import torch
-from transformers import BertTokenizer, PreTrainedTokenizer
+from transformers import BertTokenizer, DataCollatorForTokenClassification, PreTrainedTokenizer
 
 from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 
@@ -122,7 +122,7 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
     # We cannot provide a context size directly since the context is the text itself. You should use the output of this
     # dataset as the input to a transformer model. Then you can use the output of the model as the context, then apply
     # the `MultiClassContextualizer` to it.
-    context_size: int  # will be set to `max_len` in the constructor
+    context_size: int = 256
     # We only provide the number of samples for the training set here.
     num_samples: int = 24904
 
@@ -149,7 +149,6 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
             partition=partition,
             dest_path=dest_path,
         )
-        self.context_size = max_len
 
         if tokenizer is None:
             self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", padding="max_length", truncation=True)
@@ -186,9 +185,9 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
 
         return (
             (
-                torch.tensor(inputs["input_ids"], dtype=torch.long),
-                torch.tensor(inputs["attention_mask"], dtype=torch.long),
-                torch.tensor(inputs["token_type_ids"], dtype=torch.long),
+                torch.tensor(inputs["input_ids"], dtype=torch.long).unsqueeze(0),
+                torch.tensor(inputs["attention_mask"], dtype=torch.long).unsqueeze(0),
+                torch.tensor(inputs["token_type_ids"], dtype=torch.long).unsqueeze(0),
             ),
             rewards,
         )
@@ -203,3 +202,15 @@ class ImdbMovieReviews(AbstractDataset[TextActionInputType]):
             action: The action to evaluate.
         """
         return 1.0 if action == self.data["sentiment"][idx] else 0.0
+
+    def get_data_collator(self, padding: bool | str = True) -> DataCollatorForTokenClassification:
+        """Return a data collator for token classification tasks.
+
+        Args:
+            padding: Either a boolean or a string. If True, the data collator will pad the inputs. If False, it will
+                not pad the inputs. If a string, it will use the string as the padding token. Default is True.
+
+        Returns:
+            A data collator for token classification tasks.
+        """
+        return DataCollatorForTokenClassification(tokenizer=self.tokenizer, padding=padding)

@@ -67,9 +67,11 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
                 probability in the future. Shape: (batch_size, ).
         """
         assert isinstance(contextualized_actions, torch.Tensor), "contextualized_actions must be a torch.Tensor"
-        assert (
-            contextualized_actions.shape[2] == self.hparams["n_features"]
-        ), "contextualized actions must have shape (batch_size, n_arms, n_features)"
+        assert contextualized_actions.shape[2] == self.hparams["n_features"], (
+            "contextualized actions must have shape (batch_size, n_arms, n_features), "
+            f"Got {contextualized_actions.shape}"
+        )
+
         batch_size = contextualized_actions.shape[0]
 
         theta_tilde = torch.distributions.MultivariateNormal(self.theta, self.precision_matrix).sample(  # type: ignore

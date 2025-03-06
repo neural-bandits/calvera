@@ -5,6 +5,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from calvera.bandits.abstract_bandit import _collate_fn
 from calvera.bandits.neural_bandit import NeuralBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
@@ -31,7 +32,7 @@ def network_and_buffer() -> tuple[int, nn.Module, InMemoryDataBuffer[torch.Tenso
 def small_context_reward_batch() -> tuple[
     torch.Tensor,
     torch.Tensor,
-    torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+    torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor | None, torch.Tensor, torch.Tensor | None]],
 ]:
     """
     Returns (chosen_contextualized_actions, rewards, dataset):
@@ -42,7 +43,9 @@ def small_context_reward_batch() -> tuple[
     contextualized_actions = torch.randn(batch_size, n_chosen_arms, n_features)
     rewards = torch.randn(batch_size, n_chosen_arms)
 
-    class RandomDataset(torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
+    class RandomDataset(
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor | None, torch.Tensor, torch.Tensor | None]]
+    ):
         def __init__(self, actions: torch.Tensor, rewards: torch.Tensor):
             self.actions = actions
             self.rewards = rewards
@@ -51,7 +54,7 @@ def small_context_reward_batch() -> tuple[
             return len(self.actions)
 
         def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-            return self.actions[idx], self.rewards[idx]
+            return self.actions[idx], None, self.rewards[idx], None
 
     dataset = RandomDataset(contextualized_actions, rewards)
     return contextualized_actions, rewards, dataset
@@ -222,7 +225,7 @@ def test_neural_bandit_training_step_custom_dataloader(
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
-        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]],
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor | None, torch.Tensor, torch.Tensor | None]],
     ],
     bandit_type: str,
 ) -> None:
@@ -293,7 +296,9 @@ def test_neural_bandit_training_step_custom_dataloader(
 
     assert not bandit.should_train_network, "Not enough samples to train"
 
-    trainer.fit(bandit, torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0))
+    trainer.fit(
+        bandit, torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0, collate_fn=_collate_fn)
+    )
 
     assert buffer.contextualized_actions.shape[0] == 3 * actions.shape[0]
     assert buffer.rewards.shape[0] == 3 * rewards.shape[0]

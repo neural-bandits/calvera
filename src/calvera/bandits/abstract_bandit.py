@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any, Generic, cast
 
 import lightning as pl
@@ -14,6 +15,33 @@ from calvera.utils.data_storage import (
     BufferDataFormat,
     InMemoryDataBuffer,
 )
+
+
+def _collate_fn(
+    batch: list[tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]]
+) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]:
+    batch_contexts: ActionInputType
+    if isinstance(batch[0][0], torch.Tensor):
+        batch_contexts = cast(ActionInputType, torch.stack([cast(torch.Tensor, sample[0]) for sample in batch], dim=0))
+    else:
+        batch_contexts = cast(
+            ActionInputType, tuple([torch.stack([sample[0][i] for sample in batch]) for i in range(len(batch[0][0]))])
+        )
+
+    batch_embeddings = (
+        torch.stack(cast(list[torch.Tensor], [sample[1] for sample in batch]), dim=0)
+        if batch[0][1] is not None
+        else None
+    )
+    batch_reward = torch.stack([sample[2] for sample in batch], dim=0)
+    batch_chosen_actions = (
+        torch.stack(cast(list[torch.Tensor], [sample[3] for sample in batch]), dim=0)
+        if batch[0][3] is not None
+        else None
+    )
+
+    return batch_contexts, batch_embeddings, batch_reward, batch_chosen_actions
+
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +123,14 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 "Chosen actions must have shape (batch_size, num_actions, ...) "
                 f"but got shape {contextualized_actions.shape}"
             )
-            batch_size, n_chosen_actions = contextualized_actions.shape[:2]
+            batch_size = contextualized_actions.shape[0]
         elif isinstance(contextualized_actions, tuple | list):
             assert len(contextualized_actions) > 1, "Tuple must contain at least 2 tensors"
             assert contextualized_actions[0].ndim >= 3, (
                 "Chosen actions must have shape (batch_size, num_actions, ...) "
                 f"but got shape {contextualized_actions[0].shape}"
             )
-            batch_size, n_chosen_actions = contextualized_actions[0].shape[:2]
+            batch_size = contextualized_actions[0].shape[0]
             assert all(
                 action_item.ndim >= 3 for action_item in contextualized_actions
             ), "All tensors in tuple must have shape (batch_size, num_actions, ...)"
@@ -114,14 +142,13 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         result, p = self._predict_action(*args, **kwargs)
 
-        assert result.shape[0] == batch_size and result.shape[1] == n_chosen_actions, (
-            f"Linear head output must have shape (batch_size, n_arms)."
-            f"Expected shape {(batch_size, n_chosen_actions)} but got shape {result.shape}"
-        )
+        # assert result.shape[0] == batch_size (
+        #     f"Batch size mismatch. Expected shape {batch_size} but got {result.shape[0]}"
+        # )
 
-        assert p.ndim == 1 and p.shape[0] == batch_size and torch.all(p >= 0) and torch.all(p <= 1), (
-            f"The probabilities must be between 0 and 1 and have shape ({batch_size}, ) " f"but got shape {p.shape}"
-        )
+        assert (
+            p.ndim == 1 and p.shape[0] == batch_size and torch.all(p >= 0) and torch.all(p <= 1)
+        ), f"The probabilities must be between 0 and 1 and have shape {batch_size} but got shape {p.shape}"
 
         return result, p
 
@@ -157,6 +184,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         self,
         contextualized_actions: ActionInputType,
         rewards: torch.Tensor,
+        chosen_actions: torch.Tensor | None = None,
     ) -> None:
         """Records a pair of chosen actions and rewards in the buffer.
 
@@ -165,14 +193,20 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 Size: (batch_size, n_actions, n_features).
             rewards: The rewards that were observed for the chosen actions.
                 Size: (batch_size, n_actions).
+            chosen_actions: The chosen actions one-hot encoded. Size: (batch_size, n_actions). Should only be provided
+                if there is only a single contextualized action
+                (see NeuralLinearBandit -> `contextualization_after_network`).
         """
-        self._add_data_to_buffer(contextualized_actions, rewards)
+        self._add_data_to_buffer(
+            contextualized_actions=contextualized_actions, realized_rewards=rewards, chosen_actions=chosen_actions
+        )
 
     def _add_data_to_buffer(
         self,
         contextualized_actions: ActionInputType,
         realized_rewards: torch.Tensor,
         embedded_actions: torch.Tensor | None = None,
+        chosen_actions: torch.Tensor | None = None,
     ) -> None:
         """Records a pair of chosen actions and rewards in the buffer.
 
@@ -182,6 +216,9 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             realized_rewards: The rewards that were observed for the chosen actions. Size: (batch_size, n_actions).
             embedded_actions: The embedded actions that were chosen by the bandit.
                 Size: (batch_size, n_actions, n_features). Optional because not every model uses embedded actions.
+            chosen_actions: The chosen actions one-hot encoded. Size: (batch_size, n_actions). Should only be provided
+                if there is only a single contextualized action
+                (see NeuralLinearBandit -> `contextualization_after_network`).
         """
         assert realized_rewards.ndim == 2, "Realized rewards must have shape (batch_size, n_chosen_actions)."
 
@@ -195,10 +232,14 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             embedded_actions is None or embedded_actions.shape[0] == batch_size
         ), "The batch sizes of the input tensors must match."
 
+        assert chosen_actions is None or (
+            len(chosen_actions.shape) == 2 and chosen_actions.shape[0] == batch_size
+        ), "`chosen_actions` should have shape (batch_size, n_actions) if provided."
+
         if embedded_actions is not None:
             assert embedded_actions.shape[1] == realized_rewards.shape[1], (
                 "The number of chosen_actions in the embedded actions must match the number of chosen_actions in the "
-                "rewards."
+                f"rewards. Encountered shapes: {embedded_actions.shape} and {realized_rewards.shape}"
             )
             embedded_actions_reshaped = embedded_actions.reshape(-1, *embedded_actions.shape[2:])
         else:
@@ -246,13 +287,19 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             contextualized_actions=contextualized_actions_reshaped,
             embedded_actions=embedded_actions_reshaped,
             rewards=realized_rewards_reshaped,
+            chosen_actions=chosen_actions,
         )
 
         self._new_samples_count += batch_size
         self._total_samples_count += batch_size
 
-    def train_dataloader(self, custom_collate_fn=None) -> DataLoader[BufferDataFormat[ActionInputType]]:
+    def train_dataloader(
+        self, custom_collate_fn: Callable[[Any], BufferDataFormat[ActionInputType]] | None = None
+    ) -> DataLoader[BufferDataFormat[ActionInputType]]:
         """Dataloader used by PyTorch Lightning if none is passed via `trainer.fit(..., dataloader)`."""
+        if custom_collate_fn is None:
+            custom_collate_fn = _collate_fn
+
         if len(self.buffer) > 0:
             self._custom_data_loader_passed = False
             return DataLoader(
@@ -305,18 +352,22 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """
-        assert (
-            len(batch) == 3 or len(batch) == 2
-        ), "Batch must contain two or three tensors: (contextualized_actions, embedded_actions, rewards"
+        assert len(batch) == 4, (
+            "Batch must contain four tensors: (contextualized_actions, embedded_actions, rewards, chosen_actions)."
+            "`embedded_actions` and `chosen_actions` can be None."
+        )
 
-        realized_rewards: torch.Tensor = batch[-1]  # shape: (batch_size, n_chosen_arms)
+        realized_rewards: torch.Tensor = batch[2]  # shape: (batch_size, n_chosen_arms)
 
         assert realized_rewards.ndim == 2, "Rewards must have shape (batch_size, n_chosen_arms)"
         assert realized_rewards.device == self.device, "Realized reward must be on the same device as the model."
 
         batch_size, n_chosen_arms = realized_rewards.shape
 
-        contextualized_actions = batch[0]  # shape: (batch_size, n_chosen_arms, ...)
+        (
+            contextualized_actions,
+            embedded_actions,
+        ) = batch[:2]
 
         if self._custom_data_loader_passed:
             self.record_feedback(contextualized_actions, realized_rewards)
@@ -357,8 +408,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 f"Received {type(contextualized_actions)}."
             )
 
-        if len(batch) == 3:
-            embedded_actions = batch[1]
+        if embedded_actions is not None:
             assert embedded_actions.device == self.device, "Embedded actions must be on the same device as the model."
             assert (
                 embedded_actions.ndim == 3
@@ -387,11 +437,12 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         """Abstract method to perform a single update step. Should be implemented by the concrete bandit classes.
 
         Args:
-            batch: The output of your data iterable, usually a DataLoader. It may contain 2 or 3 elements:
-                The embedded_actions are only passed and required for certain bandits like the NeuralLinearBandit.
+            batch: The output of your data iterable, usually a DataLoader. It contains 4 elements:
                 contextualized_actions: shape (batch_size, n_chosen_actions, n_features).
                 [Optional: embedded_actions: shape (batch_size, n_chosen_actions, n_features).]
+                embedded_actions: only passed and required for certain bandits like the NeuralLinearBandit.
                 realized_rewards: shape (batch_size, n_chosen_actions).
+                chosen_actions: only passed and required for certain bandits like the NeuralLinearBandit.
             batch_idx: The index of this batch. Note that if a separate DataLoader is used for each step,
                 this will be reset for each new data loader.
             data_loader_idx: The index of the data loader. This is useful if you have multiple data loaders

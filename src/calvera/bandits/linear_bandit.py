@@ -5,7 +5,7 @@ import torch
 
 from calvera.bandits.abstract_bandit import AbstractBandit
 from calvera.bandits.action_input_type import ActionInputType
-from calvera.utils.data_storage import AbstractBanditDataBuffer
+from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
 
 
 class LinearBandit(AbstractBandit[ActionInputType], ABC):
@@ -104,7 +104,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
 
     def _update(
         self,
-        batch: tuple[ActionInputType, torch.Tensor],
+        batch: BufferDataFormat[ActionInputType],
         batch_idx: int,
     ) -> torch.Tensor:
         """Perform an update step on the linear bandit model.
@@ -121,11 +121,14 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
                 Shape: (1,). Since we do not use the lightning optimizer, this value is only relevant
                 for logging/visualization of the training process.
         """
-        assert len(batch) == 2, "Batch must contain two tensors: (contextualized_actions, rewards)"
+        assert len(batch) == 4, (
+            "Batch must contain four tensors: (contextualized_actions, embedded_actions, rewards, chosen_actions)."
+            "`embedded_actions` and `chosen_actions` can be None."
+        )
 
         chosen_contextualized_actions = batch[0]
         assert isinstance(chosen_contextualized_actions, torch.Tensor), "chosen_contextualized_actions must be a tensor"
-        realized_rewards: torch.Tensor = batch[1]
+        realized_rewards: torch.Tensor = batch[2]
 
         # Update the self.bandit
         self._perform_update(chosen_contextualized_actions, realized_rewards)

@@ -212,7 +212,9 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         """Compute a score based on the predicted rewards and exploration terms."""
         pass
 
-    def record_feedback(self, contextualized_actions: torch.Tensor, rewards: torch.Tensor) -> None:
+    def record_feedback(
+        self, contextualized_actions: torch.Tensor, rewards: torch.Tensor, chosen_actions: torch.Tensor | None = None
+    ) -> None:
         """Records a pair of chosen actions and rewards in the buffer.
 
         Also checks if the network should be updated based on the number of samples seen so far
@@ -222,8 +224,10 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             contextualized_actions: The contextualized actions that were chosen by the bandit.
                 Size: (batch_size, n_actions, n_features).
             rewards: The rewards that were observed for the chosen actions. Size: (batch_size, n_actions).
+            chosen_actions: One-hot encoding of which actions were chosen.
+                Shape: (batch_size, n_actions).
         """
-        super().record_feedback(contextualized_actions, rewards)
+        super().record_feedback(contextualized_actions, rewards, chosen_actions=chosen_actions)
 
         if (
             self.is_initial_training_stage()
@@ -322,10 +326,13 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             >>> batch = (context_tensor, reward_tensor)
             >>> loss = model.training_step(batch, 0)
         """
-        assert len(batch) == 2, "Batch must contain two tensors: (contextualized_actions, rewards)"
+        assert len(batch) == 4, (
+            "Batch must contain four tensors: (contextualized_actions, embedded_actions, rewards, chosen_actions)."
+            "`embedded_actions` and `chosen_actions` can be None."
+        )
 
         contextualized_actions: torch.Tensor = batch[0]  # shape: (batch_size, n_arms, n_features)
-        realized_rewards: torch.Tensor = batch[1]  # shape: (batch_size, )
+        realized_rewards: torch.Tensor = batch[2]  # shape: (batch_size, )
 
         assert (
             contextualized_actions.shape[-1] == self.hparams["n_features"]

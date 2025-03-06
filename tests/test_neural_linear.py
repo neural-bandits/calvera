@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 import lightning as pl
@@ -6,6 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from calvera.bandits.abstract_bandit import _collate_fn
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
@@ -125,7 +126,7 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 
 
 def test_neural_linear_bandit_forward_tuple() -> None:
-    batch_size, n_arms, seq_len, n_features, n_embeddings = 2, 1, 3, 4, 5
+    batch_size, n_arms, seq_len, n_features, n_embeddings = 2, 2, 3, 4, 5
 
     # Simple network: embed from 4 to 5 dimensions
     test_net = nn.Sequential(
@@ -135,56 +136,82 @@ def test_neural_linear_bandit_forward_tuple() -> None:
     )
 
     class TestNetwork(nn.Module):
-        def forward(self, x, y):
-            return test_net(x)
+        def forward(self, x: torch.Tensor, y: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
+            return cast(torch.Tensor, test_net(x))
 
     network = TestNetwork().to("cpu")
 
-    buffer = ListDataBuffer(buffer_strategy=AllDataBufferStrategy())
+    buffer = ListDataBuffer[tuple[torch.Tensor, torch.Tensor, torch.Tensor]](buffer_strategy=AllDataBufferStrategy())
 
     # adaptor = TextActionAdaptor(network, n_features)
+    # example = {
+    #         "input_ids": inputs[0],
+    #         "attention_mask": inputs[1],
+    #         "token_type_ids": inputs[2],
+    #     }
 
     # Create bandit
-    bandit = NeuralLinearBandit[torch.Tensor](
+    bandit = NeuralLinearBandit[tuple[torch.Tensor, torch.Tensor, torch.Tensor]](
         n_embedding_size=n_embeddings,  # same as input if encoder is identity
         network=network,
         buffer=buffer,
+        contextualization_after_network=True,
+        n_arms=n_arms,
     )
 
-    context = torch.randn(batch_size, seq_len, n_features, device="cpu").view(batch_size, n_arms, seq_len, n_features)
-    some_mask = torch.ones(batch_size, seq_len, dtype=torch.bool, device="cpu").view(batch_size, n_arms, seq_len)
+    inputs_ids = torch.randn(seq_len, n_features, device="cpu").view(1, seq_len, n_features)
+    attention_mask = torch.ones(seq_len, dtype=torch.bool, device="cpu").view(1, seq_len)
+    token_type_ids = torch.randn(seq_len, device="cpu").view(1, seq_len)
 
-    contextualized_actions = (context, some_mask)
+    contextualized_actions = [(inputs_ids, attention_mask, token_type_ids) for _ in range(batch_size)]
+    # collate the inputs
+    contextualized_actions = (
+        torch.stack([elem[0] for elem in contextualized_actions]),
+        torch.stack([elem[1] for elem in contextualized_actions]),
+        torch.stack([elem[2] for elem in contextualized_actions]),
+    )
 
     output, p = bandit.forward(contextualized_actions)
 
-    bandit.record_feedback(contextualized_actions, torch.randn(batch_size, n_arms, device="cpu"))
+    def custom_collate_fn(
+        batch: Any,
+    ) -> tuple[tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor]:
+        inputs_ids: list[torch.Tensor] = []
+        attention_masks: list[torch.Tensor] = []
+        token_type_ids: list[torch.Tensor] = []
+
+        embeddings = []
+        rewards = []
+        chosen_actions = []
+
+        for context, embedding, reward, chosen_action in batch:
+            inputs_id, attention_mask, token_type_id = context
+
+            inputs_ids.append(inputs_id)
+            attention_masks.append(attention_mask)
+            token_type_ids.append(token_type_id)
+
+            embeddings.append(embedding)
+            rewards.append(reward)
+            chosen_actions.append(chosen_action)
+
+        output = (
+            (torch.stack(inputs_ids), torch.stack(attention_masks), torch.stack(token_type_ids)),
+            torch.stack(embeddings),
+            torch.stack(rewards),
+            torch.stack(chosen_actions),
+        )
+
+        return output
+
+    bandit.record_feedback(
+        contextualized_actions,
+        torch.randn(batch_size, 1, device="cpu"),
+        torch.nn.functional.one_hot(torch.randint(0, 2, (batch_size,), device="cpu")),
+    )
 
     # Also test training
     trainer = pl.Trainer(fast_dev_run=True, accelerator="cpu")
-
-    def custom_collate_fn(batch):
-        print("Batch in collate_fn")
-        print(batch)
-
-        # Batch looks like [((context, mask), embedding, reward), ...]
-        contexts = []
-        embeddings = []
-        masks = []
-        rewards = []
-
-        for (context, mask), embedding, reward in batch:
-            contexts.append(context)
-            masks.append(mask)
-            embeddings.append(embedding)
-            rewards.append(reward)
-
-        output = (torch.stack(contexts), torch.stack(masks)), torch.stack(embeddings), torch.stack(rewards)
-
-        print("Result of collate_fn")
-        print(output)
-
-        return output
 
     trainer.fit(bandit, bandit.train_dataloader(custom_collate_fn=custom_collate_fn))
 
@@ -209,7 +236,7 @@ def test_neural_linear_bandit_forward_img() -> None:
     )
     network = test_net.to("cpu")
 
-    buffer = ListDataBuffer(buffer_strategy=AllDataBufferStrategy())
+    buffer: ListDataBuffer[torch.Tensor] = ListDataBuffer(buffer_strategy=AllDataBufferStrategy())
 
     # adaptor = TextActionAdaptor(network, n_features)
 
@@ -275,7 +302,7 @@ def small_context_reward_batch() -> (
             return len(self.actions)
 
         def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-            return self.actions[idx], self.rewards[idx]
+            return self.actions[idx], None, self.rewards[idx], None
 
     dataset = RandomDataset(contextualized_actions, rewards)
     return contextualized_actions, rewards, dataset
@@ -452,7 +479,7 @@ def test_neural_linear_bandit_training_step(
 
     assert not bandit.should_train_network, "Not enough data to train yet."
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(bandit, torch.utils.data.DataLoader(dataset, batch_size=2))
+    trainer.fit(bandit, torch.utils.data.DataLoader(dataset, batch_size=2, collate_fn=_collate_fn))
 
     # The buffer should have grown
     assert buffer.contextualized_actions.shape[0] == 6 * actions.shape[0]
