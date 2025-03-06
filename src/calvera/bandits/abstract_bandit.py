@@ -537,7 +537,7 @@ class DummyBandit(AbstractBandit[ActionInputType]):
 
     def __init__(self, n_features: int, k: int = 1) -> None:
         """Initializes a DummyBandit with a RandomSelector.
-        
+
         Args:
             n_features: The number of features in the bandit model. Must be positive.
             k: Number of actions to select. Must be positive. Default is 1.
