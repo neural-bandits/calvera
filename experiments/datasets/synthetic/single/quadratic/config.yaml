@@ -41,4 +41,4 @@ bandit_hparams:
   initial_train_steps: 1024
   n_embedding_size: 64
 
-seed: 52
+seed: 42
