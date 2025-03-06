@@ -1,3 +1,5 @@
+from typing import cast
+
 import torch
 
 from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
@@ -213,5 +215,6 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
         return self.rewards[idx, action].item()
 
     def sort_key(self, idx: int) -> int:
-        """Return the index of the context in this dataset."""
-        return self.y
+        """Return the action with the highest reward for the context at index idx in this dataset."""
+        max_idx = self.rewards[idx].argmax()
+        return cast(int, max_idx.item())
