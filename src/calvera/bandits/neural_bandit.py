@@ -96,7 +96,7 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         assert learning_rate_decay >= 0, "The learning rate decay must be greater equal 0."
         assert learning_rate_scheduler_step_size > 0, "Learning rate must be greater than 0."
         assert (
-            min_samples_required_for_training is not None or min_samples_required_for_training > 0
+            min_samples_required_for_training is not None and min_samples_required_for_training > 0
         ), "min_samples_required_for_training must not be None and must be greater than 0."
         assert (
             early_stop_threshold is None or early_stop_threshold >= 0
@@ -283,10 +283,10 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
             required_samples = self.hparams["min_samples_required_for_training"]
             if num_samples <= required_samples and not self.is_initial_training_stage():
                 logger.warning(
-                    f"The train_dataloader passed to trainer.fit() contains {num_samples}"
-                    f"which is less than min_samples_required_for_training={required_samples}."
+                    f"The train_dataloader passed to trainer.fit() contains {num_samples} "
+                    f"which is less than min_samples_required_for_training={required_samples}. "
                     f"Even though the initial training stage is over and not enough data samples were passed, "
-                    "the network will still be trained."
+                    "the network will still be trained. "
                     "Consider passing more data or decreasing min_samples_required_for_training."
                 )
 
