@@ -195,13 +195,11 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         # Select a_t = argmax_a U_t,a
         chosen_actions = self.selector(self._score(f_t_a, exploration_terms))
 
-        assert (chosen_actions.sum(dim=1) == 1).all(), "Currently only supports non-combinatorial bandits"
-        chosen_actions_idx = chosen_actions.argmax(dim=1)
-
         # Update Z_t using g(x_t,a_t; θ_t-1)
         for b in range(batch_size):
-            a_t = chosen_actions_idx[b]
-            self.Z_t += all_gradients[b, a_t] * all_gradients[b, a_t]
+            chosen_arms = chosen_actions[b].nonzero().squeeze(1)
+            for arm_idx in chosen_arms:
+                self.Z_t += all_gradients[b, arm_idx] * all_gradients[b, arm_idx]
 
         # Return chosen actions and
         return chosen_actions, torch.ones(batch_size, device=self.device)

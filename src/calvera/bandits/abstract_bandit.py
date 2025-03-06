@@ -193,10 +193,6 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         batch_size = realized_rewards.shape[0]
 
-        assert (
-            realized_rewards.shape[1] == 1
-        ), "Combinatorial 'data batches' are not yet supported for addition to buffer."
-
         assert realized_rewards.shape[0] == batch_size and (
             embedded_actions is None or embedded_actions.shape[0] == batch_size
         ), "The batch sizes of the input tensors must match."
@@ -248,7 +244,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
                 f"Received {type(contextualized_actions)}."
             )
 
-        realized_rewards_reshaped = realized_rewards.squeeze(1)
+        realized_rewards_reshaped = realized_rewards.reshape(-1)
 
         self.buffer.add_batch(
             contextualized_actions=contextualized_actions_reshaped,
