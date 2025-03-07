@@ -1,25 +1,22 @@
-/* Theme-specific logo switching */
 [data-md-color-scheme="default"] {
-  --md-logo-url: url('../calvera_dark.png');
+  --md-logo-url: url('../logo/calvera_dark.png');
 }
 
 [data-md-color-scheme="slate"] {
-  --md-logo-url: url('../calvera_light.png'); /* Your dark mode logo */
+  --md-logo-url: url('../logo/calvera_light.png');
 }
 
-/* Hide the original logo image */
 .md-header__button.md-logo img,
 .md-nav__button.md-logo img {
   display: none;
 }
 
-/* Replace with theme-specific logo */
 .md-header__button.md-logo::after,
 .md-nav__button.md-logo::after {
   content: '';
   display: block;
-  width: 32px; /* Adjust to your logo size */
-  height: 32px; /* Adjust to your logo size */
+  width: 32px;
+  height: 32px;
   background-image: var(--md-logo-url);
   background-size: contain;
   background-repeat: no-repeat;

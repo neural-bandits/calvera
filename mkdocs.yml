@@ -24,8 +24,8 @@ extra_css:
 
 theme:
   name: material
-  logo: calvera.png
-  favicon: calvera_light.png
+  logo: logo/calvera.png
+  favicon: logo/calvera_light.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
@@ -48,8 +48,8 @@ theme:
         name: Switch to system preference
 
   icon:
-    logo: calvera.png
-    favicon: calvera_light.png
+    logo: logo/calvera.png
+    favicon: logo/calvera_light.png
   
   features:
     - header.autohide

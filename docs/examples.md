@@ -294,8 +294,6 @@ In Neural Linear, the neural network and the Bayesian linear regression componen
 
 [View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear.ipynb).
 
-[Extension of the above notebook to Sentiment Analysis using a simple BertModel](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear_bert.ipynb).
-
 ## Neural Bandits
 
 Neural bandits use neural networks to model the expected reward function, which allows them to capture non-linear relationships between contexts and rewards.
@@ -540,7 +538,7 @@ bandit_module = NeuralUCBBandit(
 
 Calvera is designed to be highly customizable, allowing you to adapt it to your specific needs.
 
-### Custom Selectors
+### Selectors
 
 Selectors determine how actions are chosen based on the scores produced by the bandit. Calvera provides three built-in selectors:
 
@@ -610,7 +608,11 @@ buffer = InMemoryDataBuffer(
 )
 ```
 
-### Custom Networks
+### Networks
+
+Calvera supports a variety of network architectures for contextual bandits. This section demonstrates how to create and use custom networks with the framework.
+
+#### Custom Network Architectures
 
 For neural bandits, you can provide any PyTorch neural network:
 
@@ -648,28 +650,43 @@ bandit = NeuralUCBBandit(
 )
 ```
 
-The benchmark module also provides pre-defined network architectures:
+#### Using Transformers Models (BERT) with Neural Linear Bandits
 
-- `none`: Identity mapping
-- `linear`: Simple linear layer
-- `tiny_mlp`: Small MLP with one hidden layer (64 units)
-- `small_mlp`: MLP with two hidden layers (128 units each)
-- `large_mlp`: MLP with three hidden layers (256 units each)
-- `deep_mlp`: Deep MLP with seven hidden layers (64 units each)
-- `bert`: BERT model for text data
-
-These can be specified in the benchmark configuration:
+You can use BERT models from the [Hugging Face Transformers library](https://huggingface.co/docs/transformers/en/index) as feature extractors specifically with Neural Linear Bandit algorithm. Here's an example of integrating a BERT model with a Neural Linear Bandit:
 
 ```python
-run(
-    {
-        "bandit": "neural_linear",
-        "dataset": "statlog",
-        "network": "tiny_mlp",  # Specify the network architecture
-        # ... other parameters
-    }
+from transformers import BertModel
+from calvera.bandits import NeuralLinearBandit
+from calvera.benchmark import BertWrapper
+
+# Load a pre-trained BERT model
+bert_model = BertModel.from_pretrained(
+    "google/bert_uncased_L-2_H-128_A-2",
+    output_hidden_states=True
+).eval()
+
+# Wrap the BERT model for compatibility with Calvera
+network = BertWrapper(bert_model)
+
+# Create the Neural Linear Bandit with the BERT model
+bandit = NeuralLinearBandit(
+    network=network,
+    buffer=buffer,
+    n_embedding_size=128,
+    contextualization_after_network=True,  # Important for transformer models
+    n_arms=2,
+    initial_train_steps=128,
+    min_samples_required_for_training=128,
 )
 ```
+
+**Key Considerations for BERT Integration**
+
+- **BertWrapper:** Use the `BertWrapper` class to make BERT models compatible with Calvera's bandits.
+- **Contextualization:** Set `contextualization_after_network=True` when using transformer models.
+- **Data Processing:** Ensure your data is properly tokenized and formatted for BERT models. You can use a custom collate function for your DataLoader.
+
+For a complete example of using BERT with Neural Linear Bandits for sentiment analysis on the IMDB Movie Reviews dataset, see [neural_linear_bert notebooks](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear_bert.ipynb) in the Calvera repository.
 
 ### Data Samplers
 
@@ -896,7 +913,30 @@ run(
 )
 ```
 
-The benchmark module supports the following bandits:
+The benchmark module provides pre-defined network architectures:
+
+- `none`: Identity mapping
+- `linear`: Simple linear layer
+- `tiny_mlp`: Small MLP with one hidden layer (64 units)
+- `small_mlp`: MLP with two hidden layers (128 units each)
+- `large_mlp`: MLP with three hidden layers (256 units each)
+- `deep_mlp`: Deep MLP with seven hidden layers (64 units each)
+- `bert`: BERT model for text data
+
+These can be specified in the benchmark configuration:
+
+```python
+run(
+    {
+        "bandit": "neural_linear",
+        "dataset": "statlog",
+        "network": "tiny_mlp",  # Specify the network architecture
+        # ... other parameters
+    }
+)
+```
+
+It also supports the following bandits:
 
 - `lin_ucb`: Linear UCB
 - `approx_lin_ucb`: Diagonal Precision Approximation Linear UCB
