@@ -1,8 +1,7 @@
 site_name: Documentation for Calvera
 repo_url: https://github.com/neural-bandits/calvera
 repo_name: neural_bandits/calvera
-
-markdown_extensions: 
+markdown_extensions:
   - admonition
   - pymdownx.highlight:
       anchor_linenums: true
@@ -21,25 +20,25 @@ extra_javascript:
 
 extra_css:
   - https://unpkg.com/katex@0/dist/katex.min.css
+  - extra.css
 
 theme:
   name: material
-  logo: calvera.png
+  logo: logo/calvera.png
+  favicon: logo/calvera_light.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
-
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
-      scheme: default 
+      scheme: default
       primary: white
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
@@ -49,14 +48,14 @@ theme:
         name: Switch to system preference
 
   icon:
-    logo: calvera.png
-    favicon: calvera.png
-    repo: fontawesome/brands/git-alt
+    logo: logo/calvera.png
+    favicon: logo/calvera_light.png
+  
   features:
-      - header.autohide
-      - navigation.footer
-      - navigation.tabs
-      - navigation.indexes
+    - header.autohide
+    - navigation.footer
+    - navigation.tabs
+    - navigation.indexes
 
 plugins:
   - search
@@ -68,15 +67,16 @@ plugins:
           options:
             docstring_options:
               ignore_init_summary: true
-            merge_init_into_class: true
+              merge_init_into_class: true
+
 nav:
   - Docs: index.md
   - Examples: examples.md
   - API Reference:
-      - Bandit Interface: bandits.md
-      - LinearTS and LinearUCB: linear_ts_and_linear_ucb.md
-      - NeuralTS and NeuralUCB: neural_ts_and_neural_ucb.md
-      - Neural Linear Bandit: neural_linear_bandit.md
-      - Buffers: buffers.md
-      - Utils: utils.md
-      - Benchmark: benchmark.md
+    - Bandit Interface: bandits.md
+    - LinearTS and LinearUCB: linear_ts_and_linear_ucb.md
+    - NeuralTS and NeuralUCB: neural_ts_and_neural_ucb.md
+    - Neural Linear Bandit: neural_linear_bandit.md
+    - Buffers: buffers.md
+    - Utils: utils.md
+    - Benchmark: benchmark.md

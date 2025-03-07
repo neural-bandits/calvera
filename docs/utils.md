@@ -15,7 +15,7 @@ If you want to implement your own selector, you can subclass the `Selector` clas
 
 <br>
 
-::: calvera.utils.selectors.AbstractSelector
+::: calvera.utils.AbstractSelector
     handler: python
     options:
       heading: AbstractSelector
@@ -25,7 +25,7 @@ If you want to implement your own selector, you can subclass the `Selector` clas
       members:
         - __call__
 
-::: calvera.utils.selectors.ArgMaxSelector
+::: calvera.utils.ArgMaxSelector
     handler: python
     options:
       heading: ArgMaxSelector
@@ -34,7 +34,17 @@ If you want to implement your own selector, you can subclass the `Selector` clas
       heading_level: 3
       members: False
 
-::: calvera.utils.selectors.EpsilonGreedySelector
+::: calvera.utils.EpsilonGreedySelector
+    handler: python
+    options:
+      heading: EpsilonGreedySelector
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 3
+      members: 
+        - __init__
+
+::: calvera.utils.RandomSelector
     handler: python
     options:
       heading: EpsilonGreedySelector
@@ -43,14 +53,15 @@ If you want to implement your own selector, you can subclass the `Selector` clas
       heading_level: 3
       members: False
 
-::: calvera.utils.selectors.TopKSelector
+::: calvera.utils.TopKSelector
     handler: python
     options:
       heading: TopKSelector
       show_root_heading: true
       show_root_full_path: false
       heading_level: 3
-      members: False
+      members: 
+        - __init__
 
 
 <br>
@@ -91,3 +102,18 @@ To be consistent we provide a `DataSampler` class that can be used to sample dat
       show_root_full_path: false
       heading_level: 3
       members: False
+
+<br>
+<br>
+
+
+::: calvera.utils.MultiClassContextualizer
+    handler: python
+    options:
+      heading: MultiClassContextualizer
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 3
+      members: 
+        - __init__
+        - __call__

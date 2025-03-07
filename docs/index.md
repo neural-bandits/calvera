@@ -13,6 +13,8 @@ Currently the following algorithms are implemented:
 
 - Neural UCB
 
+_All algorithms can handle combinatorial settings via proper selectors (See [Selectors](#selectors))._
+
 We plan to add the following algorithms in the future:
 
 - Bootstrapped Bandit (See [this paper](https://arxiv.org/abs/2302.07459))
@@ -30,7 +32,7 @@ The following selectors are available:
 
 ## Installation
 
-Calvera is (will be) available on [PyPI](https://pypi.org/).
+Calvera is available on [PyPI](https://pypi.org/).
 
 ```bash
 pip install calvera
@@ -73,7 +75,12 @@ bandit.record_feedback(chosen_contextualized_actions, rewards)
 Train the bandit via a PyTorch Lightning Trainer.
 
 ```python
-trainer = get_linear_ts_trainer(bandit)
+trainer = pl.Trainer(
+    max_epochs=1,
+    enable_progress_bar=False,
+    enable_model_summary=False,
+    accelerator=accelerator,
+)
 trainer.fit(bandit)
 ```
 
@@ -85,6 +92,7 @@ The combined code looks as follows:
 
 ```python
 import torch
+import lightning as pl
 
 from calvera.bandits import LinearTSBandit, get_linear_ts_trainer
 
@@ -111,7 +119,12 @@ chosen_contextualized_actions = data[:, :, chosen_arms]
 bandit.record_feedback(chosen_contextualized_actions, rewards)
 
 # 5. Train the bandit.
-trainer = get_linear_ts_trainer(bandit)
+trainer = pl.Trainer(
+    max_epochs=1,
+    enable_progress_bar=False,
+    enable_model_summary=False,
+    accelerator=accelerator,
+)
 trainer.fit(bandit)
 
 # (6. Repeat the process)
