@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import Dataset
 
 from calvera.bandits.action_input_type import ActionInputType
-from calvera.benchmark.multiclass import MultiClassContextualizer
+from calvera.utils.multiclass import MultiClassContextualizer
 
 
 class AbstractDataset(ABC, Generic[ActionInputType], Dataset[tuple[ActionInputType, torch.Tensor]]):
