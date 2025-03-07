@@ -1,7 +1,11 @@
+# comparison_key: bandit
+
 dataset: imdb
-max_samples: 5000
+max_samples: 10240
 
 bandit: neural_linear
+  # - neural_linear
+  # - random
 
 selector: argmax
 
@@ -15,9 +19,8 @@ train_batch_size: 100  # this is actually passed to the bandit but it needs to b
 gradient_clip_val: 20.0
 
 # Network
-network:
-- random
-- bert
+network: bert
+device: cuda
 
 # Buffer
 data_strategy: all
@@ -27,7 +30,7 @@ max_buffer_size: 10240
 # Bandit arguments
 bandit_hparams:
   exploration_rate: 0.00001
-  learning_rate: 1e-4
+  learning_rate: 0.0001
   weight_decay: 0.00001
   min_samples_required_for_training: 128
   initial_train_steps: 128

@@ -42,7 +42,9 @@ class MultiClassContextualizer:
         assert len(feature_vector.shape) == 2, "Feature vector must have shape (batch_size, n_features)"
 
         n_features = feature_vector.shape[1]
-        contextualized_actions = torch.einsum("ij,bk->bijk", torch.eye(self.n_arms), feature_vector)
+        contextualized_actions = torch.einsum(
+            "ij,bk->bijk", torch.eye(self.n_arms, device=feature_vector.device), feature_vector
+        )
         contextualized_actions = contextualized_actions.reshape(-1, self.n_arms, n_features * self.n_arms)
 
         return contextualized_actions
