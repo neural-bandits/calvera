@@ -292,7 +292,9 @@ The key differences in Neural Linear compared to Linear bandits:
 
 In Neural Linear, the neural network and the Bayesian linear regression components are updated at different time scales
 
-[View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear.ipynb)
+[View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear.ipynb).
+
+[Extension of the above notebook to Sentiment Analysis using a simple BertModel](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear_bert.ipynb).
 
 ## Neural Bandits
 
