@@ -67,7 +67,7 @@ plugins:
           options:
             docstring_options:
               ignore_init_summary: true
-              merge_init_into_class: true
+            merge_init_into_class: true
 
 nav:
   - Docs: index.md
