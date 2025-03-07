@@ -16,8 +16,8 @@ Calvera is a Python library offering a collection of neural multi-armed bandit a
   - **EpsilonGreedySelector:** Chooses the best arm with probability `1-epsilon` or a random arm with probability `epsilon`.
   - **TopKSelector:** Selects the top `k` arms with the highest scores.
 
-- **Seamless Integration:**
-  - Built on top of [PyTorch Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html) for streamlined training and inference.
+- **Integration:**
+  - Built on top of [PyTorch Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html) for training and inference.
   - Minimal adjustments needed to plug into your existing workflow.
 
 ## Installation
@@ -43,7 +43,8 @@ pip install calvera[dev]
 Below is a simple example using a Linear Thompson Sampling bandit:
 ```python
 import torch
-from calvera.bandits.linear_ts_bandit import LinearTSBandit, get_linear_ts_trainer
+import lightning as pl
+from calvera.bandits import LinearTSBandit
 
 # 1. Create a bandit for a linear model with 128 features.
 N_FEATURES = 128
@@ -62,7 +63,12 @@ chosen_contextualized_actions = data[:, :, chosen_arms]
 bandit.add_data(chosen_contextualized_actions, rewards)
 
 # 5. Train the bandit.
-trainer = get_linear_ts_trainer(bandit)
+trainer = pl.Trainer(
+    max_epochs=1,
+    enable_progress_bar=False,
+    enable_model_summary=False,
+    accelerator=accelerator,
+)
 trainer.fit(bandit)
 
 # (6. Repeat the process as needed)
