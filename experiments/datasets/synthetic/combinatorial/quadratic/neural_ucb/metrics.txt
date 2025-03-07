@@ -1,0 +1,13 @@
+Metrics of neural_ucb:
+Avg Regret: 0.18379115402576646
+Avg Reward: 0.01788290338005822
+Accumulated Regret: 3764.042834447697
+Accumulated Reward: 366.2418612235923
+Avg Regret (first 10 steps): 0.17747105136513705
+Avg Regret (first 100 steps): 0.1857306082546711
+Avg Regret (first 1000 steps): 0.1916960782110691
+Avg Regret (first 10000 steps): 0.18815070158541203
+Avg Regret (last 10 steps): 0.25405594110488894
+Avg Regret (last 100 steps): 0.1825717604905367
+Avg Regret (last 1000 steps): 0.1765253526046872
+Avg Regret (last 10000 steps): 0.17949583202879876

@@ -1,0 +1,11 @@
+Metrics of bandit:
+Avg Regret: 0.3214
+Avg Reward: 0.6786
+Accumulated Regret: 1607.0
+Accumulated Reward: 3393.0
+Avg Regret (first 10 steps): 0.6
+Avg Regret (first 100 steps): 0.47
+Avg Regret (first 1000 steps): 0.429
+Avg Regret (last 10 steps): 0.6
+Avg Regret (last 100 steps): 0.34
+Avg Regret (last 1000 steps): 0.276

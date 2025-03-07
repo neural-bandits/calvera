@@ -1,0 +1,13 @@
+Metrics of neural_linear:
+Avg Regret: 0.14892578125
+Avg Reward: 0.85107421875
+Accumulated Regret: 3050.0
+Accumulated Reward: 17430.0
+Avg Regret (first 10 steps): 0.5
+Avg Regret (first 100 steps): 0.41
+Avg Regret (first 1000 steps): 0.251
+Avg Regret (first 10000 steps): 0.1795
+Avg Regret (last 10 steps): 0.1
+Avg Regret (last 100 steps): 0.14
+Avg Regret (last 1000 steps): 0.128
+Avg Regret (last 10000 steps): 0.118

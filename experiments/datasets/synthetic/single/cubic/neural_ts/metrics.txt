@@ -1,0 +1,13 @@
+Metrics of neural_ts:
+Avg Regret: 0.213134765625
+Avg Reward: 0.786865234375
+Accumulated Regret: 4365.0
+Accumulated Reward: 16115.0
+Avg Regret (first 10 steps): 0.5
+Avg Regret (first 100 steps): 0.49
+Avg Regret (first 1000 steps): 0.316
+Avg Regret (first 10000 steps): 0.2311
+Avg Regret (last 10 steps): 0.1
+Avg Regret (last 100 steps): 0.18
+Avg Regret (last 1000 steps): 0.186
+Avg Regret (last 10000 steps): 0.1961
