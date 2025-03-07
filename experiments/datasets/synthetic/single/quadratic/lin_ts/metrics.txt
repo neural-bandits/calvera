@@ -1,0 +1,13 @@
+Metrics of lin_ts:
+Avg Regret: 0.3689453125
+Avg Reward: 0.6310546875
+Accumulated Regret: 7556.0
+Accumulated Reward: 12924.0
+Avg Regret (first 10 steps): 0.5
+Avg Regret (first 100 steps): 0.43
+Avg Regret (first 1000 steps): 0.433
+Avg Regret (first 10000 steps): 0.3785
+Avg Regret (last 10 steps): 0.4
+Avg Regret (last 100 steps): 0.42
+Avg Regret (last 1000 steps): 0.376
+Avg Regret (last 10000 steps): 0.36

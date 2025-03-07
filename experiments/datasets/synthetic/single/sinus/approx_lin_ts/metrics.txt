@@ -1,0 +1,13 @@
+Metrics of approx_lin_ts:
+Avg Regret: 0.26259765625
+Avg Reward: 0.73740234375
+Accumulated Regret: 5378.0
+Accumulated Reward: 15102.0
+Avg Regret (first 10 steps): 0.2
+Avg Regret (first 100 steps): 0.35
+Avg Regret (first 1000 steps): 0.326
+Avg Regret (first 10000 steps): 0.2718
+Avg Regret (last 10 steps): 0.1
+Avg Regret (last 100 steps): 0.23
+Avg Regret (last 1000 steps): 0.225
+Avg Regret (last 10000 steps): 0.2539

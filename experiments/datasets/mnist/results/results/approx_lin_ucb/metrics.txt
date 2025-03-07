@@ -1,0 +1,11 @@
+Metrics of approx_lin_ucb:
+Avg Regret: 0.900634765625
+Avg Reward: 0.099365234375
+Accumulated Regret: 3689.0
+Accumulated Reward: 407.0
+Avg Regret (first 10 steps): 1.0
+Avg Regret (first 100 steps): 0.93
+Avg Regret (first 1000 steps): 0.907
+Avg Regret (last 10 steps): 1.0
+Avg Regret (last 100 steps): 0.93
+Avg Regret (last 1000 steps): 0.894

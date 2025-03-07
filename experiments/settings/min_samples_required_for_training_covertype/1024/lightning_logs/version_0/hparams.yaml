@@ -1,0 +1,11 @@
+n_features: 378
+train_batch_size: 100
+exploration_rate: 1.0e-05
+learning_rate: 0.0001
+weight_decay: 1.0e-05
+learning_rate_decay: 1.0
+learning_rate_scheduler_step_size: 1
+min_samples_required_for_training: 1024
+early_stop_threshold: 0.001
+initial_train_steps: 1024
+warm_start: true

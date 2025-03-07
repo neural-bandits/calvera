@@ -1,0 +1,2 @@
+n_features: 80
+train_batch_size: 32

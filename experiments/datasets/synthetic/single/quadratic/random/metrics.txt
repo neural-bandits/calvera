@@ -1,0 +1,13 @@
+Metrics of random:
+Avg Regret: 0.5033203125
+Avg Reward: 0.4966796875
+Accumulated Regret: 10308.0
+Accumulated Reward: 10172.0
+Avg Regret (first 10 steps): 0.3
+Avg Regret (first 100 steps): 0.54
+Avg Regret (first 1000 steps): 0.493
+Avg Regret (first 10000 steps): 0.5084
+Avg Regret (last 10 steps): 0.3
+Avg Regret (last 100 steps): 0.47
+Avg Regret (last 1000 steps): 0.501
+Avg Regret (last 10000 steps): 0.4996
