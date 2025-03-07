@@ -90,8 +90,10 @@ For more detailed examples, see the examples page in [the documentation](http://
 - Selectors: Easily customize your arm selection strategy by using or extending the provided selectors.
 
 ## Benchmarks & Experimental Results
+The bandit algorithms are evaluated on different benchmark datasets. Here is an overview over their performance on the Covertype dataset:
+![Different bandits on covertype](experiments/datasets/covertype/results/results/acc_regret.png)
 
-Detailed benchmarks, datasets, and experimental results are available in the extended documentation.
+Detailed benchmarks, datasets, and experimental results are available in the extended documentation. The configuration and even more specific results can be found in ./experiments under the specific sub-directories.
 
 ## Contributing
 
