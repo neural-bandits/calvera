@@ -245,7 +245,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
                     torch.masked_select(action_item, expanded_mask).view(
                         first_tensor.size(0),
                         -1,
-                        first_tensor.size(-1),
+                        *first_tensor.shape[2:],
                     )
                     for action_item in self._last_contextualized_actions
                 ),
