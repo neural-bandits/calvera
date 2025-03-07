@@ -160,10 +160,71 @@ A selector should subclass the `AbstractSelector` class and implement the respec
 The documentation of the selectors can be found [here](./utils/).
 
 ## Benchmarks
-
-### Environment
+Calvera provides an extensive benchmark framework via the `calvera[benchmark]` subpackage. With it bandit algorithms can be compared, optimized and tested. For the benchmark setting one or more datasets have to be provided on which the bandits can be tested. Then, the environment simulates the interaction with the bandit. Lastly, the `BanditBenchmark` runs the bandit in a setting specified via a config and outputs the results for evaluation.
 
 ### Datasets
+Calvera includes several standard bandit datasets for benchmarking purposes:
+- `MNISTDataset` (simple image classification, disjoint model)
+- `StatlogDataset` (disjoint model)
+- `MovieLensDataset` (combinatorial)
+- `TinyImageNetDataset` (image classification, disjoint model)
+- `WheelBanditDataset` (synthetic)
+- Further non-combinatorial and combinatorial synthetic datasets for multi-armed bandits (linear + non-linear)
+
+Users can create their own datasets for benchmarking by implementing the `AbstractDataset` interface. For each item it needs to provide a tupel of a tensor of contextualized actions (i.e. arms) of shape `(num_actions, num_features)` and a tensor of realized rewards per action of shape `(num_actions, )`. The bandit will chose one of the given actions and will receive the reward for that action.
+
+Calvera also provides the option to convert a classification problem into a bandit problem with contextualized actions using the `needs_disjoint_contextualization` option. This converts a single context vector of size `num_features` into a 2d-tensor of `num_arms` context vectors of size `num_arms*num_features` by preserving a specific part of the contextualized action vector space for each action. Given a context $x$ and $m$ number of classes:
+$$(x_1, ..., x_m) \to ((x_1, ..., x_m, ..., 0, ..., 0), ..., (0, ..., 0, ..., x_1, ..., x_m)) $$
+
+### Environment
+The `BanditBenchmarkEnvironment` takes a pytorch `DataLoader` and can be used as an iterator to load batches of samples into the bandit. Once actions have been chosen, they are passed to the environment to receive the reward for those actions. For convencience, the chosen contextualized_actions are also returned, so that they can be easily passed on to the bandit. Finally, it is possible to compute the regret for the set of chosen actions.
+```python
+from calvera.benchmark import BanditBenchmarkEnvironment
+
+environment = BanditBenchmarkEnvironment(dataloader)
+for contextualized_actions in environment:
+    chosen_actions, p = bandit.forward(contextualized_actions)  # one-hot tensor
+    chosen_contextualized_actions, realized_rewards = environment.get_feedback(chosen_actions)
+    bandit.record_feedback(chosen_contextualized_actions, realized_rewards)
+
+    # optional: compute regret
+    regret = environment.compute_regret(chosen_actions)
+```
+
+### Benchmark
+The `BanditBenchmark` handles setting up a training environment from a given config, runs the benchmark and logs the results.
+```python
+from calvera.benchmark import BanditBenchmark
+
+config = {
+    "bandit": "neural_ucb",
+    "forward_batch_size": 1,
+    "train_batch_size": 32,
+    "feedback_delay": 128,  # training every 128 samples
+    "max_steps": 16,  # for how many steps to train
+    "gradient_clip_val": 20.0,
+    "network": "small_mlp",  # or linear, tiny_mlp, small_mlp, large_mlp, bert, resnet18
+    "data_strategy": "sliding_window",  # or all
+    "window_size": 2048,
+    "max_buffer_size": 2048,
+    "selector": "epsilon_greedy"  # or argmax (default), top_k, random
+    "epsilon": 0.1, 
+    # "device": "cuda",  # for training on a different device
+    "bandit_hparams": {
+        "exploration_rate": 0.0001,
+        "learning_rate": 0.001,
+        # ... further parameters passed to the constructor of the bandit
+    }
+}
+# optional: pass any lightning logger. Note that `logger.log_dir` is used for writing further metrics like the rewards/regret as CSV files.
+logger = lightning.pytorch.loggers.CSVLogger(...)  
+benchmark = BanditBenchmark.from_config(config, logger)
+
+# or directly by passing the classes
+benchmark = BanditBenchmark(bandit, dataset, training_params, logger)
+```
+
+The `BenchmarkAnalyzer` is used to analyze and log or plot the results. For convenient setup the methods `run` (single bandit), `run_comparison` (several bandits or datasets or other parameters given as a list. The key of the parameter to compare over is specified under the config `comparison_key`) and `run_from_yaml` can be used.
 
 ## Our experimental results
 
