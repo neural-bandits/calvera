@@ -16,6 +16,7 @@ from calvera.utils.data_storage import (
     SlidingWindowBufferStrategy,
     StateDictType,
 )
+from calvera.utils.multiclass import MultiClassContextualizer
 from calvera.utils.selectors import (
     AbstractSelector,
     ArgMaxSelector,
@@ -41,4 +42,5 @@ __all__ = [
     "EpsilonGreedySelector",
     "RandomSelector",
     "TopKSelector",
+    "MultiClassContextualizer",
 ]

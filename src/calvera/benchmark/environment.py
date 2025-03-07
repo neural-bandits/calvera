@@ -230,7 +230,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
                 torch.masked_select(self._last_contextualized_actions, expanded_mask).view(
                     self._last_contextualized_actions.size(0),
                     -1,
-                    self._last_contextualized_actions.size(-1),
+                    *self._last_contextualized_actions.shape[2:],
                 ),
             )  # shape (n, m, k)
         elif isinstance(self._last_contextualized_actions, tuple | list):
@@ -245,7 +245,7 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
                     torch.masked_select(action_item, expanded_mask).view(
                         first_tensor.size(0),
                         -1,
-                        first_tensor.size(-1),
+                        *first_tensor.shape[2:],
                     )
                     for action_item in self._last_contextualized_actions
                 ),

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from calvera.benchmark.multiclass import MultiClassContextualizer
+from calvera.utils.multiclass import MultiClassContextualizer
 
 
 class TestMultiClasscontextualizer:
