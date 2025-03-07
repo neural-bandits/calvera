@@ -10,12 +10,13 @@ Calvera provides implementations of various bandit algorithms including:
 Additionally, it offers customizable selectors such as:
   - ArgMaxSelector
   - EpsilonGreedySelector
+  - RandomSelector
   - TopKSelector
 
 For more information, please refer to the documentation at:
 http://neural-bandits.github.io/calvera/
 """
 
-__version__ = "1.0.0"
+__version__ = "0.1.5"
 __author__ = "Philipp Kolbe, Robert Weeke, Parisa Shahabinejad"
 __license__ = "MIT"

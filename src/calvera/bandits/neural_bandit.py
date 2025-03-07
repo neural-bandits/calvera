@@ -2,7 +2,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, cast
 
-import lightning as pl
 import torch
 import torch.nn as nn
 from _collections_abc import Mapping
@@ -14,17 +13,6 @@ from calvera.utils.data_storage import AbstractBanditDataBuffer
 from calvera.utils.selectors import AbstractSelector
 
 logger = logging.getLogger(__name__)
-
-
-def get_neural_bandit_trainer(**kwargs: Any) -> pl.Trainer:
-    """Instantiates a preconfigured PyTorch Lightning Trainer for Neural Linear.
-
-    The gradient clipping value is set to 20.0.
-
-    Args:
-        **kwargs: Additional keyword arguments to pass to the Trainer.
-    """
-    return pl.Trainer(gradient_clip_val=20.0, **kwargs)
 
 
 class NeuralBandit(AbstractBandit[torch.Tensor], ABC):

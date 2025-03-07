@@ -8,7 +8,7 @@ Let's start with a simple example using Linear Thompson Sampling:
 
 ```python
 import torch
-from calvera.bandits.linear_ts_bandit import LinearTSBandit, get_linear_ts_trainer
+from calvera.bandits import LinearTSBandit
 
 # 1. Create a bandit for a linear model with 128 features
 N_FEATURES = 128
@@ -27,7 +27,12 @@ chosen_contextualized_actions = data[:, :, chosen_arms]
 bandit.record_feedback(chosen_contextualized_actions, rewards)
 
 # 5. Train the bandit
-trainer = get_linear_ts_trainer(bandit)
+trainer = pl.Trainer(
+    max_epochs=1,
+    enable_progress_bar=False,
+    enable_model_summary=False,
+    accelerator=accelerator,
+)
 trainer.fit(bandit)
 
 # (6. Repeat the process as needed)
@@ -57,10 +62,10 @@ Let's look at a practical example using the [StatLog](https://archive.ics.uci.ed
 import torch
 import lightning as pl
 from torch.utils.data import DataLoader, Subset
-from calvera.bandits.linear_ts_bandit import LinearTSBandit
-from calvera.benchmark.datasets.statlog import StatlogDataset
-from calvera.benchmark.environment import BanditBenchmarkEnvironment
-from calvera.utils.selectors import ArgMaxSelector
+from calvera.bandits import LinearTSBandit
+from calvera.benchmark.datasets import StatlogDataset
+from calvera.benchmark import BanditBenchmarkEnvironment
+from calvera.utils import ArgMaxSelector
 
 # Load the StatLog dataset
 dataset = StatlogDataset()
@@ -165,7 +170,7 @@ The Linear UCB (LinUCB) algorithm uses an upper confidence bound strategy to bal
 The interface is similar to Linear TS, with the main difference being the algorithm used:
 
 ```python
-from calvera.bandits.linear_ucb_bandit import LinearUCBBandit
+from calvera.bandits import LinearUCBBandit
 
 # Initialize the Linear UCB bandit
 bandit_module = LinearUCBBandit(
@@ -188,8 +193,8 @@ Let's see an example:
 
 ```python
 import torch.nn as nn
-from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
-from calvera.utils.data_storage import InMemoryDataBuffer, AllDataBufferStrategy
+from calvera.bandits import NeuralLinearBandit
+from calvera.utils import InMemoryDataBuffer, AllDataBufferStrategy
 
 # Define a neural network architecture
 class Network(nn.Module):
@@ -234,7 +239,7 @@ Now we can run the training loop, which is similar to the Linear TS example, but
 
 ```python
 from lightning.pytorch.loggers.csv_logs import CSVLogger
-from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
+from calvera.benchmark import OnlineBanditLoggerDecorator
 
 # Set up logger
 logger = OnlineBanditLoggerDecorator(
@@ -279,7 +284,7 @@ for contextualized_actions in progress_bar:
     trainer.fit(bandit_module)
 ```
 
-The key differences in Neural Linear compared to linear bandits:
+The key differences in Neural Linear compared to Linear bandits:
 
 1. We need to define a neural network architecture
 2. We use a buffer to store interaction data
@@ -287,7 +292,9 @@ The key differences in Neural Linear compared to linear bandits:
 
 In Neural Linear, the neural network and the Bayesian linear regression components are updated at different time scales
 
-[View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear.ipynb)
+[View complete notebook on GitHub](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear.ipynb).
+
+[Extension of the above notebook to Sentiment Analysis using a simple BertModel](https://github.com/neural-bandits/calvera/blob/main/examples/neural_linear_bert.ipynb).
 
 ## Neural Bandits
 
@@ -300,7 +307,7 @@ Neural Thompson Sampling (NeuralTS) uses deep neural networks for both explorati
 Here's how to use it:
 
 ```python
-from calvera.bandits.neural_ts_bandit import NeuralTSBandit
+from calvera.bandits import NeuralTSBandit
 
 # Define a simple network architecture
 class Network(nn.Module):
@@ -363,7 +370,7 @@ Neural UCB (NeuralUCB) uses neural networks to estimate rewards and guides explo
 Here's how to use it:
 
 ```python
-from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+from calvera.bandits import NeuralUCBBandit
 
 # Network architecture is the same as for Neural TS
 
@@ -402,9 +409,9 @@ Combinatorial Neural Thompson Sampling adapts the neural network-based Thompson 
 Let's explore an example using a synthetic dataset and Neural Thompson Sampling:
 
 ```python
-from calvera.benchmark.datasets.synthetic_combinatorial import SyntheticCombinatorialDataset
-from calvera.bandits.neural_ts_bandit import NeuralTSBandit
-from calvera.utils.selectors import TopKSelector
+from calvera.benchmark.datasets import SyntheticCombinatorialDataset
+from calvera.bandits import NeuralTSBandit
+from calvera.utils import TopKSelector
 
 
 # Define a Neural Network for the Combinatorial Bandit
@@ -507,7 +514,7 @@ Note that we are defining a NeuralTSBandit module here, and the key difference i
 Similar to Combinatorial Neural Thompson Sampling, the Combinatorial Neural UCB (NeuralUCB) approach can be applied to combinatorial action spaces:
 
 ```python
-from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
+from calvera.bandits import NeuralUCBBandit
 
 # Initialize the Neural UCB bandit
 bandit_module = NeuralUCBBandit(
@@ -544,7 +551,7 @@ Selectors determine how actions are chosen based on the scores produced by the b
 Here's how to use them:
 
 ```python
-from calvera.utils.selectors import ArgMaxSelector, EpsilonGreedySelector, TopKSelector
+from calvera.utils import ArgMaxSelector, EpsilonGreedySelector, TopKSelector
 
 # Use ArgMaxSelector (default if none specified)
 bandit = LinearTSBandit(
@@ -568,7 +575,7 @@ bandit = LinearTSBandit(
 You can also implement custom selectors by subclassing `AbstractSelector`:
 
 ```python
-from calvera.utils.selectors import AbstractSelector
+from calvera.utils import AbstractSelector
 
 class MyCustomSelector(AbstractSelector):
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
@@ -588,7 +595,7 @@ Calvera provides different strategies for managing interaction data:
 Here's how to use them:
 
 ```python
-from calvera.utils.data_storage import InMemoryDataBuffer, AllDataBufferStrategy, SlidingWindowBufferStrategy
+from calvera.utils import InMemoryDataBuffer, AllDataBufferStrategy, SlidingWindowBufferStrategy
 
 # Store all data
 buffer = InMemoryDataBuffer(
@@ -674,8 +681,8 @@ The `RandomDataSampler` samples elements randomly without replacement:
 
 ```python
 from torch.utils.data import DataLoader
-from calvera.utils.data_sampler import RandomDataSampler
-from calvera.benchmark.datasets.statlog import StatlogDataset
+from calvera.utils import RandomDataSampler
+from calvera.benchmark.datasets import StatlogDataset
 
 # Create a dataset
 dataset = StatlogDataset()
@@ -703,7 +710,7 @@ for batch in dataloader:
 The `SortedDataSampler` allows you to sample elements in a specific order based on a key function:
 
 ```python
-from calvera.utils.data_sampler import SortedDataSampler
+from calvera.utils import SortedDataSampler
 
 # Define a key function that determines the sorting order
 def key_fn(idx):
@@ -740,7 +747,7 @@ Here's how to enable checkpointing:
 ```python
 import lightning as pl
 from lightning.pytorch.callbacks import ModelCheckpoint
-from calvera.bandits.neural_ts_bandit import NeuralTSBandit
+from calvera.bandits import NeuralTSBandit
 
 # Initialize your bandit
 bandit = NeuralTSBandit(
@@ -848,168 +855,12 @@ trainer = pl.Trainer(
 
 This setup ensures you always have the best-performing model saved, as well as regular snapshots of recent training progress.
 
-<!-- ## Working with Custom Datasets
-
-Calvera allows you to use your own datasets by implementing the `AbstractDataset` interface. This is useful when you want to apply bandit algorithms to your specific domain or problem.
-
-### Creating a Custom Dataset
-
-To create a custom dataset, you need to subclass `AbstractDataset` and implement the required methods:
-
-```python
-import torch
-from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
-
-class MyCustomDataset(AbstractDataset[torch.Tensor]):
-    """Custom dataset implementation for Calvera."""
-
-    # Define these properties for your dataset
-    num_actions: int = 5  # Number of available actions
-    context_size: int = 20  # Size of the context vector
-
-    def __init__(self, data_path: str = "./my_data.csv", needs_disjoint_contextualization: bool = True):
-        """Initialize your custom dataset.
-
-        Args:
-            data_path: Path to your dataset file
-            needs_disjoint_contextualization: Whether to use disjoint model contextualization
-        """
-        super().__init__(needs_disjoint_contextualization=needs_disjoint_contextualization)
-
-        # Load and preprocess your data
-        # This is just an example, adapt to your data source
-        import pandas as pd
-        self.data = pd.read_csv(data_path)
-
-        # Convert features to tensor
-        self.X = torch.tensor(self.data['features'].values.tolist(), dtype=torch.float32)
-
-        # Convert labels/rewards to tensor (if available)
-        if 'rewards' in self.data:
-            self.rewards = torch.tensor(self.data['rewards'].values.tolist(), dtype=torch.float32)
-
-    def __len__(self) -> int:
-        """Return the number of samples in this dataset."""
-        return len(self.X)
-
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return the contextualized actions and rewards for a given index.
-
-        Args:
-            idx: The index of the context in this dataset.
-
-        Returns:
-            contextualized_actions: The contextualized actions for the given index.
-            rewards: The rewards for each action.
-        """
-        context = self.X[idx].reshape(1, -1)
-        contextualized_actions = self.contextualizer(context).squeeze(0)
-
-        # Either use precomputed rewards or generate them on-the-fly
-        if hasattr(self, 'rewards'):
-            rewards = self.rewards[idx]
-        else:
-            # Generate rewards based on some reward model
-            rewards = torch.tensor(
-                [self.reward(idx, action) for action in range(self.num_actions)],
-                dtype=torch.float32,
-            )
-
-        return contextualized_actions, rewards
-
-    def reward(self, idx: int, action: int) -> float:
-        """Return the reward for a given index and action.
-
-        In a real application, this could be a function of the features and action,
-        or it could be pre-computed from historical data.
-
-        Args:
-            idx: The index of the context in this dataset.
-            action: The action for which to compute the reward.
-
-        Returns:
-            The reward value as a float.
-        """
-        # This is just an example, implement your own reward logic
-        # For instance, you might have a reward model that predicts rewards
-        # based on the context and action
-        if hasattr(self, 'rewards') and self.rewards.shape[1] > action:
-            return float(self.rewards[idx, action])
-        else:
-            # Fallback reward logic (simple example)
-            feature_sum = self.X[idx].sum().item()
-            return float(0.5 + 0.1 * action * feature_sum)
-```
-
-### Using a Custom Dataset with Bandits
-
-Once you've implemented your custom dataset, you can use it with Calvera bandits just like the built-in datasets:
-
-```python
-from torch.utils.data import DataLoader
-from calvera.benchmark.environment import BanditBenchmarkEnvironment
-from calvera.bandits.linear_ucb_bandit import LinearUCBBandit
-
-# Create your custom dataset
-my_dataset = MyCustomDataset(data_path="./my_domain_data.csv")
-
-# Create DataLoader
-batch_size = 32
-train_loader = DataLoader(my_dataset, batch_size=batch_size, shuffle=True)
-
-# Create environment
-env = BanditBenchmarkEnvironment(train_loader)
-
-# Initialize a bandit
-bandit = LinearUCBBandit(
-    n_features=my_dataset.context_size,
-    exploration_rate=1.0,
-)
-
-# Now you can run the training loop with your custom dataset
-# (similar to the examples earlier in this guide)
-```
-
-### Logging Data from Custom Datasets
-
-When using custom datasets, you might want to log additional metrics specific to your domain:
-
-```python
-import pandas as pd
-from lightning.pytorch.loggers import CSVLogger
-from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
-
-# Create a logger
-logger = OnlineBanditLoggerDecorator(
-    CSVLogger("logs", name="my_custom_dataset_experiment"),
-    enable_console_logging=True,
-)
-
-# During training, log domain-specific metrics
-for contextualized_actions in env:
-    # ... perform bandit selection and get rewards ...
-
-    # Log custom metrics
-    logger.log_metrics(
-        {
-            "domain_specific_metric": calculated_value,
-            "conversion_rate": conversions / total_attempts,
-            # ... other custom metrics ...
-        },
-        step=current_step
-    )
-
-# After training, analyze your custom metrics
-results = pd.read_csv(f"{logger._logger_wrappee.log_dir}/metrics.csv")
-domain_metric_over_time = results["domain_specific_metric"]
-``` -->
-
 ## Benchmarking
 
 Calvera provides a benchmarking module to easily compare different bandit algorithms on various datasets. Here's how to use it:
 
 ```python
-from calvera.benchmark.benchmark import run
+from calvera.benchmark import run
 
 # Benchmark a Linear UCB bandit on the Covertype dataset
 run(

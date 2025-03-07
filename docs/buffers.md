@@ -19,7 +19,7 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
 
 ## **Data Buffers**
 
-::: calvera.utils.data_storage.AbstractBanditDataBuffer
+::: calvera.utils.AbstractBanditDataBuffer
     handler: python
     options:
       show_root_heading: true
@@ -34,7 +34,7 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
         - load_state_dict
 
 
-::: calvera.utils.data_storage.InMemoryDataBuffer
+::: calvera.utils.InMemoryDataBuffer
     handler: python
     options:
       heading: InMemoryDataBuffer
@@ -42,12 +42,18 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
       show_root_full_path: false
       heading_level: 2
       members:
-        - add_batch
-        - get_batch
-        - update_embeddings
-        - __len__
-        - state_dict
-        - load_state_dict
+        - __init__
+
+
+::: calvera.utils.ListDataBuffer
+    handler: python
+    options:
+      heading: ListDataBuffer
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 2
+      members:
+        - __init__
 
 <br>
 <br>
