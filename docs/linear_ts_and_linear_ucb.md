@@ -10,7 +10,7 @@ The key part is that both need to compute the inverse of the covariance matrix o
 This calculation can become expensive for high-dimensional contexts. Therefore, we also provide a `DiagonalPrecApprox-`
 variant. This variant uses a diagonal approximation of the covariance matrix and is much faster to compute.
 
-::: calvera.bandits.linear_ucb_bandit.LinearUCBBandit
+::: calvera.bandits.LinearUCBBandit
     handler: python
     options:
       heading: LinearUCBBandit
@@ -21,7 +21,7 @@ variant. This variant uses a diagonal approximation of the covariance matrix and
         - __init__
       show_source: True
 
-::: calvera.bandits.linear_ucb_bandit.DiagonalPrecApproxLinearUCBBandit
+::: calvera.bandits.DiagonalPrecApproxLinearUCBBandit
     handler: python
     options:
       heading: DiagonalPrecApproxLinearUCBBandit
@@ -30,7 +30,7 @@ variant. This variant uses a diagonal approximation of the covariance matrix and
       heading_level: 2
       members: false
 
-::: calvera.bandits.linear_ts_bandit.LinearTSBandit
+::: calvera.bandits.LinearTSBandit
     handler: python
     options:
       heading: LinearTSBandit
@@ -40,7 +40,7 @@ variant. This variant uses a diagonal approximation of the covariance matrix and
       members:
         - __init__
 
-::: calvera.bandits.linear_ts_bandit.DiagonalPrecApproxLinearTSBandit
+::: calvera.bandits.DiagonalPrecApproxLinearTSBandit
     handler: python
     options:
       heading: DiagonalPrecApproxLinearTSBandit
