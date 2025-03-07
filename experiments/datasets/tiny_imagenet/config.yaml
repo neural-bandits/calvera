@@ -1,19 +1,7 @@
-comparison_key: bandit
+dataset: tiny_imagenet
+max_samples: 5000
 
-dataset: wheel
-dataset_hparams:
-  num_samples: 20480
-  delta: 0.9
-
-bandit:
-  - random
-  - approx_lin_ucb
-  - lin_ts
-  - lin_ucb
-  - approx_lin_ts
-  - neural_linear
-  - neural_ts
-  - neural_ucb
+bandit: neural_linear
 
 selector: argmax
 
@@ -27,10 +15,12 @@ train_batch_size: 100  # this is actually passed to the bandit but it needs to b
 gradient_clip_val: 20.0
 
 # Network
-network: small_mlp  # 3 hidden layer with 128 units
+network: resnet18
+device: cuda
 
 # Buffer
 data_strategy: all
+
 max_buffer_size: 10240
 
 # Bandit arguments
@@ -39,7 +29,9 @@ bandit_hparams:
   learning_rate: 0.0001
   weight_decay: 0.00001
   min_samples_required_for_training: 128
-  initial_train_steps: 1024
-  n_embedding_size: 64
+  initial_train_steps: 128
+  n_embedding_size: 128
+  contextualization_after_network: True
+  n_arms: 10
 
-seed: 52
+seed: 42

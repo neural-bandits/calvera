@@ -4,6 +4,7 @@ import pytest
 import torch
 from torch.testing import assert_close
 
+from calvera.bandits.abstract_bandit import _collate_fn
 from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
 
 
@@ -102,7 +103,7 @@ def test_get_all_data(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dic
         sample_data["rewards"],
     )
 
-    context_data, embedded_data, rewards_data = buffer.get_all_data()
+    context_data, embedded_data, rewards_data, _ = buffer.get_all_data()
 
     assert torch.allclose(context_data, sample_data["contextualized_actions"])
     assert embedded_data is not None, "Embedded actions should not be None"
@@ -119,7 +120,7 @@ def test_get_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[s
         sample_data["rewards"],
     )
 
-    context_batch, embedded_batch, rewards_batch = buffer.get_batch(1)
+    context_batch, embedded_batch, rewards_batch, _ = buffer.get_batch(1)
 
     assert context_batch.shape == torch.Size([1, sample_data["context_dim"]])
     if embedded_batch is not None:
@@ -145,12 +146,12 @@ def test_data_loader(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict
         sample_data["rewards"],
     )
 
-    dataloader = torch.utils.data.DataLoader(buffer, batch_size=1)
+    dataloader = torch.utils.data.DataLoader(buffer, batch_size=1, collate_fn=_collate_fn)
 
     i = 0
     for data in dataloader:
-        assert len(data) == 2, "Data should be a tuple of (context, reward)"
-        context, reward = data
+        assert len(data) == 4, "Data should be a tuple of (context, embeddings = None, reward, chosen_actions = None)"
+        context, reward = data[0], data[2]
         i += reward.shape[0]
         assert context.shape == torch.Size([1, 1, sample_data["context_dim"]])
         assert reward.shape == torch.Size([1, 1])
@@ -165,12 +166,12 @@ def test_data_loader_with_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], s
         sample_data["rewards"],
     )
 
-    dataloader = torch.utils.data.DataLoader(buffer, batch_size=1)
+    dataloader = torch.utils.data.DataLoader(buffer, batch_size=1, collate_fn=_collate_fn)
 
     i = 0
     for data in dataloader:
-        assert len(data) == 3, "Data should be a tuple of (context, embedding, reward)"
-        context, embedding, reward = data
+        assert len(data) == 4, "Data should be a tuple of (context, embeddings = None, reward, chosen_actions = None)"
+        context, embedding, reward = data[:3]
         i += reward.shape[0]
         assert context.shape == torch.Size([1, 1, sample_data["context_dim"]])
         assert embedding.shape == torch.Size([1, 1, sample_data["embedding_dim"]])

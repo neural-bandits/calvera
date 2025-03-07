@@ -66,10 +66,10 @@ Retrieve the rewards of the infered actions (depends on your use case).
 rewards = torch.randn(100, 1)
 ```
 
-Hand the data to the bandit via `add_data`.
+Hand the data to the bandit via `record_feedback`.
 
 ```python
-bandit.add_data(chosen_contextualized_actions, rewards)
+bandit.record_feedback(chosen_contextualized_actions, rewards)
 ```
 
 Train the bandit via a PyTorch Lightning Trainer.
@@ -88,7 +88,7 @@ The combined code looks as follows:
 ```python
 import torch
 
-from calvera.bandits.linear_ts_bandit import LinearTSBandit, get_linear_ts_trainer
+from calvera.bandits import LinearTSBandit, get_linear_ts_trainer
 
 # 1. Create a bandit for a linear model with 128 features.
 N_FEATURES = 128
@@ -110,7 +110,7 @@ rewards = torch.randn(100, 1)
 
 # 4. Give the data to the bandit.
 chosen_contextualized_actions = data[:, :, chosen_arms]
-bandit.add_data(chosen_contextualized_actions, rewards)
+bandit.record_feedback(chosen_contextualized_actions, rewards)
 
 # 5. Train the bandit.
 trainer = get_linear_ts_trainer(bandit)
