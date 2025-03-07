@@ -2,7 +2,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, cast
 
-import lightning as pl
 import torch
 import torch.nn as nn
 from _collections_abc import Mapping

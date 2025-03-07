@@ -570,7 +570,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """A list-based implementation of the bandit data buffer.
 
-    This implementation stores contextualized actions, optional embedded actions, rewards and 
+    This implementation stores contextualized actions, optional embedded actions, rewards and
     chosen_actions in Python lists. No `torch.Tensors` are used.
     """
 

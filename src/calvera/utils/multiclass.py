@@ -9,7 +9,7 @@ class MultiClassContextualizer:
         contextualizer = MultiClassContextualizer(n_arms=2)
         feature_vector = torch.tensor([[1, 0]])
         contextualizer(feature_vector)
-        
+
         tensor([[[1, 0, 0, 0],
              [0, 0, 1, 0]]])
         ```
