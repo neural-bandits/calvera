@@ -283,7 +283,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         if isinstance(contextualized_actions, torch.Tensor):
             contextualized_actions_tensor = contextualized_actions
             assert contextualized_actions_tensor.ndim == 2, (
-                "Chosen actions must have shape (batch_size, n_features)"
+                "Chosen actions must have shape (batch_size, n_features) "
                 f"but got shape {contextualized_actions_tensor.shape}"
             )
             assert (
@@ -298,7 +298,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
                 contextualized_actions_listtuple[0].ndim == 2
                 and contextualized_actions_listtuple[0].shape[0] == rewards.shape[0]
             ), (
-                f"Chosen actions must have shape (batch_size, n_features)"
+                f"Chosen actions must have shape (batch_size, n_features) "
                 f"but got shape {contextualized_actions_listtuple[0].shape}"
             )
             assert all(
@@ -311,7 +311,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
             )  # shape: (batch_size, n_parts, n_features)
         else:
             raise ValueError(
-                f"Contextualized actions must be a torch.Tensor or a tuple of torch.Tensors."
+                f"Contextualized actions must be a torch.Tensor or a tuple of torch.Tensors. "
                 f"Received {type(contextualized_actions)}."
             )
 
@@ -334,17 +334,17 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
                 0, embedded_actions.shape[1], device=self.device
             )  # shape: (n, n_embedding_size)
 
-        assert (
-            contextualized_actions_tensor.shape[1:] == self.contextualized_actions.shape[1:]
-        ), f"Input shape does not match buffer shape. Expected {self.contextualized_actions.shape[1:]},\
-            got {contextualized_actions_tensor.shape[1:]}"
+        assert contextualized_actions_tensor.shape[1:] == self.contextualized_actions.shape[1:], (
+            f"Input shape does not match buffer shape. Expected {self.contextualized_actions.shape[1:]}, "
+            f"got {contextualized_actions_tensor.shape[1:]}"
+        )
 
         self.contextualized_actions = torch.cat([self.contextualized_actions, contextualized_actions_tensor], dim=0)
         if embedded_actions is not None:
-            assert (
-                embedded_actions.shape[1] == self.embedded_actions.shape[1]
-            ), f"Embedding size does not match embeddings in buffer. Expected {self.embedded_actions.shape[1]},\
-                got {embedded_actions.shape[1]}"
+            assert embedded_actions.shape[1] == self.embedded_actions.shape[1], (
+                f"Embedding size does not match embeddings in buffer. Expected {self.embedded_actions.shape[1]}, "
+                "got {embedded_actions.shape[1]}"
+            )
 
             self.embedded_actions = torch.cat([self.embedded_actions, embedded_actions], dim=0)
 

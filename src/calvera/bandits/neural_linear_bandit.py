@@ -700,7 +700,9 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                         "Chosen actions are needed when " "`contextualization_after_network is True"
                     )
                     chosen_actions_idx = chosen_actions[i : i + batch_size].argmax(dim=1)
-                    embedded_actions = embedded_actions[torch.arange(embedded_actions.shape[0]), chosen_actions_idx]
+                    embedded_actions = embedded_actions[
+                        torch.arange(embedded_actions.shape[0], device=embedded_actions.device), chosen_actions_idx
+                    ]
 
                 new_embedded_actions[i : i + batch_size] = embedded_actions
 
