@@ -5,7 +5,7 @@ import torch
 from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 
 
-def sample_rewards(
+def _sample_rewards(
     generator: torch.Generator,
     contexts: torch.Tensor,
     actions: torch.Tensor,
@@ -180,7 +180,7 @@ class WheelBanditDataset(AbstractDataset[torch.Tensor]):
             self.num_actions, dim=0
         )  # shape (num_samples * num_actions, context_size)
         actions = torch.arange(self.num_actions).repeat(self.num_samples)  # shape (num_samples * num_actions)
-        rewards = sample_rewards(
+        rewards = _sample_rewards(
             generator,
             contexts_repeat,
             actions,

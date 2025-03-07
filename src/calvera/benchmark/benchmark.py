@@ -169,7 +169,7 @@ networks: dict[str, Callable[[int, int], torch.nn.Module]] = {
 }
 
 
-def custom_collate(batch: Any, data_collator: DataCollatorForTokenClassification) -> Any:
+def transformers_collate(batch: Any, data_collator: DataCollatorForTokenClassification) -> Any:
     """Custom collate function for the DataLoader.
 
     Args:
@@ -365,7 +365,7 @@ class BanditBenchmark(Generic[ActionInputType]):
 
         collate_fn = None
         if isinstance(dataset, ImdbMovieReviews):
-            collate_fn = partial(custom_collate, data_collator=dataset.get_data_collator())  # type: ignore
+            collate_fn = partial(transformers_collate, data_collator=dataset.get_data_collator())  # type: ignore
 
         if "max_samples" in self.training_params:
             max_samples = self.training_params["max_samples"]

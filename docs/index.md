@@ -81,7 +81,7 @@ The combined code looks as follows:
 ```python
 import torch
 
-from calvera.bandits.linear_ts_bandit import LinearTSBandit, get_linear_ts_trainer
+from calvera.bandits import LinearTSBandit, get_linear_ts_trainer
 
 # 1. Create a bandit for a linear model with 128 features.
 N_FEATURES = 128
