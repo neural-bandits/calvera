@@ -5,6 +5,7 @@ Calvera is a Python library offering a collection of neural multi-armed bandit a
 ## Features
 
 - **Multi-Armed Bandit Algorithms:**
+
   - (Approximate + Standard) Linear Thompson Sampling
   - (Approximate + Standard) Linear UCB
   - Neural Linear
@@ -12,6 +13,7 @@ Calvera is a Python library offering a collection of neural multi-armed bandit a
   - Neural UCB
 
 - **Customizable Selectors:**
+
   - **ArgMaxSelector:** Chooses the arm with the highest score.
   - **EpsilonGreedySelector:** Chooses the best arm with probability `1-epsilon` or a random arm with probability `epsilon`.
   - **TopKSelector:** Selects the top `k` arms with the highest scores.
@@ -27,11 +29,13 @@ Calvera is available on [PyPI](https://pypi.org/). Install it via pip:
 ```bash
 pip install calvera
 ```
+
 This installs the necessary dependencies for the base library. If you want to use parts of the benchmark subpackage we recommend installing the optional dependencies as well:
 
 ```bash
 pip install calvera[benchmark]
 ```
+
 For development you can install the development dependencies via:
 
 ```bash
@@ -41,6 +45,7 @@ pip install calvera[dev]
 ## Quick Start
 
 Below is a simple example using a Linear Thompson Sampling bandit:
+
 ```python
 import torch
 from calvera.bandits import LinearTSBandit, get_linear_ts_trainer
@@ -59,7 +64,7 @@ rewards = torch.randn(100, 1)
 
 # 4. Add the data to the bandit.
 chosen_contextualized_actions = data[:, :, chosen_arms]
-bandit.add_data(chosen_contextualized_actions, rewards)
+bandit.record_feedback(chosen_contextualized_actions, rewards)
 
 # 5. Train the bandit.
 trainer = get_linear_ts_trainer(bandit)
@@ -101,6 +106,5 @@ For questions or feedback, please reach out to one of the authors:
 - Parisa Shahabinejad
 
 ---
-
 
 [Link to Agreement](https://docs.google.com/document/d/1qs0hDGVd5MHe6PK5uL_GVNjiIePBJscbNkjGotF9-Uk/edit?tab=t.0])
