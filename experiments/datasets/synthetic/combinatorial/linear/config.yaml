@@ -1,23 +1,24 @@
 comparison_key: bandit
 
-dataset: synthetic_comb
+dataset: synthetic_combinatorial
 dataset_hparams:
   n_samples: 20480
   function_type: linear
   noise_std: 0.1
 
 bandit:
-  # - lin_ts
-  # - approx_lin_ts
-  # - lin_ucb
-  # - approx_lin_ucb
+  - random
+  - lin_ts
+  - approx_lin_ts
+  - lin_ucb
+  - approx_lin_ucb
   - neural_ts
   - neural_ucb
 
 max_samples: 20480
 
 selector: top_k
-k: 10
+k: 4
 
 # Setting
 feedback_delay: 1
@@ -25,7 +26,7 @@ forward_batch_size: 1
 
 # Trainer arguments
 max_steps: 1024
-train_batch_size: 32  # this is actually passed to the bandit but it needs to be here
+train_batch_size: 100  # this is actually passed to the bandit but it needs to be here
 gradient_clip_val: 20.0
 
 # Network
@@ -37,8 +38,8 @@ max_buffer_size: 10240
 
 # Bandit arguments
 bandit_hparams:
-  exploration_rate: 0.1
-  lr: 0.0001
+  exploration_rate: 0.00001
+  learning_rate: 0.0001
   weight_decay: 0.00001
   min_samples_required_for_training: 128
   initial_train_steps: 1024

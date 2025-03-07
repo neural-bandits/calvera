@@ -1,21 +1,23 @@
 comparison_key: bandit
 
-dataset: wheel
+dataset: movielens
 dataset_hparams:
-  num_samples: 20480
-  delta: 0.9
+  version: ml-32m
+  k: 4
 
 bandit:
   - random
-  - approx_lin_ucb
   - lin_ts
-  - lin_ucb
   - approx_lin_ts
-  - neural_linear
+  - lin_ucb
+  - approx_lin_ucb
   - neural_ts
   - neural_ucb
 
-selector: argmax
+max_samples: 20480
+
+selector: top_k
+k: 4
 
 # Setting
 feedback_delay: 1
@@ -41,5 +43,6 @@ bandit_hparams:
   min_samples_required_for_training: 128
   initial_train_steps: 1024
   n_embedding_size: 64
+  eps: 1.0
 
 seed: 52

@@ -3,9 +3,15 @@ import pytest
 import torch
 import torch.nn as nn
 
-from calvera.bandits.abstract_bandit import AbstractBandit
-from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
-from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
+from calvera.bandits.abstract_bandit import AbstractBandit, _collate_fn
+from calvera.bandits.linear_ts_bandit import (
+    DiagonalPrecApproxLinearTSBandit,
+    LinearTSBandit,
+)
+from calvera.bandits.linear_ucb_bandit import (
+    DiagonalPrecApproxLinearUCBBandit,
+    LinearUCBBandit,
+)
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
@@ -97,8 +103,13 @@ def test_trainer_fit_runs_with_dataloader(
     device = "cpu"
     bandit = bandit.to(device)
 
-    dataset = torch.utils.data.TensorDataset(torch.randn(10, 1, 3, device=device), torch.rand(10, 1, device=device))
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=2)
+    dataset = torch.utils.data.TensorDataset(
+        torch.randn(10, 1, 3, device=device),
+        torch.rand(10, 1, 5, device=device),
+        torch.rand(10, 1, device=device),
+        torch.rand(10, 2, device=device),
+    )
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=2, collate_fn=_collate_fn)
     pl.Trainer(fast_dev_run=True).fit(bandit, dataloader)
 
     contextualized_actions = torch.randn(10, 2, 3, device=device)

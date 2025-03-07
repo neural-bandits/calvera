@@ -210,6 +210,10 @@ class RandomSelector(AbstractSelector):
             One-hot encoded selected actions where exactly k entries are 1 per sample.
             Shape: (batch_size, n_arms).
         """
+        if scores.device != self.generator.device:
+            self.generator = torch.Generator(device=scores.device)
+            self.generator.set_state(self.generator.get_state())
+
         batch_size, n_arms = scores.shape
         selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64, device=scores.device)
         for i in range(batch_size):
