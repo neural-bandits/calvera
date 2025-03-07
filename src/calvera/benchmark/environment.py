@@ -25,9 +25,11 @@ class BanditBenchmarkEnvironment(Generic[ActionInputType]):
     ```python
     environment = BanditBenchmarkEnvironment(dataloader)
     for contextualized_actions in environment:
-        chosen_actions = bandit.forward(contextualized_actions)
-        feedback_dataset = environment.get_feedback(chosen_actions)
-        bandit.update(feedback_dataset)
+        chosen_actions, p = bandit.forward(contextualized_actions)  # one-hot tensor
+        chosen_contextualized_actions, realized_rewards = environment.get_feedback(chosen_actions)
+        bandit.record_feedback(chosen_contextualized_actions, realized_rewards)
+
+        # optional: compute regret
         regret = environment.compute_regret(chosen_actions)
     ```
     """
