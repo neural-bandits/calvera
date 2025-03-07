@@ -532,12 +532,15 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 class DummyBandit(AbstractBandit[ActionInputType]):
     """A dummy bandit that always selects random actions."""
 
-    def __init__(self, n_features: int, selector: AbstractSelector | None = None) -> None:
-        """Initializes a DummyBandit with a RandomSelector."""
-        if selector is None:
-            selector = RandomSelector()
+    def __init__(self, n_features: int, k: int = 1) -> None:
+        """Initializes a DummyBandit with a RandomSelector.
+
+        Args:
+            n_features: The number of features in the bandit model. Must be positive.
+            k: Number of actions to select. Must be positive. Default is 1.
+        """
         super().__init__(
-            selector=RandomSelector(),
+            selector=RandomSelector(k=k),
             n_features=n_features,
         )
         self.automatic_optimization = False

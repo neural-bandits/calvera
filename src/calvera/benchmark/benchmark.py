@@ -269,6 +269,8 @@ class BanditBenchmark(Generic[ActionInputType]):
         training_params = config
         bandit_hparams: dict[str, Any] = config.get("bandit_hparams", {})
         bandit_hparams["selector"] = selectors[bandit_hparams.get("selector", "argmax")](training_params)
+        if "k" in training_params and "k" not in bandit_hparams:
+            bandit_hparams["k"] = training_params["k"]
 
         def key_fn(idx: int) -> int:
             return dataset.sort_key(idx)
