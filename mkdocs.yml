@@ -72,6 +72,7 @@ plugins:
 nav:
   - Docs: index.md
   - Examples: examples.md
+  - Benchmark: benchmark_results.md
   - API Reference:
     - Bandit Interface: bandits.md
     - LinearTS and LinearUCB: linear_ts_and_linear_ucb.md
