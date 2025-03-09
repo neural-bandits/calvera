@@ -1,0 +1,37 @@
+dataset: imdb
+max_samples: 5000
+
+bandit: neural_linear
+
+selector: argmax
+
+# Setting
+feedback_delay: 1   ###### CHANGED
+forward_batch_size: 1
+
+# Trainer arguments
+max_steps: 1024
+train_batch_size: 32  # this is actually passed to the bandit but it needs to be here
+gradient_clip_val: 20.0
+
+# Network
+network: bert
+device: cuda
+
+# Buffer
+data_strategy: all
+
+max_buffer_size: 1024
+
+# Bandit arguments
+bandit_hparams:
+  exploration_rate: 0.00001
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  min_samples_required_for_training: 99999999999   ###### CHANGED
+  initial_train_steps: 0   ###### CHANGED
+  n_embedding_size: 128
+  contextualization_after_network: True
+  n_arms: 2
+
+seed: 42

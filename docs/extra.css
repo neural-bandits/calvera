@@ -1,0 +1,24 @@
+[data-md-color-scheme="default"] {
+  --md-logo-url: url('../logo/calvera_dark.png');
+}
+
+[data-md-color-scheme="slate"] {
+  --md-logo-url: url('../logo/calvera_light.png');
+}
+
+.md-header__button.md-logo img,
+.md-nav__button.md-logo img {
+  display: none;
+}
+
+.md-header__button.md-logo::after,
+.md-nav__button.md-logo::after {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 32px;
+  background-image: var(--md-logo-url);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}

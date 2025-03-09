@@ -1,0 +1,7 @@
+n_features: 80
+train_batch_size: 32
+lazy_uncertainty_update: false
+eps: 1.0
+lambda_: 1.0
+clear_buffer_after_train: true
+use_sherman_morrison_update: false

@@ -166,6 +166,7 @@ data/
 examples/logs/*
 examples/lightning_logs/*
 logs/*
+experiments_old/*
 
 # slurm scripts
 batch.sh

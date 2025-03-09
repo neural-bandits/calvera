@@ -5,6 +5,7 @@ Calvera is a Python library offering a collection of neural multi-armed bandit a
 ## Features
 
 - **Multi-Armed Bandit Algorithms:**
+
   - (Approximate + Standard) Linear Thompson Sampling
   - (Approximate + Standard) Linear UCB
   - Neural Linear
@@ -12,12 +13,13 @@ Calvera is a Python library offering a collection of neural multi-armed bandit a
   - Neural UCB
 
 - **Customizable Selectors:**
+
   - **ArgMaxSelector:** Chooses the arm with the highest score.
   - **EpsilonGreedySelector:** Chooses the best arm with probability `1-epsilon` or a random arm with probability `epsilon`.
   - **TopKSelector:** Selects the top `k` arms with the highest scores.
 
-- **Seamless Integration:**
-  - Built on top of [PyTorch Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html) for streamlined training and inference.
+- **Integration:**
+  - Built on top of [PyTorch Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html) for training and inference.
   - Minimal adjustments needed to plug into your existing workflow.
 
 ## Installation
@@ -27,11 +29,13 @@ Calvera is available on [PyPI](https://pypi.org/). Install it via pip:
 ```bash
 pip install calvera
 ```
+
 This installs the necessary dependencies for the base library. If you want to use parts of the benchmark subpackage we recommend installing the optional dependencies as well:
 
 ```bash
 pip install calvera[benchmark]
 ```
+
 For development you can install the development dependencies via:
 
 ```bash
@@ -41,9 +45,11 @@ pip install calvera[dev]
 ## Quick Start
 
 Below is a simple example using a Linear Thompson Sampling bandit:
+
 ```python
 import torch
-from calvera.bandits.linear_ts_bandit import LinearTSBandit, get_linear_ts_trainer
+import lightning as pl
+from calvera.bandits import LinearTSBandit
 
 # 1. Create a bandit for a linear model with 128 features.
 N_FEATURES = 128
@@ -59,10 +65,15 @@ rewards = torch.randn(100, 1)
 
 # 4. Add the data to the bandit.
 chosen_contextualized_actions = data[:, :, chosen_arms]
-bandit.add_data(chosen_contextualized_actions, rewards)
+bandit.record_feedback(chosen_contextualized_actions, rewards)
 
 # 5. Train the bandit.
-trainer = get_linear_ts_trainer(bandit)
+trainer = pl.Trainer(
+    max_epochs=1,
+    enable_progress_bar=False,
+    enable_model_summary=False,
+    accelerator=accelerator,
+)
 trainer.fit(bandit)
 
 # (6. Repeat the process as needed)
@@ -79,8 +90,10 @@ For more detailed examples, see the examples page in [the documentation](http://
 - Selectors: Easily customize your arm selection strategy by using or extending the provided selectors.
 
 ## Benchmarks & Experimental Results
+The bandit algorithms are evaluated on different benchmark datasets. Here is an overview over their performance on the Covertype dataset:
+![Different bandits on covertype](experiments/datasets/covertype/results/results/acc_regret.png)
 
-Detailed benchmarks, datasets, and experimental results are available in the extended documentation.
+Detailed benchmarks, datasets, and experimental results are available in the extended documentation. The configuration and even more specific results can be found in ./experiments under the specific sub-directories.
 
 ## Contributing
 
@@ -101,6 +114,5 @@ For questions or feedback, please reach out to one of the authors:
 - Parisa Shahabinejad
 
 ---
-
 
 [Link to Agreement](https://docs.google.com/document/d/1qs0hDGVd5MHe6PK5uL_GVNjiIePBJscbNkjGotF9-Uk/edit?tab=t.0])

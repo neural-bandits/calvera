@@ -7,7 +7,7 @@ So, when implementing a new bandit, the following methods need to be implemented
 
 
 
-::: calvera.bandits.abstract_bandit.AbstractBandit
+::: calvera.bandits.AbstractBandit
     handler: python
     options:
       heading_level: 2
@@ -19,3 +19,12 @@ So, when implementing a new bandit, the following methods need to be implemented
         - training_step
         - _predict_action
         - _update
+
+::: calvera.bandits.DummyBandit
+    handler: python
+    options:
+      heading_level: 2
+      heading: AbstractBandit
+      show_root_heading: true
+      show_root_full_path: false
+      members: false

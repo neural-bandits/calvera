@@ -243,6 +243,8 @@ class BenchmarkAnalyzer:
 
         # Write to file
         if self.save_plots:
-            path = os.path.join(self.log_dir, bandit, "metrics.txt")
+            bandit_dir = os.path.join(self.results_dir, bandit) if bandit is not None else self.results_dir
+            os.makedirs(bandit_dir, exist_ok=True)
+            path = os.path.join(bandit_dir, "metrics.txt")
             with open(path, "w+") as f:
                 f.write(str)

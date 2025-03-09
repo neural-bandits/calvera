@@ -1,0 +1,13 @@
+Metrics of False:
+Avg Regret: 0.46474609375
+Avg Reward: 0.53525390625
+Accumulated Regret: 9518.0
+Accumulated Reward: 10962.0
+Avg Regret (first 10 steps): 0.8
+Avg Regret (first 100 steps): 0.85
+Avg Regret (first 1000 steps): 0.749
+Avg Regret (first 10000 steps): 0.5179
+Avg Regret (last 10 steps): 0.5
+Avg Regret (last 100 steps): 0.31
+Avg Regret (last 1000 steps): 0.349
+Avg Regret (last 10000 steps): 0.4134

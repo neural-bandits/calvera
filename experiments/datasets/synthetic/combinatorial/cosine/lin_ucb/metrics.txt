@@ -1,0 +1,13 @@
+Metrics of lin_ucb:
+Avg Regret: 0.21081846162560397
+Avg Reward: 0.9459993647309602
+Accumulated Regret: 4317.562094092369
+Accumulated Reward: 19374.066989690065
+Avg Regret (first 10 steps): 0.2037128150463104
+Avg Regret (first 100 steps): 0.21150739133358
+Avg Regret (first 1000 steps): 0.21564533680677414
+Avg Regret (first 10000 steps): 0.21104981288313865
+Avg Regret (last 10 steps): 0.2034038007259369
+Avg Regret (last 100 steps): 0.21230369806289673
+Avg Regret (last 1000 steps): 0.21646510738134384
+Avg Regret (last 10000 steps): 0.21055779761075974
