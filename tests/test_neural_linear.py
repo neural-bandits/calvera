@@ -12,9 +12,9 @@ from calvera.bandits.abstract_bandit import _collate_fn
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
-    TensorDataBuffer,
     ListDataBuffer,
     SlidingWindowBufferStrategy,
+    TensorDataBuffer,
 )
 
 

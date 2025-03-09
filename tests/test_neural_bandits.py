@@ -10,7 +10,7 @@ from calvera.bandits.abstract_bandit import _collate_fn
 from calvera.bandits.neural_bandit import NeuralBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
-from calvera.utils.data_storage import AllDataBufferStrategy, TensorDataBuffer, SlidingWindowBufferStrategy
+from calvera.utils.data_storage import AllDataBufferStrategy, SlidingWindowBufferStrategy, TensorDataBuffer
 from calvera.utils.selectors import EpsilonGreedySelector
 
 

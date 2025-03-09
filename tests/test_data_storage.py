@@ -5,7 +5,7 @@ import torch
 from torch.testing import assert_close
 
 from calvera.bandits.abstract_bandit import _collate_fn
-from calvera.utils.data_storage import AllDataBufferStrategy, TensorDataBuffer, SlidingWindowBufferStrategy
+from calvera.utils.data_storage import AllDataBufferStrategy, SlidingWindowBufferStrategy, TensorDataBuffer
 
 
 def test_all_data_strategy() -> None:

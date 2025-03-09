@@ -12,10 +12,10 @@ from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     BufferDataFormat,
     DataBufferStrategy,
-    TensorDataBuffer,
     ListDataBuffer,
     SlidingWindowBufferStrategy,
     StateDictType,
+    TensorDataBuffer,
 )
 from calvera.utils.multiclass import MultiClassContextualizer
 from calvera.utils.selectors import (

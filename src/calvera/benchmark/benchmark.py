@@ -50,9 +50,9 @@ from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     DataBufferStrategy,
-    TensorDataBuffer,
     ListDataBuffer,
     SlidingWindowBufferStrategy,
+    TensorDataBuffer,
 )
 from calvera.utils.selectors import (
     AbstractSelector,
