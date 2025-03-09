@@ -491,10 +491,8 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         Args:
             checkpoint: Dictionary to save the state into.
         """
-        if not isinstance(self.buffer, ListDataBuffer):
-            # Currently, the ListDataBuffer is not supported for saving the state.
-            # Therefore after saving and loading the bandit, the buffer will be empty.
-            checkpoint["buffer_state"] = self.buffer.state_dict()
+        checkpoint["buffer_state"] = self.buffer.state_dict()
+        print(checkpoint["buffer_state"])
 
         checkpoint["_new_samples_count"] = self._new_samples_count
         checkpoint["_total_samples_count"] = self._total_samples_count
