@@ -829,7 +829,6 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         Args:
             state_dict: A dictionary containing state information.
         """
-        # Move data to `self.device`
         self.contextualized_actions = state_dict["contextualized_actions"]
         self.embedded_actions = state_dict["embedded_actions"]
         self.rewards = state_dict["rewards"]
