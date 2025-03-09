@@ -252,6 +252,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.contextualized_actions = torch.empty(0, 0, 0, device=device)  # shape: (n, input_items, n_features)
         self.embedded_actions = torch.empty(0, 0, device=device)  # shape: (n, n_embedding_size)
         self.rewards = torch.empty(0, device=device)  # shape: (n,)
+        self.chosen_actions = torch.empty(0, 0, device=device)  # shape: (n, n_actions)
 
     def add_batch(
         self,
@@ -345,10 +346,19 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         if embedded_actions is not None:
             assert embedded_actions.shape[1] == self.embedded_actions.shape[1], (
                 f"Embedding size does not match embeddings in buffer. Expected {self.embedded_actions.shape[1]}, "
-                "got {embedded_actions.shape[1]}"
+                f"got {embedded_actions.shape[1]}"
             )
 
             self.embedded_actions = torch.cat([self.embedded_actions, embedded_actions], dim=0)
+
+        if chosen_actions is not None:
+            assert chosen_actions.shape[1] == self.chosen_actions.shape[1], (
+                "Shape of `chosen_actions` does not match the shape of the ones in buffer. Expected "
+                f"{self.chosen_actions.shape[1]}, "
+                f"got {chosen_actions.shape[1]}"
+            )
+
+            self.chosen_actions = torch.cat([self.chosen_actions, chosen_actions], dim=0)
 
         self.rewards = torch.cat([self.rewards, rewards])
 
@@ -474,7 +484,11 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         if self.embedded_actions.numel() > 0:
             embedded_actions_batch = self.embedded_actions[indices]
 
-        return contextualized_actions_batch, embedded_actions_batch, rewards_batch, None
+        chosen_actions_batch = None
+        if self.chosen_actions.numel() > 0:
+            chosen_actions_batch = self.chosen_actions[indices]
+
+        return contextualized_actions_batch, embedded_actions_batch, rewards_batch, chosen_actions_batch
 
     def update_embeddings(self, embedded_actions: torch.Tensor) -> None:
         """Update the embedded actions in the buffer.
@@ -532,11 +546,11 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Returns:
             Dictionary containing all necessary state information for restoring the buffer.
         """
-        # TODO(rob2u): add the chosen_actions to the state_dict. See
-        return {  # type: ignore
+        return {
             "contextualized_actions": self.contextualized_actions,
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
+            "chosen_actions": self.chosen_actions,
             "buffer_strategy": self.buffer_strategy,
             "max_size": self.max_size,
         }
@@ -556,6 +570,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.contextualized_actions = state_dict["contextualized_actions"].to(device=self.device)
         self.embedded_actions = state_dict["embedded_actions"].to(device=self.device)
         self.rewards = state_dict["rewards"].to(device=self.device)
+        self.chosen_actions = state_dict["chosen_actions"].to(device=self.device)
         self.buffer_strategy = state_dict["buffer_strategy"]
         self.max_size = state_dict["max_size"]
 
@@ -567,13 +582,15 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.contextualized_actions = torch.empty(0, 0, 0, device=self.device)  # shape: (n, input_items, n_features)
         self.embedded_actions = torch.empty(0, 0, device=self.device)  # shape: (n, n_embedding_size)
         self.rewards = torch.empty(0, device=self.device)  # shape: (n,)
+        self.chosen_actions = torch.empty(0, 0, device=self.device)  # shape: (n, n_actions)
 
 
 class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """A list-based implementation of the bandit data buffer.
 
     This implementation stores contextualized actions, optional embedded actions, rewards and
-    chosen_actions in Python lists. No `torch.Tensors` are used.
+    chosen_actions in Python lists. `torch.Tensors` are not concatenated but stored as lists.
+    Stores the `torch.Tensors` without modifying their location (device).
     """
 
     def __init__(self, buffer_strategy: DataBufferStrategy, max_size: int | None = None):
