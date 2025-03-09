@@ -33,7 +33,7 @@ class BanditStateDict(TypedDict):
     embedded_actions: Any
     rewards: Any
     chosen_actions: Any
-    
+
     buffer_strategy: "DataBufferStrategy"
     max_size: int | None
 
@@ -532,7 +532,8 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Returns:
             Dictionary containing all necessary state information for restoring the buffer.
         """
-        return {
+        # TODO(rob2u): add the chosen_actions to the state_dict. See
+        return {  # type: ignore
             "contextualized_actions": self.contextualized_actions,
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
@@ -818,7 +819,6 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
             "chosen_actions": self.chosen_actions,
-            
             "buffer_strategy": self.buffer_strategy,
             "max_size": self.max_size,
         }
@@ -834,10 +834,10 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         self.embedded_actions = state_dict["embedded_actions"]
         self.rewards = state_dict["rewards"]
         self.chosen_actions = state_dict["chosen_actions"]
-        
+
         self.buffer_strategy = state_dict["buffer_strategy"]
         self.max_size = state_dict["max_size"]
-        
+
         print(state_dict)
 
     def clear(self) -> None:

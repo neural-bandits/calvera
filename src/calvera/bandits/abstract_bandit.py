@@ -14,7 +14,6 @@ from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     BufferDataFormat,
     InMemoryDataBuffer,
-    ListDataBuffer,
 )
 from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, RandomSelector
 
