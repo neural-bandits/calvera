@@ -12,7 +12,7 @@ from calvera.bandits.abstract_bandit import _collate_fn
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
-    InMemoryDataBuffer,
+    TensorDataBuffer,
     ListDataBuffer,
     SlidingWindowBufferStrategy,
 )
@@ -35,7 +35,7 @@ def test_neural_linear_bandit_forward_shape() -> None:
         nn.Linear(n_features, n_embeddings, bias=False),
         # don't add a ReLU here because its the final layer
     )
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
 
     # Create bandit
     bandit = NeuralLinearBandit[torch.Tensor](
@@ -63,7 +63,7 @@ def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
     """
     n_features = 2
     network = nn.Identity()
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
     bandit = NeuralLinearBandit[torch.Tensor](
         n_embedding_size=n_features,
         network=network,
@@ -94,7 +94,7 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 
     # fix the weights of the encoder to only regard the first feature, and the second one a little bit
     network[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 0.1]])
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
 
     bandit: NeuralLinearBandit[torch.Tensor] = NeuralLinearBandit(
         n_embedding_size=n_features,
@@ -150,7 +150,7 @@ def test_neural_linear_bandit_checkpoint_save_load(
     )
     nn.init.normal_(network[0].weight, mean=0.5, std=0.1)  # Specific weights for testing
 
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
 
     original_bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -188,7 +188,7 @@ def test_neural_linear_bandit_checkpoint_save_load(
     )
     nn.init.zeros_(new_network[0].weight)  # Different weights
 
-    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    new_buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
 
     loaded_bandit = NeuralLinearBandit[torch.Tensor].load_from_checkpoint(
         checkpoint_path,
@@ -455,7 +455,7 @@ def test_neural_linear_bandit_training_step(
         # don't add a ReLU because its the final layer
     )
 
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
 
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -651,7 +651,7 @@ def test_neural_linear_sliding_window(
         # don't add a ReLU because its the final layer
     )
 
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=SlidingWindowBufferStrategy(window_size=1))
+    buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=SlidingWindowBufferStrategy(window_size=1))
 
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -723,7 +723,7 @@ def test_neural_linear_bandit_hparams_effect() -> None:
     # Dummy network
     network = nn.Linear(n_features, n_embedding_size, bias=False)
 
-    buffer: InMemoryDataBuffer[torch.Tensor] = InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy())
+    buffer: TensorDataBuffer[torch.Tensor] = TensorDataBuffer(buffer_strategy=AllDataBufferStrategy())
 
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -824,7 +824,7 @@ def test_neural_linear_bandit_tuple_input(
 
     bandit: NeuralLinearBandit[tuple[torch.Tensor, torch.Tensor]] = NeuralLinearBandit(
         network=network.to("cpu"),
-        buffer=InMemoryDataBuffer(buffer_strategy=AllDataBufferStrategy()),
+        buffer=TensorDataBuffer(buffer_strategy=AllDataBufferStrategy()),
         n_embedding_size=n_embedding_size,
         min_samples_required_for_training=batch_size,
         train_batch_size=batch_size,

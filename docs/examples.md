@@ -194,7 +194,7 @@ Let's see an example:
 ```python
 import torch.nn as nn
 from calvera.bandits import NeuralLinearBandit
-from calvera.utils import InMemoryDataBuffer, AllDataBufferStrategy
+from calvera.utils import TensorDataBuffer, AllDataBufferStrategy
 
 # Define a neural network architecture
 class Network(nn.Module):
@@ -212,7 +212,7 @@ dataset = StatlogDataset()
 network = Network(dataset.context_size, hidden_size=100, n_embedding_size=10)
 
 # Set up buffer for storing interaction data
-buffer = InMemoryDataBuffer(
+buffer = TensorDataBuffer(
     buffer_strategy=AllDataBufferStrategy(),
     max_size=10000,
 )
@@ -323,7 +323,7 @@ dataset = StatlogDataset()
 network = Network(dataset.context_size, hidden_size=100)
 
 # Set up buffer
-buffer = InMemoryDataBuffer(
+buffer = TensorDataBuffer(
     buffer_strategy=AllDataBufferStrategy(),
     max_size=10000,
 )
@@ -442,7 +442,7 @@ train_loader = DataLoader(Subset(dataset, range(2000)), batch_size=100, shuffle=
 env = BanditBenchmarkEnvironment(train_loader)
 
 # Create a data buffer
-buffer = InMemoryDataBuffer(
+buffer = TensorDataBuffer(
     buffer_strategy=AllDataBufferStrategy(),
     max_size=None,
 )
@@ -593,16 +593,16 @@ Calvera provides different strategies for managing interaction data:
 Here's how to use them:
 
 ```python
-from calvera.utils import InMemoryDataBuffer, AllDataBufferStrategy, SlidingWindowBufferStrategy
+from calvera.utils import TensorDataBuffer, AllDataBufferStrategy, SlidingWindowBufferStrategy
 
 # Store all data
-buffer = InMemoryDataBuffer(
+buffer = TensorDataBuffer(
     buffer_strategy=AllDataBufferStrategy(),
     max_size=10000,  # Optional: limit to 10000 samples
 )
 
 # Store only the most recent 1000 samples
-buffer = InMemoryDataBuffer(
+buffer = TensorDataBuffer(
     buffer_strategy=SlidingWindowBufferStrategy(window_size=1000),
     max_size=None,  # No overall limit
 )

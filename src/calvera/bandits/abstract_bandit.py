@@ -13,7 +13,7 @@ from calvera.utils.data_storage import (
     AbstractBanditDataBuffer,
     AllDataBufferStrategy,
     BufferDataFormat,
-    InMemoryDataBuffer,
+    TensorDataBuffer,
 )
 from calvera.utils.selectors import AbstractSelector, ArgMaxSelector, RandomSelector
 
@@ -80,7 +80,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
         super().__init__()
 
         if buffer is None:
-            self.buffer = InMemoryDataBuffer(
+            self.buffer = TensorDataBuffer(
                 buffer_strategy=AllDataBufferStrategy(),
                 max_size=None,
                 device=self.device,

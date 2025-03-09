@@ -49,7 +49,7 @@ class DataBufferStrategy(Protocol):
     def get_training_indices(self, total_samples: int) -> torch.Tensor:
         """Get indices of data points to use for training.
 
-        For the `InMemoryDataBuffer` this has to be deterministic.
+        For the `TensorDataBuffer` this has to be deterministic.
 
         Args:
             total_samples: Total number of samples in the buffer.
@@ -223,8 +223,7 @@ class AbstractBanditDataBuffer(
         pass
 
 
-# TODO(rob2u): `InMemoryDataBuffer` can not store and provide `chosen_actions`. See #166
-class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
+class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """In-memory implementation of bandit data buffer.
 
     Known limitations:

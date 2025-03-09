@@ -50,7 +50,7 @@ from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,
     DataBufferStrategy,
-    InMemoryDataBuffer,
+    TensorDataBuffer,
     ListDataBuffer,
     SlidingWindowBufferStrategy,
 )
@@ -306,7 +306,7 @@ class BanditBenchmark(Generic[ActionInputType]):
                     max_size=training_params.get("max_buffer_size", None),
                 )
             else:
-                bandit_hparams["buffer"] = InMemoryDataBuffer[torch.Tensor](
+                bandit_hparams["buffer"] = TensorDataBuffer[torch.Tensor](
                     data_strategy,
                     max_size=training_params.get("max_buffer_size", None),
                 )

@@ -5,7 +5,7 @@ import torch
 from torch.testing import assert_close
 
 from calvera.bandits.abstract_bandit import _collate_fn
-from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
+from calvera.utils.data_storage import AllDataBufferStrategy, TensorDataBuffer, SlidingWindowBufferStrategy
 
 
 def test_all_data_strategy() -> None:
@@ -28,8 +28,8 @@ def test_sliding_window_strategy(total_samples: int, window_size: int, expected:
 
 
 @pytest.fixture
-def buffer() -> InMemoryDataBuffer[torch.Tensor]:
-    return InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
+def buffer() -> TensorDataBuffer[torch.Tensor]:
+    return TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
 
 
 @pytest.fixture
@@ -48,14 +48,14 @@ def sample_data() -> dict[str, Any]:
     }
 
 
-def test_initial_state(buffer: InMemoryDataBuffer[torch.Tensor]) -> None:
+def test_initial_state(buffer: TensorDataBuffer[torch.Tensor]) -> None:
     assert len(buffer) == 0
     assert buffer.contextualized_actions is None
     assert buffer.embedded_actions.shape == torch.Size([0, 0])
     assert buffer.rewards.shape == torch.Size([0])
 
 
-def test_add_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_add_batch(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -70,7 +70,7 @@ def test_add_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[s
     assert buffer.rewards.shape == torch.Size([sample_data["batch_size"]])
 
 
-def test_add_batch_without_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_add_batch_without_embeddings(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(sample_data["contextualized_actions"], None, sample_data["rewards"])
 
     assert len(buffer) == sample_data["batch_size"]
@@ -78,7 +78,7 @@ def test_add_batch_without_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], 
 
 
 def test_max_size_limit(sample_data: dict[str, Any]) -> None:
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=2)
+    buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=2)
 
     buffer.add_batch(
         sample_data["contextualized_actions"],
@@ -98,7 +98,7 @@ def test_max_size_limit(sample_data: dict[str, Any]) -> None:
     assert not torch.equal(cast(torch.Tensor, buffer.contextualized_actions), first_batch)
 
 
-def test_get_all_data(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_get_all_data(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -115,7 +115,7 @@ def test_get_all_data(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dic
     assert buffer.len_of_all_data() == sample_data["batch_size"]
 
 
-def test_get_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_get_batch(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -130,7 +130,7 @@ def test_get_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[s
     assert rewards_batch.shape == torch.Size([1])
 
 
-def test_get_batch_error(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_get_batch_error(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -141,7 +141,7 @@ def test_get_batch_error(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: 
         buffer.get_batch(3)  # Request more samples than available
 
 
-def test_data_loader(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_data_loader(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         None,
@@ -161,7 +161,7 @@ def test_data_loader(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict
     assert i == sample_data["batch_size"]
 
 
-def test_data_loader_with_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_data_loader_with_embeddings(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -182,7 +182,7 @@ def test_data_loader_with_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], s
     assert i == sample_data["batch_size"]
 
 
-def test_update_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_update_embeddings(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -195,7 +195,7 @@ def test_update_embeddings(buffer: InMemoryDataBuffer[torch.Tensor], sample_data
     assert_close(buffer.embedded_actions, new_embeddings)
 
 
-def test_state_dict(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_state_dict(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -211,7 +211,7 @@ def test_state_dict(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[
     assert state["max_size"] == buffer.max_size
 
 
-def test_load_state_dict(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
+def test_load_state_dict(buffer: TensorDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
     buffer.add_batch(
         sample_data["contextualized_actions"],
         sample_data["embedded_actions"],
@@ -220,7 +220,7 @@ def test_load_state_dict(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: 
 
     state = buffer.state_dict()
 
-    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
+    new_buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
     new_buffer.load_state_dict(state)
 
     assert torch.equal(

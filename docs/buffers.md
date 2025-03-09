@@ -34,10 +34,10 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
         - load_state_dict
 
 
-::: calvera.utils.InMemoryDataBuffer
+::: calvera.utils.TensorDataBuffer
     handler: python
     options:
-      heading: InMemoryDataBuffer
+      heading: TensorDataBuffer
       show_root_heading: true
       show_root_full_path: false
       heading_level: 2
