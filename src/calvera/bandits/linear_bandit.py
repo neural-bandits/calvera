@@ -4,7 +4,7 @@ from typing import Any, cast
 import torch
 
 from calvera.bandits.abstract_bandit import AbstractBandit
-from calvera.bandits.action_input_type import ActionInputType
+from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat
 from calvera.utils.selectors import AbstractSelector
 

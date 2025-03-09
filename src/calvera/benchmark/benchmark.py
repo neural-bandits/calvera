@@ -20,7 +20,6 @@ from tqdm import tqdm
 from transformers import DataCollatorForTokenClassification
 
 from calvera.bandits.abstract_bandit import AbstractBandit, DummyBandit
-from calvera.bandits.action_input_type import ActionInputType
 from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
 from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
@@ -46,6 +45,7 @@ from calvera.benchmark.datasets.wheel import WheelBanditDataset
 from calvera.benchmark.environment import BanditBenchmarkEnvironment
 from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
 from calvera.benchmark.network_wrappers import BertWrapper, ResNetWrapper
+from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
     AllDataBufferStrategy,

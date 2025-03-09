@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import torch
@@ -50,7 +50,7 @@ def sample_data() -> dict[str, Any]:
 
 def test_initial_state(buffer: InMemoryDataBuffer[torch.Tensor]) -> None:
     assert len(buffer) == 0
-    assert buffer.contextualized_actions.shape == torch.Size([0, 0, 0])
+    assert buffer.contextualized_actions is None
     assert buffer.embedded_actions.shape == torch.Size([0, 0])
     assert buffer.rewards.shape == torch.Size([0])
 
@@ -63,7 +63,9 @@ def test_add_batch(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[s
     )
 
     assert len(buffer) == sample_data["batch_size"]
-    assert buffer.contextualized_actions.shape == torch.Size([sample_data["batch_size"], 1, sample_data["context_dim"]])
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape == torch.Size(
+        [sample_data["batch_size"], 1, sample_data["context_dim"]]
+    )
     assert buffer.embedded_actions.shape == torch.Size([sample_data["batch_size"], sample_data["embedding_dim"]])
     assert buffer.rewards.shape == torch.Size([sample_data["batch_size"]])
 
@@ -83,7 +85,7 @@ def test_max_size_limit(sample_data: dict[str, Any]) -> None:
         sample_data["embedded_actions"],
         sample_data["rewards"],
     )
-    first_batch = buffer.contextualized_actions.clone()
+    first_batch = cast(torch.Tensor, buffer.contextualized_actions).clone()
 
     new_context = torch.randn(sample_data["batch_size"], sample_data["context_dim"])
     new_embedded = torch.randn(sample_data["batch_size"], sample_data["embedding_dim"])
@@ -93,7 +95,7 @@ def test_max_size_limit(sample_data: dict[str, Any]) -> None:
 
     # Check that only the most recent data is kept
     assert len(buffer) == 2
-    assert not torch.equal(buffer.contextualized_actions, first_batch)
+    assert not torch.equal(cast(torch.Tensor, buffer.contextualized_actions), first_batch)
 
 
 def test_get_all_data(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[str, Any]) -> None:
@@ -203,7 +205,7 @@ def test_state_dict(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: dict[
     state = buffer.state_dict()
 
     assert isinstance(state, dict)
-    assert torch.equal(state["contextualized_actions"], buffer.contextualized_actions)
+    assert torch.equal(state["contextualized_actions"], cast(torch.Tensor, buffer.contextualized_actions))
     assert torch.equal(state["embedded_actions"], buffer.embedded_actions)
     assert torch.equal(state["rewards"], buffer.rewards)
     assert state["max_size"] == buffer.max_size
@@ -221,7 +223,9 @@ def test_load_state_dict(buffer: InMemoryDataBuffer[torch.Tensor], sample_data: 
     new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
     new_buffer.load_state_dict(state)
 
-    assert torch.equal(new_buffer.contextualized_actions, buffer.contextualized_actions)
+    assert torch.equal(
+        cast(torch.Tensor, new_buffer.contextualized_actions), cast(torch.Tensor, buffer.contextualized_actions)
+    )
     assert torch.equal(new_buffer.embedded_actions, buffer.embedded_actions)
     assert torch.equal(new_buffer.rewards, buffer.rewards)
     assert new_buffer.max_size == buffer.max_size

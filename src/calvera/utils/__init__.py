@@ -5,6 +5,7 @@ This includes a sampling strategies such as `SortedDataSampler` and `RandomDataS
 bandit implementations and selectors to modify the selection behaviour of the bandits.
 """
 
+from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.data_sampler import AbstractDataSampler, RandomDataSampler, SortedDataSampler
 from calvera.utils.data_storage import (
     AbstractBanditDataBuffer,
@@ -26,6 +27,7 @@ from calvera.utils.selectors import (
 )
 
 __all__ = [
+    "ActionInputType",
     "AbstractDataSampler",
     "RandomDataSampler",
     "SortedDataSampler",

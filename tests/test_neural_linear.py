@@ -475,7 +475,7 @@ def test_neural_linear_bandit_training_step(
     nn_weights_before = network[0].weight.clone()
 
     # Initially empty buffer
-    assert buffer.contextualized_actions.numel() == 0
+    assert buffer.contextualized_actions is None
     assert buffer.embedded_actions.numel() == 0
     assert buffer.rewards.numel() == 0
 
@@ -483,7 +483,7 @@ def test_neural_linear_bandit_training_step(
     trainer = pl.Trainer(fast_dev_run=True)
     bandit.record_feedback(actions, rewards)
     # buffer should have newly appended rows
-    assert buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == actions.shape[0]
     assert buffer.embedded_actions.shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == actions.shape[0]
 
@@ -515,7 +515,7 @@ def test_neural_linear_bandit_training_step(
 
     bandit.record_feedback(actions, rewards)
     # The buffer should have grown
-    assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 2 * actions.shape[0]
     assert buffer.embedded_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * actions.shape[0]
 
@@ -677,7 +677,7 @@ def test_neural_linear_sliding_window(
     trainer.fit(bandit)
 
     # After training step, buffer should have newly appended rows
-    assert buffer.contextualized_actions.shape[0] == 2
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 2
     assert buffer.embedded_actions.shape[0] == 2
     assert buffer.rewards.shape[0] == 2
 
@@ -700,7 +700,7 @@ def test_neural_linear_sliding_window(
     trainer.fit(bandit)
 
     # The buffer should have grown
-    assert buffer.contextualized_actions.shape[0] == 4
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 4
     assert buffer.embedded_actions.shape[0] == 4
     assert buffer.rewards.shape[0] == 4
 

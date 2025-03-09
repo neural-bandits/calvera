@@ -131,7 +131,7 @@ def test_neural_bandit_training_step(
 
     params_1 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
-    assert buffer.contextualized_actions.numel() == 0
+    assert buffer.contextualized_actions is None
     assert buffer.rewards.numel() == 0
     assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
@@ -140,7 +140,7 @@ def test_neural_bandit_training_step(
     assert bandit.should_train_network, "Should train network after new samples"
     trainer.fit(bandit)
 
-    assert buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == rewards.shape[0]
     assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
@@ -156,7 +156,7 @@ def test_neural_bandit_training_step(
     assert bandit.should_train_network, "Should train network after new samples"
     trainer.fit(bandit)
 
-    assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * rewards.shape[0]
     assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
@@ -259,7 +259,7 @@ def test_neural_bandit_training_step_custom_dataloader(
 
     params_1 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
-    assert buffer.contextualized_actions.numel() == 0
+    assert buffer.contextualized_actions is None
     assert buffer.rewards.numel() == 0
 
     trainer = pl.Trainer(fast_dev_run=True, max_steps=10)
@@ -267,7 +267,7 @@ def test_neural_bandit_training_step_custom_dataloader(
     assert bandit.should_train_network, "Should train network after new samples"
     trainer.fit(bandit)
 
-    assert buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == rewards.shape[0]
     assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
@@ -283,7 +283,7 @@ def test_neural_bandit_training_step_custom_dataloader(
     assert bandit.should_train_network, "Should train network after new samples"
     trainer.fit(bandit)
 
-    assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * rewards.shape[0]
     assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
@@ -354,14 +354,14 @@ def test_neural_bandit_training_step_sliding_window(
 
     params_1 = {name: param.clone() for name, param in bandit.theta_t.named_parameters()}
 
-    assert buffer.contextualized_actions.numel() == 0
+    assert buffer.contextualized_actions is None
     assert buffer.rewards.numel() == 0
     assert bandit.is_initial_training_stage(), "Should be in initial training stage"
 
     trainer = pl.Trainer(fast_dev_run=True, max_steps=10)
     bandit.record_feedback(actions, rewards)
     assert bandit.should_train_network, "Should train network after new samples"
-    assert buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == rewards.shape[0]
     trainer.fit(bandit)
 
@@ -375,7 +375,7 @@ def test_neural_bandit_training_step_sliding_window(
     trainer = pl.Trainer(fast_dev_run=True)
     bandit.record_feedback(actions, rewards)
     assert bandit.should_train_network, "Should train network after new samples"
-    assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * rewards.shape[0]
     assert bandit.is_initial_training_stage(), "Should be in initial training stage"
     trainer.fit(bandit)
@@ -391,7 +391,7 @@ def test_neural_bandit_training_step_sliding_window(
 
     bandit.record_feedback(actions, rewards)
 
-    assert buffer.contextualized_actions.shape[0] == 3 * actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 3 * actions.shape[0]
     assert buffer.rewards.shape[0] == 3 * rewards.shape[0]
     assert not bandit.is_initial_training_stage(), "Should not be in initial training stage"
     assert not bandit.should_train_network, "Not enough samples to train"
