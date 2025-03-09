@@ -5,7 +5,7 @@ from typing import Any, Generic
 import torch
 from torch.utils.data import Dataset
 
-from calvera.bandits.action_input_type import ActionInputType
+from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.multiclass import MultiClassContextualizer
 
 
