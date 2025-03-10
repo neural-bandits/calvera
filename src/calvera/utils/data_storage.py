@@ -837,8 +837,6 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         self.buffer_strategy = state_dict["buffer_strategy"]
         self.max_size = state_dict["max_size"]
 
-        print(state_dict)
-
     def clear(self) -> None:
         """Clear the entire buffer."""
         self.contextualized_actions.clear()
