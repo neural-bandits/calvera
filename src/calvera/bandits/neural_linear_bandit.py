@@ -163,12 +163,15 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         ), "Early stop threshold must be greater than or equal to 0."
         assert initial_train_steps >= 0, "Initial training steps must be greater than or equal to 0."
 
-        if contextualization_after_network:
-            assert n_arms is not None, "`n_arms` need to be provided when performing `contextualization_after_network`."
-            n_embedding_size *= n_arms
+        assert (
+            not contextualization_after_network or n_arms is not None
+        ), "`n_arms` need to be provided when performing `contextualization_after_network`."
+        n_linear_features = (
+            n_embedding_size if not contextualization_after_network else cast(int, n_arms) * n_embedding_size
+        )
 
         super().__init__(
-            n_features=n_embedding_size,
+            n_features=n_linear_features,
             selector=selector,
             buffer=buffer,
             train_batch_size=train_batch_size,
@@ -194,6 +197,9 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 "warm_start": warm_start,
             }
         )
+
+        if contextualization_after_network:
+            n_embedding_size *= cast(int, n_arms)
 
         self.network = network.to(self.device)
 
@@ -228,7 +234,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         # hence the single output dimension.
         self._helper_network = HelperNetwork(
             self.network,
-            self.hparams["n_embedding_size"],
+            n_embedding_size,
             self.contextualizer,
         ).to(self.device)
 
@@ -367,7 +373,12 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         assert (
             embedded_actions.ndim == 2
             and embedded_actions.shape[0] == batch_size * n_arms
-            and embedded_actions.shape[1] == self.hparams["n_embedding_size"]
+            and embedded_actions.shape[1]
+            == (
+                self.hparams["n_embedding_size"]
+                if not self.hparams["contextualization_after_network"]
+                else self.hparams["n_embedding_size"] * self.hparams["n_arms"]
+            )
         ), (
             f"Embedded actions must have shape (batch_size * n_arms, n_embedding_size)."
             f"Expected shape {(batch_size * n_arms, self.hparams['n_embedding_size'])}"
@@ -667,7 +678,15 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         if num_samples == 0:
             return
 
-        new_embedded_actions = torch.empty(num_samples, self.hparams["n_embedding_size"], device=self.device)
+        new_embedded_actions = torch.empty(
+            num_samples,
+            (
+                self.hparams["n_embedding_size"]
+                if not self.hparams["contextualization_after_network"]
+                else self.hparams["n_embedding_size"] * self.hparams["n_arms"]
+            ),
+            device=self.device,
+        )
 
         self.network.eval()
 
@@ -735,8 +754,10 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
         )
         assert z.shape[0] == y.shape[0], "The number of samples in the embedded actions and rewards must be the same."
         assert z.shape[1] == 1 and y.shape[1] == 1, "The number of actions in the embedded actions must be 1."
-        assert (
-            z.shape[2] == self.hparams["n_embedding_size"]
+        assert z.shape[2] == (
+            self.hparams["n_embedding_size"]
+            if not self.hparams["contextualization_after_network"]
+            else self.hparams["n_embedding_size"] * self.hparams["n_arms"]
         ), f"The number of features in the embedded actions must be {self.hparams['n_embedding_size']}."
 
         # Reset the parameters
