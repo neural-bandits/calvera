@@ -29,9 +29,11 @@ class BanditStateDict(TypedDict):
         max_size: Optional maximum size limit of the buffer. None means no size limit.
     """
 
-    contextualized_actions: torch.Tensor
-    embedded_actions: torch.Tensor
-    rewards: torch.Tensor
+    contextualized_actions: Any
+    embedded_actions: Any
+    rewards: Any
+    chosen_actions: Any
+
     buffer_strategy: "DataBufferStrategy"
     max_size: int | None
 
@@ -530,7 +532,8 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Returns:
             Dictionary containing all necessary state information for restoring the buffer.
         """
-        return {
+        # TODO(rob2u): add the chosen_actions to the state_dict. See
+        return {  # type: ignore
             "contextualized_actions": self.contextualized_actions,
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
@@ -566,7 +569,6 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.rewards = torch.empty(0, device=self.device)  # shape: (n,)
 
 
-# TODO(rob2u): add statedict (storing and saving functionality). See #168 for more details.
 class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """A list-based implementation of the bandit data buffer.
 
@@ -812,7 +814,14 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         Returns:
             A dictionary containing the current state of the buffer.
         """
-        raise NotImplementedError("Storing and saving ListDataBuffers is not yet supported.")
+        return {
+            "contextualized_actions": self.contextualized_actions,
+            "embedded_actions": self.embedded_actions,
+            "rewards": self.rewards,
+            "chosen_actions": self.chosen_actions,
+            "buffer_strategy": self.buffer_strategy,
+            "max_size": self.max_size,
+        }
 
     def load_state_dict(self, state_dict: BanditStateDict) -> None:
         """Load the buffer state from a checkpoint.
@@ -820,7 +829,13 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         Args:
             state_dict: A dictionary containing state information.
         """
-        raise NotImplementedError("Storing and saving ListDataBuffers is not yet supported.")
+        self.contextualized_actions = state_dict["contextualized_actions"]
+        self.embedded_actions = state_dict["embedded_actions"]
+        self.rewards = state_dict["rewards"]
+        self.chosen_actions = state_dict["chosen_actions"]
+
+        self.buffer_strategy = state_dict["buffer_strategy"]
+        self.max_size = state_dict["max_size"]
 
     def clear(self) -> None:
         """Clear the entire buffer."""
