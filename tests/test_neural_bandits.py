@@ -1042,7 +1042,7 @@ def test_combinatorial_neural_bandit_save_load(
         max_steps=1,
         enable_checkpointing=True,
     )
-    trainer.fit(original_bandit, torch.utils.data.DataLoader(dataset, batch_size=1))
+    trainer.fit(original_bandit, torch.utils.data.DataLoader(dataset, batch_size=1, collate_fn=_collate_fn))
 
     checkpoint_path = tmp_path / f"neural_{bandit_type}_topk.ckpt"
     trainer.save_checkpoint(checkpoint_path)
@@ -1212,7 +1212,7 @@ def test_neural_ts_num_samples_per_arm_save_load(
         max_steps=1,
         enable_checkpointing=True,
     )
-    trainer.fit(original_bandit, torch.utils.data.DataLoader(dataset, batch_size=2))
+    trainer.fit(original_bandit, torch.utils.data.DataLoader(dataset, batch_size=2, collate_fn=_collate_fn))
 
     checkpoint_path = tmp_path / "neural_ts_num_samples.ckpt"
     trainer.save_checkpoint(checkpoint_path)
