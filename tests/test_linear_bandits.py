@@ -7,7 +7,7 @@ import torch
 from calvera.bandits.linear_bandit import LinearBandit
 from calvera.bandits.linear_ts_bandit import DiagonalPrecApproxLinearTSBandit, LinearTSBandit
 from calvera.bandits.linear_ucb_bandit import DiagonalPrecApproxLinearUCBBandit, LinearUCBBandit
-from calvera.utils.selectors import ArgMaxSelector, EpsilonGreedySelector
+from calvera.utils.selectors import ArgMaxSelector, EpsilonGreedySelector, TopKSelector
 
 BanditClassType = TypeVar("BanditClassType", bound="LinearBandit[torch.Tensor]")
 
@@ -563,3 +563,133 @@ def test_bandit_end_to_end_checkpoint(BanditClass: BanditClassType) -> None:
     )
 
     assert params_changed, "Model parameters should change after update"
+
+
+@pytest.mark.parametrize("BanditClass", [LinearUCBBandit, LinearTSBandit])
+def test_linear_bandit_topk_selector(BanditClass: BanditClassType) -> None:
+    """Test if linear bandits work with TopKSelector to select multiple arms."""
+    n_features = 3
+    k = 2
+    bandit = BanditClass(n_features=n_features, selector=TopKSelector(k=k))
+
+    bandit.theta = torch.tensor([0.0, 0.0, 1.0])
+
+    contextualized_actions = torch.tensor([[[1.0, 0.5, 0.0], [0.0, 1.0, 0.5], [0.0, 0.5, 1.0]]])
+    output, p = bandit.forward(contextualized_actions)
+
+    # Verify exactly k arms are selected
+    assert output.sum() == k, f"Expected exactly {k} arms to be selected"
+
+    # Verify arms with the highest scores are selected
+    assert output[0, 1] == 1 and output[0, 2] == 1, "Expected arms with highest scores to be selected"
+
+
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
+def test_bandit_topk_selector_checkpoint(BanditClass: BanditClassType) -> None:
+    """Test saving and loading TopKSelector configuration."""
+    n_features = 3
+    k = 2
+    original_bandit = BanditClass(n_features=n_features, selector=TopKSelector(k=k))
+
+    checkpoint: dict[str, Any] = {}
+    original_bandit.on_save_checkpoint(checkpoint)
+
+    loaded_bandit = BanditClass(n_features=n_features)
+    loaded_bandit.on_load_checkpoint(checkpoint)
+
+    # Verify selector was properly restored
+    assert isinstance(loaded_bandit.selector, TopKSelector)
+    assert loaded_bandit.selector.k == k
+    assert checkpoint["selector_state"]["type"] == "TopKSelector"
+    assert checkpoint["selector_state"]["k"] == k
+
+
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
+def test_linear_bandit_topk_forward_shapes(BanditClass: BanditClassType) -> None:
+    """Check if forward method returns correct shape and handles valid input with TopKSelector."""
+    n_features = 5
+    batch_size = 4
+    n_arms = 6
+    k = 3
+
+    bandit: LinearBandit[torch.Tensor] = BanditClass(n_features=n_features, selector=TopKSelector(k=k))
+
+    contextualized_actions = torch.randn(batch_size, n_arms, n_features)
+    output, _ = bandit.forward(contextualized_actions)
+
+    # Forward should return a tensor of shape (batch_size, n_arms) with exactly k 1's per batch
+    assert output.shape == (batch_size, n_arms), (
+        f"Expected shape (batch_size={batch_size}, n_arms={n_arms}), " f"got {output.shape}"
+    )
+
+    assert torch.all(output.sum(dim=1) == k), f"Each batch should have exactly {k} arms selected"
+
+
+@pytest.mark.parametrize("BanditClass", LinearBanditTypes)
+def test_topk_selector_different_k_values(BanditClass: BanditClassType) -> None:
+    """Test TopKSelector with different k values."""
+    n_features = 4
+    n_arms = 8
+    batch_size = 2
+
+    for k in [1, 3, 5]:
+        bandit = BanditClass(n_features=n_features, selector=TopKSelector(k=k))
+        contextualized_actions = torch.randn(batch_size, n_arms, n_features)
+        output, _ = bandit.forward(contextualized_actions)
+
+        # Verify correct number of arms selected
+        assert torch.all(output.sum(dim=1) == k), f"Expected exactly {k} arms to be selected for each batch"
+
+
+def test_topk_selector_edge_cases() -> None:
+    """Test TopKSelector with edge cases like k=1 and k=n_arms."""
+    n_features = 3
+    n_arms = 4
+
+    # Test k=1 (should behave like ArgMaxSelector)
+    bandit_k1 = LinearUCBBandit(n_features=n_features, selector=TopKSelector(k=1))
+    bandit_argmax = LinearUCBBandit(n_features=n_features, selector=ArgMaxSelector())
+
+    # Set the same theta for both bandits
+    theta = torch.tensor([1.0, 0.5, 0.0])
+    bandit_k1.theta = theta.clone()
+    bandit_argmax.theta = theta.clone()
+
+    # Test with the same context
+    context = torch.randn(1, n_arms, n_features)
+    output_k1, _ = bandit_k1.forward(context)
+    output_argmax, _ = bandit_argmax.forward(context)
+
+    # Both should select the same arm
+    assert torch.equal(output_k1, output_argmax), "TopKSelector with k=1 should behave like ArgMaxSelector"
+
+    # Test k=n_arms (should select all arms)
+    bandit_all = LinearUCBBandit(n_features=n_features, selector=TopKSelector(k=n_arms))
+    output_all, _ = bandit_all.forward(context)
+
+    # Should select all arms
+    assert torch.all(output_all == 1), "TopKSelector with k=n_arms should select all arms"
+
+
+def test_diagonal_approx_with_topk_selector() -> None:
+    """Test diagonal approximation bandits with TopKSelector."""
+    n_features = 3
+    k = 2
+
+    bandit_ucb = DiagonalPrecApproxLinearUCBBandit(n_features=n_features, selector=TopKSelector(k=k))
+    bandit_ts = DiagonalPrecApproxLinearTSBandit(n_features=n_features, selector=TopKSelector(k=k))
+
+    theta = torch.tensor([0.0, 0.5, 1.0])
+    bandit_ucb.theta = theta.clone()
+    bandit_ts.theta = theta.clone()
+
+    context = torch.tensor([[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.5, 0.5, 0.5]]])
+
+    output_ucb, _ = bandit_ucb.forward(context)
+    output_ts, _ = bandit_ts.forward(context)
+
+    # Check that the correct number of arms are selected
+    assert output_ucb.sum() == k, f"UCB bandit should select exactly {k} arms"
+    assert output_ts.sum() == k, f"TS bandit should select exactly {k} arms"
+
+    assert output_ucb[0, 2] == 1 and output_ucb[0, 3] == 1, "UCB bandit should select the arms with highest scores"
