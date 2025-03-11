@@ -551,8 +551,7 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
         Returns:
             Dictionary containing all necessary state information for restoring the buffer.
         """
-        # TODO(rob2u): add the chosen_actions to the state_dict. See
-        return {  # type: ignore
+        return {
             "contextualized_actions": self.contextualized_actions,
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
