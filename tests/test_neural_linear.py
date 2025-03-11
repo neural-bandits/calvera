@@ -489,6 +489,9 @@ def test_neural_linear_bandit_training_step(
     assert buffer.embedded_actions.shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == actions.shape[0]
 
+    assert bandit._new_samples_count == actions.shape[0]
+    assert bandit._total_samples_count == actions.shape[0]
+
     assert not bandit.should_train_network, "Not enough data to train yet."
 
     trainer.fit(bandit)
@@ -507,6 +510,10 @@ def test_neural_linear_bandit_training_step(
     assert network is bandit.network, "Network reference should not have been changed."
     assert torch.allclose(nn_weights_before, network[0].weight)
 
+    # Internally, nothing should have changed
+    assert bandit._new_samples_count == actions.shape[0]
+    assert bandit._total_samples_count == actions.shape[0]
+
     # Store the updated values
     theta_2 = bandit.theta.clone()
     precision_matrix_2 = bandit.precision_matrix.clone()
@@ -520,6 +527,10 @@ def test_neural_linear_bandit_training_step(
     assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.embedded_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * actions.shape[0]
+
+    # We saw some new data
+    assert bandit._new_samples_count == 2 * actions.shape[0]
+    assert bandit._total_samples_count == 2 * actions.shape[0]
 
     assert bandit.should_train_network, "Should train the network."
 
@@ -541,6 +552,10 @@ def test_neural_linear_bandit_training_step(
 
     # Also test that the helper network has been updated. Necessary for correct future updates.
     assert not torch.allclose(cast(nn.Sequential, bandit._helper_network.network)[0].weight, nn_weights_before)
+
+    # Internally, the _new_samples_count should have been reset
+    assert bandit._new_samples_count == 0
+    assert bandit._total_samples_count == 2 * actions.shape[0]
 
     # Store the updated values
     theta_3 = bandit.theta.clone()
@@ -570,6 +585,10 @@ def test_neural_linear_bandit_training_step(
 
     # And the network should have been updated
     assert not torch.allclose(network[0].weight, nn_weights_before)
+
+    # Internally, the _new_samples_count should have been reset
+    assert bandit._new_samples_count == 0
+    assert bandit._total_samples_count == 3 * actions.shape[0]
 
     # Now try the same with setting should_train_network to False
     theta_4 = bandit.theta.clone()
