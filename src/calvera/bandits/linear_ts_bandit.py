@@ -9,9 +9,36 @@ from calvera.utils.selectors import AbstractSelector
 
 
 class LinearTSBandit(LinearBandit[ActionInputType]):
-    """Linear Thompson Sampling Bandit.
+    r"""Linear Thompson Sampling Bandit.
 
     This implementation supports both standard and combinatorial bandit settings.
+
+    Implementation details:
+        Standard setting:
+
+        - Initialize: $M = I \cdot \lambda$, $b = 0$, $\theta = 0$
+
+        - Sample: $\tilde{\theta}_t \sim \mathcal{N}(\theta_t, M^{-1})$
+
+        - Score: $S_k(t) = x_k^T \tilde{\theta}_t$
+
+        - Update:
+
+            $b = b + r_t x_{a_t}$
+
+            $M = \left( M + x_{a_t}^T x_{a_t} + \varepsilon I \right)^{-1}$
+
+            $M = \frac{M + M^T}{2}$
+
+            $\theta_t = M^{-1} b$
+
+        Combinatorial setting:
+
+        - Uses the same initialization and sampling as the standard setting
+
+        - Action selection: Use a selector (oracle $\mathcal{O}_S$) to select multiple arms as a super-action $S_t$
+
+        - Updates $M$ and $\theta$ for each chosen arm $i \in S_t$
 
     References:
         - [Agrawal et al. "Thompson Sampling for Contextual Bandits with Linear Payoffs"](https://arxiv.org/abs/1209.3352)

@@ -8,9 +8,35 @@ from calvera.utils.selectors import AbstractSelector
 
 
 class LinearUCBBandit(LinearBandit[torch.Tensor]):
-    """Linear Upper Confidence Bound Bandit.
+    r"""Linear Upper Confidence Bound Bandit.
 
     This implementation supports both standard and combinatorial bandit settings.
+
+    Implementation details:
+        Standard setting:
+
+        - Initialize: $M = I \cdot \lambda$, $b = 0$, $\theta = 0$
+
+        - Compute UCB scores: $U_k(t) = x_k^T \hat{\theta}_t + \alpha \sqrt{x_k^T M^{-1} x_k}$
+          where $\alpha$ is the exploration parameter
+
+        - Update:
+
+            $b = b + r_t x_{a_t}$
+
+            $M = \left( M + x_{a_t}^T x_{a_t} + \varepsilon I \right)^{-1}$
+
+            $M = \frac{M + M^T}{2}$
+
+            $\theta_t = M^{-1} b$
+
+        Combinatorial setting:
+
+        - Uses the same initialization and UCB formula as the standard setting
+
+        - Action selection: Use a selector (oracle $\mathcal{O}_S$) to select multiple arms as a super-action $S_t$
+
+        - Updates $M$ and $\theta$ for each chosen arm $i \in S_t$
 
     References:
         - [Lattimore et al. "Bandit Algorithms", Chapter 19](https://tor-lattimore.com/downloads/book/book.pdf)

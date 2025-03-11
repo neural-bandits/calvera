@@ -29,7 +29,7 @@ class NeuralTSBandit(NeuralBandit):
 
         - Same variance and sampling formulas for each arm
 
-        - Select super arm: $S_t = \Phi_S(\tilde{v}_t)$
+        - Select super arm: $S_t = \mathcal{O}_S(\tilde{v}_t)$
 
         - Update includes gradients from all chosen arms:
         $Z_t = Z_{t-1} + \sum_{a \in S_t} g(x_{t,a_t}; \theta_{t-1})g(x_{t,a_t}; \theta_{t-1})^T$
