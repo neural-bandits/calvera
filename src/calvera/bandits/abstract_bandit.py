@@ -491,7 +491,6 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
             checkpoint: Dictionary to save the state into.
         """
         checkpoint["buffer_state"] = self.buffer.state_dict()
-        print(checkpoint["buffer_state"])
 
         checkpoint["_new_samples_count"] = self._new_samples_count
         checkpoint["_total_samples_count"] = self._total_samples_count

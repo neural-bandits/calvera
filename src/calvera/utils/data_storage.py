@@ -341,8 +341,6 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
             f"got {contextualized_actions_tensor.shape[1:]}"
         )
 
-        print(self.contextualized_actions.shape)
-        print(contextualized_actions_tensor.shape)
         self.contextualized_actions = torch.cat([self.contextualized_actions, contextualized_actions_tensor], dim=0)
         if embedded_actions is not None:
             assert embedded_actions.shape[1] == self.embedded_actions.shape[1], (
@@ -553,7 +551,8 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
         Returns:
             Dictionary containing all necessary state information for restoring the buffer.
         """
-        return {
+        # TODO(rob2u): add the chosen_actions to the state_dict. See
+        return {  # type: ignore
             "contextualized_actions": self.contextualized_actions,
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
@@ -861,8 +860,6 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
 
         self.buffer_strategy = state_dict["buffer_strategy"]
         self.max_size = state_dict["max_size"]
-
-        print(state_dict)
 
     def clear(self) -> None:
         """Clear the entire buffer."""
