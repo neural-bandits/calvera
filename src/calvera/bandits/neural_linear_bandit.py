@@ -434,6 +434,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             self.should_train_network = True
         else:
             self.should_train_network = False
+            self._training_skipped = True
 
         if (
             cast(int, self.hparams["initial_train_steps"] > 0)
@@ -659,6 +660,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
 
     def on_train_end(self) -> None:
         """Lightning hook. Reset the flags after training."""
+        training_skipped_before = self._training_skipped
         super().on_train_end()
 
         if self.should_train_network:
@@ -666,7 +668,7 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             self.update_embeddings()
             self.retrain_head()
 
-        if not self._training_skipped:
+        if not training_skipped_before:
             self.should_train_network = False
 
     def update_embeddings(self) -> None:
