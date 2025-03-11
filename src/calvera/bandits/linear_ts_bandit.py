@@ -16,7 +16,7 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
     Implementation details:
         Standard setting:
 
-        - Initialize: $M = I \cdot \lambda$, $b = 0$, $\theta = 0$
+        - Initialize: $M^{-1} = I \cdot \lambda$, $b = 0$, $\theta = 0$
 
         - Sample: $\tilde{\theta}_t \sim \mathcal{N}(\theta_t, M^{-1})$
 
@@ -26,11 +26,13 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
 
             $b = b + r_t x_{a_t}$
 
-            $M = \left( M + x_{a_t}^T x_{a_t} + \varepsilon I \right)^{-1}$
+            $M^{-1} = \left(M + x_{a_t}^T x_{a_t} + \varepsilon I \right)^{-1}$
 
-            $M = \frac{M + M^T}{2}$
+            $M^{-1} = \frac{M^{-1} + \left( M^{-1} \right)^T}{2}$
 
             $\theta_t = M^{-1} b$
+
+        (We store $M^{-1}$, the precision matrix, because we also allow the Sherman-Morrison update.)
 
         Combinatorial setting:
 
@@ -65,7 +67,7 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
             buffer: The buffer used for storing the data for continuously updating the neural network.
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
-            lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
+            lambda_: Prior precision for the precision matrix. Acts as a regularization parameter.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step.
             clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
@@ -156,10 +158,15 @@ class DiagonalPrecApproxLinearTSBandit(LinearTSBandit[torch.Tensor]):
         Returns:
             The updated precision matrix.
         """
-        # Compute the covariance matrix of the chosen actions. Use the diagonal approximation.
-        prec_diagonal = chosen_actions.pow(2).sum(dim=0)
+        # Use the diagonal approximation.
+        prec_diagonal = 1 / (torch.clamp(chosen_actions.pow(2).sum(dim=0), min=self.hparams["eps"]))
 
-        # Update the precision matrix using the diagonal approximation.
-        self.precision_matrix.add_(torch.diag_embed(prec_diagonal) + cast(float, self.hparams["eps"]))
+        # Update the precision matrix using the diagonal approximation. We use 1/(a+b) = 1/a * 1/b * 1/(1/a + 1/b) here.
+        self.precision_matrix.copy_(
+            torch.diag_embed(prec_diagonal)
+            * self.precision_matrix.diag()
+            / (torch.diag_embed(prec_diagonal) + self.precision_matrix.diag())
+            + torch.diag_embed(torch.ones_like(prec_diagonal) * (cast(float, self.hparams["eps"])))
+        )
 
         return self.precision_matrix
