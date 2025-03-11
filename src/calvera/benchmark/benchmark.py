@@ -48,10 +48,10 @@ from calvera.benchmark.network_wrappers import BertWrapper, ResNetWrapper
 from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
-    AllDataBufferStrategy,
-    DataBufferStrategy,
+    AllDataRetrievalStrategy,
+    DataRetrievalStrategy,
     ListDataBuffer,
-    SlidingWindowBufferStrategy,
+    SlidingWindowRetrievalStrategy,
     TensorDataBuffer,
 )
 from calvera.utils.selectors import (
@@ -102,9 +102,9 @@ datasets: dict[str, type[AbstractDataset[Any]]] = {
     "tiny_imagenet": TinyImageNetDataset,
 }
 
-data_strategies: dict[str, Callable[[dict[str, Any]], DataBufferStrategy]] = {
-    "all": lambda params: AllDataBufferStrategy(),
-    "sliding_window": lambda params: SlidingWindowBufferStrategy(
+data_strategies: dict[str, Callable[[dict[str, Any]], DataRetrievalStrategy]] = {
+    "all": lambda params: AllDataRetrievalStrategy(),
+    "sliding_window": lambda params: SlidingWindowRetrievalStrategy(
         params.get("window_size", params.get("train_batch_size", 1))
     ),
 }
@@ -284,7 +284,7 @@ class BanditBenchmark(Generic[ActionInputType]):
                 - bandit_hparams: A dictionary of bandit hyperparameters.
                     These will be filled and passed to the bandit's constructor.
                 - max_steps: The maximum number of steps to train the bandit. This makes sense in combination
-                    with AllDataBufferStrategy.
+                    with AllDataRetrievalStrategy.
                 For neural bandits:
                     - network: The name of the network to use.
                     - data_strategy: The name of the data strategy to use.

@@ -25,7 +25,7 @@ class BanditStateDict(TypedDict):
             Shape: (buffer_size, n_embedding_size).
         rewards: Tensor storing all received rewards.
             Shape: (buffer_size,).
-        buffer_strategy: Strategy object controlling how data is managed in the buffer.
+        retrieval_strategy: Strategy object controlling how data is managed in the buffer.
         max_size: Optional maximum size limit of the buffer. None means no size limit.
     """
 
@@ -34,11 +34,11 @@ class BanditStateDict(TypedDict):
     rewards: Any
     chosen_actions: Any
 
-    buffer_strategy: "DataBufferStrategy"
+    retrieval_strategy: "DataRetrievalStrategy"
     max_size: int | None
 
 
-class DataBufferStrategy(Protocol):
+class DataRetrievalStrategy(Protocol):
     """Protocol defining how training data should be managed in the buffer.
 
     This protocol represents a strategy for determining which data points from the buffer
@@ -61,7 +61,7 @@ class DataBufferStrategy(Protocol):
         ...
 
 
-class AllDataBufferStrategy(DataBufferStrategy):
+class AllDataRetrievalStrategy(DataRetrievalStrategy):
     """Strategy that uses all available data points in the buffer for training."""
 
     def get_training_indices(self, total_samples: int) -> torch.Tensor:
@@ -76,7 +76,7 @@ class AllDataBufferStrategy(DataBufferStrategy):
         return torch.arange(total_samples)
 
 
-class SlidingWindowBufferStrategy(DataBufferStrategy):
+class SlidingWindowRetrievalStrategy(DataRetrievalStrategy):
     """Strategy that uses only the last n data points from the buffer for training."""
 
     def __init__(self, window_size: int):
@@ -113,13 +113,13 @@ class AbstractBanditDataBuffer(
     selecting which data points to use during training.
     """
 
-    def __init__(self, buffer_strategy: DataBufferStrategy):
+    def __init__(self, retrieval_strategy: DataRetrievalStrategy):
         """Initialize the data buffer.
 
         Args:
-            buffer_strategy: Strategy for managing training data selection.
+            retrieval_strategy: Strategy for managing training data selection.
         """
-        self.buffer_strategy = buffer_strategy
+        self.retrieval_strategy = retrieval_strategy
 
     @abstractmethod
     def add_batch(
@@ -163,7 +163,7 @@ class AbstractBanditDataBuffer(
         self,
         batch_size: int,
     ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]:
-        """Get batches of training data according to buffer strategy.
+        """Get batches of training data according to retrieval strategy.
 
         Args:
             batch_size: Size of the batch to return.
@@ -232,18 +232,18 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
 
     def __init__(
         self,
-        buffer_strategy: DataBufferStrategy,
+        retrieval_strategy: DataRetrievalStrategy,
         max_size: int | None = None,
         device: torch.device | None = None,
     ):
         """Initialize the in-memory buffer.
 
         Args:
-            buffer_strategy: Strategy for managing training data selection.
+            retrieval_strategy: Strategy for managing training data selection.
             max_size: Optional maximum number of samples to store. None means unlimited.
             device: Device to store data on (default: CPU).
         """
-        super().__init__(buffer_strategy)
+        super().__init__(retrieval_strategy)
 
         self.max_size = max_size
         self.device = device if device is not None else torch.device("cpu")
@@ -417,7 +417,7 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
         self,
         batch_size: int,
     ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]:
-        """Get a random batch of training data from the buffer. Uses the buffer strategy to select data.
+        """Get a random batch of training data from the buffer. Uses the retrieval strategy to select data.
 
         Args:
             batch_size: Number of samples to include in the batch.
@@ -436,8 +436,8 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
 
         if len(available_indices) < batch_size:
             raise ValueError(
-                f"Requested batch size {batch_size} is larger than data retrieved by BufferStrategy."
-                f"BufferStrategy retrieved {len(available_indices)} data point(s)."
+                f"Requested batch size {batch_size} is larger than data retrieved by RetrievalStrategy."
+                f"RetrievalStrategy retrieved {len(available_indices)} data point(s)."
                 f"To retrieve all data, use get_all_data()."
             )
 
@@ -517,21 +517,21 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
             self.embedded_actions = embedded_actions.to(self.device)
 
     def __len__(self) -> int:
-        """Get number of samples that the buffer strategy considers for training.
+        """Get number of samples that the retrieval strategy considers for training.
 
         Returns:
-            Number of samples available for training according to the buffer strategy.
+            Number of samples available for training according to the retrieval strategy.
         """
         available_indices = self._get_available_indices()
         return len(available_indices)
 
     def _get_available_indices(self) -> torch.Tensor:
-        """Get indices of samples available for training according to buffer strategy.
+        """Get indices of samples available for training according to retrieval strategy.
 
         Returns:
-            Tensor of indices that the buffer strategy considers for training.
+            Tensor of indices that the retrieval strategy considers for training.
         """
-        return self.buffer_strategy.get_training_indices(
+        return self.retrieval_strategy.get_training_indices(
             len(self.contextualized_actions) if self.contextualized_actions is not None else 0
         ).to(self.device)
 
@@ -556,7 +556,7 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
             "chosen_actions": self.chosen_actions,
-            "buffer_strategy": self.buffer_strategy,
+            "retrieval_strategy": self.retrieval_strategy,
             "max_size": self.max_size,
         }
 
@@ -577,7 +577,7 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
         self.embedded_actions = state_dict["embedded_actions"].to(device=self.device)
         self.rewards = state_dict["rewards"].to(device=self.device)
         self.chosen_actions = state_dict["chosen_actions"].to(device=self.device)
-        self.buffer_strategy = state_dict["buffer_strategy"]
+        self.retrieval_strategy = state_dict["retrieval_strategy"]
         self.max_size = state_dict["max_size"]
 
     def clear(self) -> None:
@@ -599,14 +599,14 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
     Stores the `torch.Tensors` without modifying their location (device).
     """
 
-    def __init__(self, buffer_strategy: DataBufferStrategy, max_size: int | None = None):
+    def __init__(self, retrieval_strategy: DataRetrievalStrategy, max_size: int | None = None):
         """Initialize the list-based buffer.
 
         Args:
-            buffer_strategy: Strategy for selecting training samples.
+            retrieval_strategy: Strategy for selecting training samples.
             max_size: Optional maximum number of samples to store.
         """
-        super().__init__(buffer_strategy)
+        super().__init__(retrieval_strategy)
         self.max_size = max_size
         self.contextualized_actions: list[ActionInputType] = []
         self.embedded_actions: list[torch.Tensor] = []  # Can store embeddings if provided
@@ -720,7 +720,7 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         self,
         batch_size: int,
     ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]:
-        """Get a random batch of data from the buffer using the buffer strategy.
+        """Get a random batch of data from the buffer using the retrieval strategy.
 
         Args:
             batch_size: Number of samples to retrieve.
@@ -774,14 +774,14 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         return (batch_contextualized, batch_embedded, batch_rewards, batch_chosen_actions)
 
     def _get_available_indices(self) -> torch.Tensor:
-        """Determine which indices should be used for training based on the buffer strategy.
+        """Determine which indices should be used for training based on the retrieval strategy.
 
         Returns:
             A list of indices.
         """
         total = len(self.contextualized_actions)
-        # Assume buffer_strategy.get_training_indices returns a list of indices
-        indices = self.buffer_strategy.get_training_indices(total)
+        # Assume retrieval_strategy.get_training_indices returns a list of indices
+        indices = self.retrieval_strategy.get_training_indices(total)
         return indices
 
     def update_embeddings(self, embedded_actions: torch.Tensor) -> None:
@@ -842,7 +842,7 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
             "chosen_actions": self.chosen_actions,
-            "buffer_strategy": self.buffer_strategy,
+            "retrieval_strategy": self.retrieval_strategy,
             "max_size": self.max_size,
         }
 
@@ -857,7 +857,7 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         self.rewards = state_dict["rewards"]
         self.chosen_actions = state_dict["chosen_actions"]
 
-        self.buffer_strategy = state_dict["buffer_strategy"]
+        self.retrieval_strategy = state_dict["retrieval_strategy"]
         self.max_size = state_dict["max_size"]
 
     def clear(self) -> None:

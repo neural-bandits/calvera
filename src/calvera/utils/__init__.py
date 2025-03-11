@@ -9,11 +9,11 @@ from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.data_sampler import AbstractDataSampler, RandomDataSampler, SortedDataSampler
 from calvera.utils.data_storage import (
     AbstractBanditDataBuffer,
-    AllDataBufferStrategy,
+    AllDataRetrievalStrategy,
     BufferDataFormat,
-    DataBufferStrategy,
+    DataRetrievalStrategy,
     ListDataBuffer,
-    SlidingWindowBufferStrategy,
+    SlidingWindowRetrievalStrategy,
     StateDictType,
     TensorDataBuffer,
 )
@@ -32,9 +32,9 @@ __all__ = [
     "RandomDataSampler",
     "SortedDataSampler",
     "BufferDataFormat",
-    "DataBufferStrategy",
-    "AllDataBufferStrategy",
-    "SlidingWindowBufferStrategy",
+    "DataRetrievalStrategy",
+    "AllDataRetrievalStrategy",
+    "SlidingWindowRetrievalStrategy",
     "AbstractBanditDataBuffer",
     "TensorDataBuffer",
     "ListDataBuffer",

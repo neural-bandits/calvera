@@ -38,7 +38,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             n_features: The number of features in the bandit model.
             buffer: The buffer used for storing the data for continuously updating the neural network.
                 For the linear bandit, it should always be a TensorDataBuffer or a ListDataBuffer with an
-                AllDataBufferStrategy because the buffer is cleared after each update.
+                AllDataRetrievalStrategy because the buffer is cleared after each update.
             selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.

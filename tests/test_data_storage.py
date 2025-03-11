@@ -5,11 +5,11 @@ import torch
 from torch.testing import assert_close
 
 from calvera.bandits.abstract_bandit import _collate_fn
-from calvera.utils.data_storage import AllDataBufferStrategy, SlidingWindowBufferStrategy, TensorDataBuffer
+from calvera.utils.data_storage import AllDataRetrievalStrategy, SlidingWindowRetrievalStrategy, TensorDataBuffer
 
 
 def test_all_data_strategy() -> None:
-    strategy = AllDataBufferStrategy()
+    strategy = AllDataRetrievalStrategy()
     indices = strategy.get_training_indices(5)
     assert torch.equal(indices, torch.arange(5))
 
@@ -22,14 +22,14 @@ def test_all_data_strategy() -> None:
     ],
 )
 def test_sliding_window_strategy(total_samples: int, window_size: int, expected: torch.Tensor) -> None:
-    strategy = SlidingWindowBufferStrategy(window_size=window_size)
+    strategy = SlidingWindowRetrievalStrategy(window_size=window_size)
     indices = strategy.get_training_indices(total_samples)
     assert torch.equal(indices, expected)
 
 
 @pytest.fixture
 def buffer() -> TensorDataBuffer[torch.Tensor]:
-    return TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
+    return TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy(), max_size=None)
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ def test_add_batch_without_embeddings(buffer: TensorDataBuffer[torch.Tensor], sa
 
 
 def test_max_size_limit(sample_data: dict[str, Any]) -> None:
-    buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=2)
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy(), max_size=2)
 
     buffer.add_batch(
         sample_data["contextualized_actions"],
@@ -220,7 +220,7 @@ def test_load_state_dict(buffer: TensorDataBuffer[torch.Tensor], sample_data: di
 
     state = buffer.state_dict()
 
-    new_buffer = TensorDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy(), max_size=None)
+    new_buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy(), max_size=None)
     new_buffer.load_state_dict(state)
 
     assert torch.equal(
