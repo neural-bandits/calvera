@@ -4,8 +4,8 @@ from typing import Any, cast
 import torch
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 
-from calvera.bandits.action_input_type import ActionInputType
 from calvera.bandits.linear_ts_bandit import LinearTSBandit
+from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.data_storage import AbstractBanditDataBuffer, BufferDataFormat, ListDataBuffer
 from calvera.utils.multiclass import MultiClassContextualizer
 from calvera.utils.selectors import AbstractSelector

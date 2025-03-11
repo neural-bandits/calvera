@@ -5,7 +5,7 @@ from typing import Any, Generic, Protocol, TypedDict, TypeVar, cast
 
 import torch
 
-from calvera.bandits.action_input_type import ActionInputType
+from calvera.utils.action_input_type import ActionInputType
 
 StateDictType = TypeVar("StateDictType", bound=Mapping[str, Any])
 # BufferDataFormat = tuple[ActionInputType, torch.Tensor] | tuple[ActionInputType, torch.Tensor, torch.Tensor]
@@ -49,7 +49,7 @@ class DataRetrievalStrategy(Protocol):
     def get_training_indices(self, total_samples: int) -> torch.Tensor:
         """Get indices of data points to use for training.
 
-        For the `InMemoryDataBuffer` this has to be deterministic.
+        For the `TensorDataBuffer` this has to be deterministic.
 
         Args:
             total_samples: Total number of samples in the buffer.
@@ -223,8 +223,7 @@ class AbstractBanditDataBuffer(
         pass
 
 
-# TODO(rob2u): `InMemoryDataBuffer` can not store and provide `chosen_actions`. See #166
-class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
+class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """In-memory implementation of bandit data buffer.
 
     Known limitations:
@@ -250,9 +249,10 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self.max_size = max_size
         self.device = device if device is not None else torch.device("cpu")
 
-        self.contextualized_actions = torch.empty(0, 0, 0, device=device)  # shape: (n, input_items, n_features)
+        self.contextualized_actions: None | torch.Tensor = None
         self.embedded_actions = torch.empty(0, 0, device=device)  # shape: (n, n_embedding_size)
         self.rewards = torch.empty(0, device=device)  # shape: (n,)
+        self.chosen_actions = torch.empty(0, 0, device=device)  # shape: (n, n_actions)
 
     def add_batch(
         self,
@@ -276,8 +276,6 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Raises:
             ValueError: If input shapes are inconsistent.
         """
-        assert chosen_actions is None, "NOT SUPPORTED YET!. Use `ListDataBuffer` if you want to train NeuralLinear."
-
         assert (
             embedded_actions is None or embedded_actions.shape[0] == rewards.shape[0]
         ), "Number of embeddings must match number of rewards"
@@ -285,7 +283,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
         if isinstance(contextualized_actions, torch.Tensor):
             contextualized_actions_tensor = contextualized_actions
-            assert contextualized_actions_tensor.ndim == 2, (
+            assert contextualized_actions_tensor.ndim >= 2, (
                 "Chosen actions must have shape (batch_size, n_features) "
                 f"but got shape {contextualized_actions_tensor.shape}"
             )
@@ -325,11 +323,10 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         rewards = rewards.to(self.device)
 
         # Initialize buffer with proper shapes if empty
-        if self.contextualized_actions.shape[2] == 0:
+        if self.contextualized_actions is None:
             self.contextualized_actions = torch.empty(
                 0,
-                contextualized_actions_tensor.shape[1],
-                contextualized_actions_tensor.shape[2],
+                *contextualized_actions_tensor.shape[1:],
                 device=self.device,
             )  # shape: (n, input_items, n_features)
         if embedded_actions is not None and self.embedded_actions.shape[1] == 0:
@@ -337,7 +334,10 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
                 0, embedded_actions.shape[1], device=self.device
             )  # shape: (n, n_embedding_size)
 
-        assert contextualized_actions_tensor.shape[1:] == self.contextualized_actions.shape[1:], (
+        assert (
+            contextualized_actions_tensor.shape[1:] == self.contextualized_actions.shape[1:]
+            or self.contextualized_actions.shape[0] == 0
+        ), (
             f"Input shape does not match buffer shape. Expected {self.contextualized_actions.shape[1:]}, "
             f"got {contextualized_actions_tensor.shape[1:]}"
         )
@@ -346,10 +346,22 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         if embedded_actions is not None:
             assert embedded_actions.shape[1] == self.embedded_actions.shape[1], (
                 f"Embedding size does not match embeddings in buffer. Expected {self.embedded_actions.shape[1]}, "
-                "got {embedded_actions.shape[1]}"
+                f"got {embedded_actions.shape[1]}"
             )
 
             self.embedded_actions = torch.cat([self.embedded_actions, embedded_actions], dim=0)
+
+        if chosen_actions is not None:
+            if self.chosen_actions.shape[0] == 0:
+                self.chosen_actions = torch.empty(0, chosen_actions.shape[1], device=self.device)
+
+            assert chosen_actions.shape[1] == self.chosen_actions.shape[1], (
+                "Shape of `chosen_actions` does not match the shape of the ones in buffer. Expected "
+                f"{self.chosen_actions.shape[1]}, "
+                f"got {chosen_actions.shape[1]}"
+            )
+
+            self.chosen_actions = torch.cat([self.chosen_actions, chosen_actions], dim=0)
 
         self.rewards = torch.cat([self.rewards, rewards])
 
@@ -391,7 +403,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
             embedded_actions: Optional tensor of shape (n, n_embedding_size), or None if not used.
             rewards: Tensor of shape (n,).
         """
-        num_items = self.contextualized_actions.shape[0]
+        num_items = self.contextualized_actions.shape[0] if self.contextualized_actions is not None else 0
         if num_items > 0:
             return self._get_data(torch.arange(num_items, device=self.device))
         else:
@@ -454,6 +466,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         """
         assert indices.ndim == 1, "Indices must be a 1D tensor"
         assert indices.size(0) > 0, "Indices must not be empty"
+        assert self.contextualized_actions is not None, "Accessing an empty buffer"
 
         contextualized_actions_tensor = self.contextualized_actions[
             indices
@@ -475,7 +488,11 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         if self.embedded_actions.numel() > 0:
             embedded_actions_batch = self.embedded_actions[indices]
 
-        return contextualized_actions_batch, embedded_actions_batch, rewards_batch, None
+        chosen_actions_batch = None
+        if self.chosen_actions.numel() > 0:
+            chosen_actions_batch = self.chosen_actions[indices]
+
+        return contextualized_actions_batch, embedded_actions_batch, rewards_batch, chosen_actions_batch
 
     def update_embeddings(self, embedded_actions: torch.Tensor) -> None:
         """Update the embedded actions in the buffer.
@@ -515,7 +532,9 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Returns:
             Tensor of indices that the retrieval strategy considers for training.
         """
-        return self.retrieval_strategy.get_training_indices(len(self.contextualized_actions)).to(self.device)
+        return self.retrieval_strategy.get_training_indices(
+            len(self.contextualized_actions) if self.contextualized_actions is not None else 0
+        ).to(self.device)
 
     def len_of_all_data(self) -> int:
         """Get the total number of samples in the buffer.
@@ -523,7 +542,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Returns:
             Total number of samples stored in the buffer.
         """
-        return len(self.contextualized_actions)
+        return len(self.contextualized_actions) if self.contextualized_actions is not None else 0
 
     def state_dict(
         self,
@@ -533,11 +552,11 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Returns:
             Dictionary containing all necessary state information for restoring the buffer.
         """
-        # TODO(rob2u): add the chosen_actions to the state_dict. See
-        return {  # type: ignore
+        return {
             "contextualized_actions": self.contextualized_actions,
             "embedded_actions": self.embedded_actions,
             "rewards": self.rewards,
+            "chosen_actions": self.chosen_actions,
             "retrieval_strategy": self.retrieval_strategy,
             "max_size": self.max_size,
         }
@@ -554,9 +573,11 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         Raises:
             ValueError: If the state dictionary is missing required keys.
         """
-        self.contextualized_actions = state_dict["contextualized_actions"].to(device=self.device)
+        if state_dict["contextualized_actions"] is not None:
+            self.contextualized_actions = state_dict["contextualized_actions"].to(self.device)
         self.embedded_actions = state_dict["embedded_actions"].to(device=self.device)
         self.rewards = state_dict["rewards"].to(device=self.device)
+        self.chosen_actions = state_dict["chosen_actions"].to(device=self.device)
         self.retrieval_strategy = state_dict["retrieval_strategy"]
         self.max_size = state_dict["max_size"]
 
@@ -565,16 +586,18 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
 
         All tensors are reinitialized as empty tensors with appropriate dimensions.
         """
-        self.contextualized_actions = torch.empty(0, 0, 0, device=self.device)  # shape: (n, input_items, n_features)
+        self.contextualized_actions = None
         self.embedded_actions = torch.empty(0, 0, device=self.device)  # shape: (n, n_embedding_size)
         self.rewards = torch.empty(0, device=self.device)  # shape: (n,)
+        self.chosen_actions = torch.empty(0, 0, device=self.device)  # shape: (n, n_actions)
 
 
 class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict]):
     """A list-based implementation of the bandit data buffer.
 
     This implementation stores contextualized actions, optional embedded actions, rewards and
-    chosen_actions in Python lists. No `torch.Tensors` are used.
+    chosen_actions in Python lists. `torch.Tensors` are not concatenated but stored as lists.
+    Stores the `torch.Tensors` without modifying their location (device).
     """
 
     def __init__(self, retrieval_strategy: DataRetrievalStrategy, max_size: int | None = None):

@@ -56,6 +56,7 @@ class NeuralTSBandit(NeuralBandit):
         min_samples_required_for_training: int = 64,
         initial_train_steps: int = 1024,
         num_samples_per_arm: int = 1,
+        warm_start: bool = True,
     ) -> None:
         r"""Initialize the NeuralTS bandit module.
 
@@ -90,6 +91,8 @@ class NeuralTSBandit(NeuralBandit):
                 Defaults to 1024. Must be greater equal 0.
             num_samples_per_arm: Number of samples to draw from each Normal distribution in Thompson Sampling.
                 Defaults to 1. Must be greater than 0.
+            warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
+                `network.reset_parameters()` ever
         """
         assert num_samples_per_arm > 0, "Number of samples must be greater than 0."
 
@@ -107,6 +110,7 @@ class NeuralTSBandit(NeuralBandit):
             early_stop_threshold=early_stop_threshold,
             min_samples_required_for_training=min_samples_required_for_training,
             initial_train_steps=initial_train_steps,
+            warm_start=warm_start,
         )
 
         self.save_hyperparameters({"num_samples_per_arm": num_samples_per_arm})

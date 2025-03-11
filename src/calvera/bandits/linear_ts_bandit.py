@@ -2,8 +2,8 @@ from typing import Any, cast
 
 import torch
 
-from calvera.bandits.action_input_type import ActionInputType
 from calvera.bandits.linear_bandit import LinearBandit
+from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.data_storage import AbstractBanditDataBuffer
 from calvera.utils.selectors import AbstractSelector
 

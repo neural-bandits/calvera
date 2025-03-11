@@ -15,7 +15,7 @@ from calvera.bandits.linear_ucb_bandit import (
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
-from calvera.utils.data_storage import AllDataRetrievalStrategy, InMemoryDataBuffer
+from calvera.utils.data_storage import AllDataRetrievalStrategy, TensorDataBuffer
 
 n_features = 3
 
@@ -40,7 +40,7 @@ bandits = [
     ),
     NeuralLinearBandit(
         network=nn.Sequential(nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, n_features)),
-        buffer=InMemoryDataBuffer[torch.Tensor](
+        buffer=TensorDataBuffer[torch.Tensor](
             AllDataRetrievalStrategy(),
             device=torch.device("cpu"),
         ),
@@ -51,7 +51,7 @@ bandits = [
     NeuralUCBBandit(
         n_features,
         nn.Sequential(nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, 1)),
-        buffer=InMemoryDataBuffer[torch.Tensor](
+        buffer=TensorDataBuffer[torch.Tensor](
             AllDataRetrievalStrategy(),
             device=torch.device("cpu"),
         ),
@@ -60,7 +60,7 @@ bandits = [
     NeuralTSBandit(
         n_features,
         nn.Sequential(nn.Linear(n_features, 32), nn.ReLU(), nn.Linear(32, 1)),
-        buffer=InMemoryDataBuffer[torch.Tensor](
+        buffer=TensorDataBuffer[torch.Tensor](
             AllDataRetrievalStrategy(),
             device=torch.device("cpu"),
         ),

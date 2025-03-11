@@ -5,16 +5,17 @@ This includes a sampling strategies such as `SortedDataSampler` and `RandomDataS
 bandit implementations and selectors to modify the selection behaviour of the bandits.
 """
 
+from calvera.utils.action_input_type import ActionInputType
 from calvera.utils.data_sampler import AbstractDataSampler, RandomDataSampler, SortedDataSampler
 from calvera.utils.data_storage import (
     AbstractBanditDataBuffer,
     AllDataRetrievalStrategy,
     BufferDataFormat,
     DataRetrievalStrategy,
-    InMemoryDataBuffer,
     ListDataBuffer,
     SlidingWindowRetrievalStrategy,
     StateDictType,
+    TensorDataBuffer,
 )
 from calvera.utils.multiclass import MultiClassContextualizer
 from calvera.utils.selectors import (
@@ -26,6 +27,7 @@ from calvera.utils.selectors import (
 )
 
 __all__ = [
+    "ActionInputType",
     "AbstractDataSampler",
     "RandomDataSampler",
     "SortedDataSampler",
@@ -34,7 +36,7 @@ __all__ = [
     "AllDataRetrievalStrategy",
     "SlidingWindowRetrievalStrategy",
     "AbstractBanditDataBuffer",
-    "InMemoryDataBuffer",
+    "TensorDataBuffer",
     "ListDataBuffer",
     "StateDictType",
     "AbstractSelector",
