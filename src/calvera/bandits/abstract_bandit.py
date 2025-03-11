@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from calvera.bandits.action_input_type import ActionInputType
 from calvera.utils.data_storage import (
     AbstractBanditDataBuffer,
-    AllDataBufferStrategy,
+    AllDataRetrievalStrategy,
     BufferDataFormat,
     InMemoryDataBuffer,
 )
@@ -81,7 +81,7 @@ class AbstractBandit(ABC, pl.LightningModule, Generic[ActionInputType]):
 
         if buffer is None:
             self.buffer = InMemoryDataBuffer(
-                buffer_strategy=AllDataBufferStrategy(),
+                retrieval_strategy=AllDataRetrievalStrategy(),
                 max_size=None,
                 device=self.device,
             )
