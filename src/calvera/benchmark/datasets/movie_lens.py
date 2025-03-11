@@ -209,8 +209,8 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
             dest_path: The directory where the dataset is / will be stored.
             svd_rank: Rank (number of latent dimensions) for the SVD decomposition.
             outer_product: Whether to use the outer product of the user and movie features as the context. If `False`,
-            the context will be the concatenation of the user and movie features.
-            (Might perform better for Neural Bandits).
+                the context will be the concatenation of the user and movie features.
+                (Might perform better for Neural Bandits).
             k: The number of movies to exclude per user.
             L: The number of movies to include in the dataset. (Top `L` most common movies).
             min_movies: The minimum number of movies a user must have rated to be included in the dataset (after only
