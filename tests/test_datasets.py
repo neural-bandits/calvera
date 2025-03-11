@@ -66,8 +66,8 @@ class TestStatlogDataset:
     def test_getitem(self, dataset: StatlogDataset) -> None:
         for _ in range(10):
             X, rewards = dataset[0]
-            assert X.shape == (9, 7 * 9)
-            assert rewards.shape == (9,)
+            assert X.shape == (7, 7 * 7)
+            assert rewards.shape == (7,)
 
     def test_reward(self, dataset: StatlogDataset) -> None:
         for i in range(10):

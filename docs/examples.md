@@ -958,6 +958,55 @@ And the following datasets:
 - `synthetic`: A binary classification synthetic dataset
 - `synthetic_combinatorial`: Synthetic dataset for Combinatorial Bandit experiments
 
+We predefined the following networks:
+- `tiny_mlp`: just a single linear layer.
+- `small_mlp`: just a single linear layer.
+- `large_mlp`: just a single linear layer.
+- `deep_mlp`: just a single linear layer.
+- `linear`: just a single linear layer.
+- `none`: Identity network.
+- `bert`: a small pre-trained BERT encoder (`google/bert_uncased_L-2_H-128_A-2`). It is wrapped in calvera's `ResNetWrapper` to allow for easy input shape handling.
+- `resnet`: a small pre-trained ResNet (`resnet18.a1_in1k`) without final linear layer. It is wrapped in calvera's `ResNetWrapper` to allow for easy input shape handling.
+
+If you want to configure the benchmark with your own models, you can use the `BanditBenchmark` class:
+```python
+from calvera.bandits import NeuralLinearBandit
+from calvera.benchmark import BanditBenchmark
+from calvera.benchmark.datasets import StatlogDataset
+
+network = MyCustomNetwork()
+bandit = NeuralLinearBandit(
+    network=network,
+    n_embedding_size=128, # size of your networks embeddings
+    # ...
+)
+dataset = StatlogDataset()
+benchmark = BanditBenchmark(
+    bandit,
+    dataset,
+    training_params={
+        "max_samples": 5000,  # on how many samples to train
+        "forward_batch_size": 1,  # The batch size for the forward pass.
+        "feedback_delay": 1,  # The number of samples to collect before training.
+
+        # trainer arguments:
+        "max_steps": 2,
+        "log_every_n_steps": 1,
+        "gradient_clip_val": 0.5,
+
+        "training_sampler": None,  # or SortedDataSampler if the inputted data should not be in i.i.d. order
+
+        "device": "cuda",
+        "seed": 42, 
+    },
+    logger=lightning.pytorch.loggers.CSVLogger(
+        # ...
+    )
+)
+
+benchmark.run()
+```
+
 ## Further Resources
 
 - For more examples, check the [examples directory](https://github.com/neural-bandits/calvera/tree/main/examples) on GitHub.

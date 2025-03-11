@@ -13,6 +13,8 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
 
 - `Statlog (Shuttle)` - classification of different modes of the space shuttle
 
+- `Tiny ImageNet` - more difficult image classification task for large image networks.
+
 - `Wheel` - synthetic dataset described [here](https://arxiv.org/abs/1802.09127) 
 
 <br>
@@ -78,6 +80,16 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
         - __getitem__
         - reward
 
+::: calvera.benchmark.datasets.tiny_imagenet.TinyImageNetDataset
+    handler: python
+    options:
+      heading: TinyImageNetDataset
+      show_root_heading: true
+      show_root_full_path: false
+      members:
+        - __getitem__
+        - reward
+
 ::: calvera.benchmark.datasets.wheel.WheelBanditDataset
     handler: python
     options:
@@ -90,6 +102,14 @@ A dataset implements the `AbstractDataset` class. There are currently 6 datasets
 
 ## **Environment**
 
-The `BanditBenchmarkEnvironment` class is used to simulate a bandit environment. It is used to evaluate the performance of a bandit algorithm.
-
-TODO: See issue #140.
+::: calvera.benchmark.environment.BanditBenchmarkEnvironment
+    handler: python
+    options:
+      heading: BanditBenchmarkEnvironment
+      show_root_heading: true
+      show_root_full_path: false
+      members: 
+        - __iter__
+        - __next__
+        - get_feedback
+        - compute_regret
