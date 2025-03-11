@@ -50,17 +50,17 @@ class AbstractSelector(ABC):
         """
         selector_type = state["type"]
         if selector_type == "EpsilonGreedySelector":
-            selector = EpsilonGreedySelector(epsilon=state["epsilon"])
-            selector.generator.set_state(state["generator_state"])
-            return selector
+            epsilon_selector = EpsilonGreedySelector(epsilon=state["epsilon"])
+            epsilon_selector.generator.set_state(state["generator_state"])
+            return epsilon_selector
         elif selector_type == "TopKSelector":
             return TopKSelector(k=state["k"])
         elif selector_type == "ArgMaxSelector":
             return ArgMaxSelector()
         elif selector_type == "EpsilonGreedyTopKSelector":
-            selector = EpsilonGreedyTopKSelector(k=state["k"], epsilon=state["epsilon"])
-            selector.generator.set_state(state["generator_state"])
-            return selector
+            epsilon_topk_selector = EpsilonGreedyTopKSelector(k=state["k"], epsilon=state["epsilon"])
+            epsilon_topk_selector.generator.set_state(state["generator_state"])
+            return epsilon_topk_selector
         else:
             raise ValueError(f"Unknown selector type: {selector_type}")
 
