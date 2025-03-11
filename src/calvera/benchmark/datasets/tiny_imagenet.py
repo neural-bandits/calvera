@@ -142,9 +142,9 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
     and 50 test images per class. Each image is 64x64 pixels in 3 channels (RGB).
     """
 
-    num_actions: int = 200
+    num_actions: int = 200  # overwritten by max_classes
     context_size: int = 3 * 64 * 64
-    num_samples: int = 100000
+    num_samples: int = 100000  # overwritten if max_classes < 200
 
     def __init__(
         self,
@@ -157,7 +157,7 @@ class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
         Args:
             dest_path: The directory where the dataset will be stored.
             split: Which split to use ('train', 'val', or 'test')
-            max_classes: The maximum number of classes to use from the dataset. Default is 200.
+            max_classes: The maximum number of classes to use from the dataset. Default is 10.
         """
         super().__init__(needs_disjoint_contextualization=False)
 
