@@ -11,7 +11,12 @@ from calvera.utils.selectors import AbstractSelector
 class LinearTSBandit(LinearBandit[ActionInputType]):
     """Linear Thompson Sampling Bandit.
 
-    Based on: Agrawal et al. "Thompson Sampling for Contextual Bandits with Linear Payoffs" https://arxiv.org/abs/1209.3352
+    This implementation supports both standard and combinatorial bandit settings.
+
+    References:
+        - [Agrawal et al. "Thompson Sampling for Contextual Bandits with Linear Payoffs"](https://arxiv.org/abs/1209.3352)
+
+        - [Wen et al. "Efficient Learning in Large-Scale Combinatorial Semi-Bandits"](https://arxiv.org/abs/1406.7443)
     """
 
     def __init__(
@@ -108,11 +113,10 @@ class LinearTSBandit(LinearBandit[ActionInputType]):
 
 
 class DiagonalPrecApproxLinearTSBandit(LinearTSBandit[torch.Tensor]):
-    """LinearTS but the precision matrix is updated using a diagonal approximation.
+    r"""LinearTS but the precision matrix is updated using a diagonal approximation.
 
-    Instead of doing a full update,
-    only diag(Σ⁻¹)⁻¹ = diag(X X^T)⁻¹ is used. For compatibility reasons the precision matrix is still stored as a full
-    matrix.
+    Instead of doing a full update, only $\text{diag}(\Sigma^{-1})^{-1} = \text{diag}(X X^T)^{-1}$ is used.
+    For compatibility reasons the precision matrix is still stored as a full matrix.
     """
 
     def _update_precision_matrix(self, chosen_actions: torch.Tensor) -> torch.Tensor:

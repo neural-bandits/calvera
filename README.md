@@ -24,7 +24,7 @@ Calvera is a Python library offering a collection of neural multi-armed bandit a
 
 ## Installation
 
-Calvera is available on [PyPI](https://pypi.org/). Install it via pip:
+Calvera is available on [PyPI](https://pypi.org/project/calvera/). Install it via pip:
 
 ```bash
 pip install calvera
@@ -90,6 +90,7 @@ For more detailed examples, see the examples page in [the documentation](http://
 - Selectors: Easily customize your arm selection strategy by using or extending the provided selectors.
 
 ## Benchmarks & Experimental Results
+
 The bandit algorithms are evaluated on different benchmark datasets. Here is an overview over their performance on the Covertype dataset:
 ![Different bandits on covertype](experiments/datasets/covertype/results/results/acc_regret.png)
 

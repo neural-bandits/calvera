@@ -228,6 +228,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
     """In-memory implementation of bandit data buffer.
 
     Known limitations:
+
     - It can't handle a varying amount of actions over time.
     """
 

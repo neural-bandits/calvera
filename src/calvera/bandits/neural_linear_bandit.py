@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 class HelperNetwork(torch.nn.Module):
-    """A helper network that is used to train the neural network of the NeuralLinearBandit.
+    """A helper network that is used to train the neural network of the `NeuralLinearBandit`.
 
-    It adds a linear head to the neural network which mocks the linear head of the NeuralLinearBandit,
+    It adds a linear head to the neural network which mocks the linear head of the `NeuralLinearBandit`,
     hence the single output dimension of the linear layer.
-    This allows for training an embedding which is useful for the linear head of the NeuralLinearBandit.
+    This allows for training an embedding which is useful for the linear head of the `NeuralLinearBandit`.
     """
 
     def __init__(
@@ -29,7 +29,7 @@ class HelperNetwork(torch.nn.Module):
         Args:
             network: The neural network to be used to encode the input data into an embedding.
             output_size: The size of the output of the neural network.
-            contextualizer: If provided disjoint model contextualization will be applied to the embeddings
+            contextualizer: If provided disjoint model contextualization will be applied to the embeddings.
         """
         super().__init__()
         self.network = network
@@ -65,13 +65,14 @@ class HelperNetwork(torch.nn.Module):
 class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
     """Lightning Module implementing a Neural Linear bandit.
 
-    Based on: Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for
-    Thompson Sampling" https://arxiv.org/abs/1802.09127
-
     A Neural Linear bandit model consists of a neural network that produces embeddings of the input data and a linear
     head that is trained on the embeddings. Since updating the neural network which encodes the inputs into embeddings
     is computationally expensive, the neural network is only updated once more than `min_samples_required_for_training`
     samples have been collected. Otherwise, only the linear head is updated.
+
+    References:
+        - [Riquelme et al. "Deep Bayesian Bandits Showdown: An Empirical Comparison of Bayesian Deep Networks for
+        Thompson Sampling"](https://arxiv.org/abs/1802.09127)
 
     ActionInputType:
         The type of the input data to the neural network. Can be a single tensor or a tuple of tensors.
@@ -108,14 +109,14 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
             buffer: The buffer used for storing the data for continuously updating the neural network and
                 storing the embeddings for the linear head.
             n_embedding_size: The size of the embedding produced by the neural network. Must be greater than 0.
-                IF `contextualization_after_network` is True, `n_embedding_size` is the size of the output of the
+                If `contextualization_after_network` is `True`, `n_embedding_size` is the size of the output of the
                 network * n_arms (Using disjoint contextualization).
-            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
+            selector: The selector used to choose the best action. Default is `ArgMaxSelector` (if None).
             train_batch_size: The batch size for the neural network update. Must be greater than 0.
             min_samples_required_for_training: The interval (in steps) at which the neural network is updated.
                 None means the neural network is never updated. If not None, it must be greater than 0.
                 Must Default is 1024.
-            lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
+            lazy_uncertainty_update: If `True` the precision matrix will not be updated during forward, but during the
                 update step.
             lambda_: The regularization parameter for the linear head. Must be greater than 0.
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
@@ -137,11 +138,11 @@ class NeuralLinearBandit(LinearTSBandit[ActionInputType]):
                 Must be greater equal 0.
             initial_train_steps: Number of initial training steps (in samples).
                 Defaults to 1024. Must be greater equal 0.
-            contextualization_after_network: If True, the contextualization is applied after the network. Useful for
+            contextualization_after_network: If `True`, the contextualization is applied after the network. Useful for
                 situations where you want to use the model for retrieving an embedding then use this single embedding
                 for multiple actions.
             n_arms: The number of arms to contextualize after the network. Only needed if
-                contextualization_after_network is True. Else the number of arms is determined by the input data.
+                `contextualization_after_network` is `True`. Else the number of arms is determined by the input data.
                 Must be greater equal 0.
             warm_start: If `False` the parameters of the network are reset in order to be retrained from scratch using
                 `network.reset_parameters()` everytime a retraining of the network occurs. If `True` the network is

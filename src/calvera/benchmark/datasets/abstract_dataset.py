@@ -15,9 +15,11 @@ class AbstractDataset(ABC, Generic[ActionInputType], Dataset[tuple[ActionInputTy
     Additionally, it provides a reward method for the specific bandit setting.
 
     Subclasses should have the following attributes:
-    - num_actions  - The maximum number of actions available to the agent.
-    - context_size - The standard size of the context vector.
-        If needs_disjoint_contextualization is True, the number of features should be multiplied by the number of
+
+    - `num_actions`: The maximum number of actions available to the agent.
+
+    - `context_size`: The standard size of the context vector.
+        If `needs_disjoint_contextualization` is `True`, the number of features should be multiplied by the number of
         actions.
 
     ActionInputType Generic:
@@ -41,7 +43,7 @@ class AbstractDataset(ABC, Generic[ActionInputType], Dataset[tuple[ActionInputTy
 
     @abstractmethod
     def __len__(self) -> int:
-        """Return the number of contexts / samples in this dataset."""
+        """Return the number of contexts/samples in this dataset."""
         pass
 
     @abstractmethod

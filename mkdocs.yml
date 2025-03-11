@@ -14,7 +14,7 @@ markdown_extensions:
       generic: true
 
 extra_javascript:
-  - javascripts/katex.js
+  - katex.js
   - https://unpkg.com/katex@0/dist/katex.min.js
   - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
 
@@ -24,8 +24,8 @@ extra_css:
 
 theme:
   name: material
-  logo: logo/calvera.png
-  favicon: logo/calvera_light.png
+  logo: calvera.png
+  favicon: calvera_light.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
@@ -48,8 +48,8 @@ theme:
         name: Switch to system preference
 
   icon:
-    logo: logo/calvera.png
-    favicon: logo/calvera_light.png
+    logo: calvera.png
+    favicon: calvera_light.png
   
   features:
     - header.autohide

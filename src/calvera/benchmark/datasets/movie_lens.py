@@ -18,7 +18,7 @@ def _download_movielens(
 ) -> None:
     """Downloads the 'small' MovieLens dataset if it does not already exist.
 
-    More information can be found at https://files.grouplens.org/datasets/movielens.
+    More information can be found at [https://files.grouplens.org/datasets/movielens](https://files.grouplens.org/datasets/movielens).
 
     Args:
         dest_path: The directory where the dataset will be stored.
@@ -180,10 +180,12 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
 
     The dataset is provided by the GroupLens Research specifically by Harper and Konstan (2015, The MovieLens Datasets:
     History and Context). It contains ratings ofmovies by different users. We do not use the ratings directly here but
-    only the information that a user has rated and therefore watched this movie. More information can be found at https://www.grouplens.org/datasets/movielens/.
+    only the information that a user has rated and therefore watched this movie. More information can be found at [https://www.grouplens.org/datasets/movielens/](https://www.grouplens.org/datasets/movielens/).
     We build the context by using the SVD decomposition of the user-movie matrix. The context is the outer product of
-    the user and movie features. Based on: Li et al. "A contextual-bandit approach to personalized news
-    article recommendation" https://arxiv.org/abs/1003.0146
+    the user and movie features.
+
+    References:
+        - [Li et al. "A contextual-bandit approach to personalized news article recommendation"](https://arxiv.org/abs/1003.0146)
     """
 
     num_actions: int  # There is no constant number of actions in the MovieLens dataset.
@@ -206,16 +208,16 @@ class MovieLensDataset(AbstractDataset[torch.Tensor]):
         Args:
             dest_path: The directory where the dataset is / will be stored.
             svd_rank: Rank (number of latent dimensions) for the SVD decomposition.
-            outer_product: Whether to use the outer product of the user and movie features as the context. If False, the
-                context will be the concatenation of the user and movie features. (Might perform better for Neural
-                Bandits).
+            outer_product: Whether to use the outer product of the user and movie features as the context. If `False`,
+            the context will be the concatenation of the user and movie features.
+            (Might perform better for Neural Bandits).
             k: The number of movies to exclude per user.
-            L: The number of movies to include in the dataset. (Top L most common movies).
+            L: The number of movies to include in the dataset. (Top `L` most common movies).
             min_movies: The minimum number of movies a user must have rated to be included in the dataset (after only
                 taking the top `L` movies).
             version: The version of the MovieLens dataset to use. Either "ml-latest-small" or "ml-32m".
             store_features: Whether to store the user and movie features.
-                If True, the features will be stored in `dest_path`.
+                If `True`, the features will be stored in `dest_path`.
         """
         super().__init__(needs_disjoint_contextualization=False)
         self.user_features, self.movie_features, self.history, self.F = _setup_movielens(
