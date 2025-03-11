@@ -3,16 +3,16 @@ look at previous data e.g. during a complete retraining.
 Currently we only provide a simple in-memory buffer but more sophisticated buffer can be implemented by
 subclassing the `AbstractBanditDataBuffer` class. 
 
-To achieve different buffer strategies, one can provide a `DataBufferStrategy` to the buffer.
+To achieve different buffer strategies, one can provide a `DataRetrievalStrategy` to the buffer.
 The buffer will then use the `get_training_indices` method to get the indices of the data to use for training.
 
 Currently, we provide two strategies:
 
-- `AllDataBufferStrategy`: Use all data for training.
+- `AllDataRetrievalStrategy`: Use all data for training.
 
-- `SlidingWindowBufferStrategy`: Use a sliding window of the last `window_size` data points for training.
+- `SlidingWindowRetrievalStrategy`: Use a sliding window of the last `window_size` data points for training.
 
-Custom strategies can be implemented by subclassing the `DataBufferStrategy` class and implementing the `get_training_indices` method.
+Custom strategies can be implemented by subclassing the `DataRetrievalStrategy` class and implementing the `get_training_indices` method.
 
 <br>
 <br>
@@ -60,29 +60,29 @@ Custom strategies can be implemented by subclassing the `DataBufferStrategy` cla
 
 ## **Strategies**
 
-::: calvera.utils.data_storage.DataBufferStrategy
+::: calvera.utils.data_storage.DataRetrievalStrategy
     handler: python
     options:
-      heading: DataBufferStrategy
+      heading: DataRetrievalStrategy
       show_root_heading: true
       show_root_full_path: false
       heading_level: 2
       members: 
         - get_training_indices
 
-::: calvera.utils.data_storage.SlidingWindowBufferStrategy
+::: calvera.utils.data_storage.SlidingWindowRetrievalStrategy
     handler: python
     options:
-      heading: SlidingWindowBufferStrategy
+      heading: SlidingWindowRetrievalStrategy
       show_root_heading: true
       show_root_full_path: false
       heading_level: 2
       members: False
 
-::: calvera.utils.data_storage.AllDataBufferStrategy
+::: calvera.utils.data_storage.AllDataRetrievalStrategy
     handler: python
     options:
-      heading: AllDataBufferStrategy
+      heading: AllDataRetrievalStrategy
       show_root_heading: true
       show_root_full_path: false
       heading_level: 2

@@ -194,7 +194,7 @@ Let's see an example:
 ```python
 import torch.nn as nn
 from calvera.bandits import NeuralLinearBandit
-from calvera.utils import InMemoryDataBuffer, AllDataBufferStrategy
+from calvera.utils import InMemoryDataBuffer, AllDataRetrievalStrategy
 
 # Define a neural network architecture
 class Network(nn.Module):
@@ -213,7 +213,7 @@ network = Network(dataset.context_size, hidden_size=100, n_embedding_size=10)
 
 # Set up buffer for storing interaction data
 buffer = InMemoryDataBuffer(
-    buffer_strategy=AllDataBufferStrategy(),
+    retrieval_strategy=AllDataRetrievalStrategy(),
     max_size=10000,
 )
 
@@ -324,7 +324,7 @@ network = Network(dataset.context_size, hidden_size=100)
 
 # Set up buffer
 buffer = InMemoryDataBuffer(
-    buffer_strategy=AllDataBufferStrategy(),
+    retrieval_strategy=AllDataRetrievalStrategy(),
     max_size=10000,
 )
 
@@ -443,7 +443,7 @@ env = BanditBenchmarkEnvironment(train_loader)
 
 # Create a data buffer
 buffer = InMemoryDataBuffer(
-    buffer_strategy=AllDataBufferStrategy(),
+    retrieval_strategy=AllDataRetrievalStrategy(),
     max_size=None,
 )
 
@@ -587,23 +587,23 @@ class MyCustomSelector(AbstractSelector):
 
 Calvera provides different strategies for managing interaction data:
 
-1. **AllDataBufferStrategy**: Stores all data
-2. **SlidingWindowBufferStrategy**: Stores only the most recent data
+1. **AllDataRetrievalStrategy**: Stores all data
+2. **SlidingWindowRetrievalStrategy**: Stores only the most recent data
 
 Here's how to use them:
 
 ```python
-from calvera.utils import InMemoryDataBuffer, AllDataBufferStrategy, SlidingWindowBufferStrategy
+from calvera.utils import InMemoryDataBuffer, AllDataRetrievalStrategy, SlidingWindowRetrievalStrategy
 
 # Store all data
 buffer = InMemoryDataBuffer(
-    buffer_strategy=AllDataBufferStrategy(),
+    retrieval_strategy=AllDataRetrievalStrategy(),
     max_size=10000,  # Optional: limit to 10000 samples
 )
 
 # Store only the most recent 1000 samples
 buffer = InMemoryDataBuffer(
-    buffer_strategy=SlidingWindowBufferStrategy(window_size=1000),
+    retrieval_strategy=SlidingWindowRetrievalStrategy(window_size=1000),
     max_size=None,  # No overall limit
 )
 ```
