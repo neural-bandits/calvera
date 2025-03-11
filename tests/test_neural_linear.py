@@ -402,6 +402,60 @@ def test_neural_linear_bandit_forward_img() -> None:
     assert torch.all(p >= 0) and torch.all(p <= 1), "Probabilities should be in [0, 1]"
 
 
+def test_neural_linear_warm_start(
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, None, torch.Tensor, None]],
+    ],
+    tmp_path: Path,
+) -> None:
+    """Test warm_start functionality and checkpoint behavior for NeuralLinearBandit."""
+    actions, rewards, _ = small_context_reward_batch
+    n_features = actions.shape[2]
+    n_embedding_size = 4
+
+    cold_bandit = NeuralLinearBandit[torch.Tensor](
+        network=nn.Sequential(nn.Linear(n_features, n_embedding_size, bias=False)),
+        n_embedding_size=n_embedding_size,
+        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        train_batch_size=2,
+        initial_train_steps=2,
+        warm_start=False,
+    )
+
+    warm_bandit = NeuralLinearBandit[torch.Tensor](
+        network=nn.Sequential(nn.Linear(n_features, n_embedding_size, bias=False)),
+        n_embedding_size=n_embedding_size,
+        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        train_batch_size=2,
+        initial_train_steps=2,
+        warm_start=True,
+    )
+
+    # Test initialization behavior
+    assert cold_bandit._helper_network_init is not None, "Cold bandit should store initial weights"
+    assert warm_bandit._helper_network_init is None, "Warm bandit should not store initial weights"
+
+    # Test checkpoint behavior
+    trainer = pl.Trainer(default_root_dir=str(tmp_path), fast_dev_run=True)
+    cold_bandit.record_feedback(actions, rewards)
+    trainer.fit(cold_bandit)
+
+    ckpt_path = tmp_path / "neural_linear.ckpt"
+    trainer.save_checkpoint(ckpt_path)
+
+    loaded_bandit = NeuralLinearBandit[torch.Tensor].load_from_checkpoint(
+        ckpt_path,
+        network=nn.Sequential(nn.Linear(n_features, n_embedding_size, bias=False)),
+        n_embedding_size=n_embedding_size,
+        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+    )
+
+    assert not loaded_bandit.hparams["warm_start"], "warm_start=False should be preserved in checkpoint"
+    assert loaded_bandit._helper_network_init is not None, "Initial weights should be preserved in checkpoint"
+
+
 # ------------------------------------------------------------------------------
 # 2) Tests for updating the NeuralLinear bandit
 # ------------------------------------------------------------------------------
