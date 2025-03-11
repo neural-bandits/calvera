@@ -215,7 +215,7 @@ def filter_kwargs(cls: type[Any], kwargs: dict[str, Any]) -> dict[str, Any]:
 
     Returns:
         A dictionary of kwargs that are accepted by cls's constructor.
-    
+
     Usage:
     ```python
     from calvera.bandits import NeuralLinearBandit
@@ -245,7 +245,7 @@ def filter_kwargs(cls: type[Any], kwargs: dict[str, Any]) -> dict[str, Any]:
             "training_sampler": None,  # or SortedDataSampler if the inputted data should not be in i.i.d. order
 
             "device": "cuda",
-            "seed": 42, 
+            "seed": 42,
         },
         logger=lightning.pytorch.loggers.CSVLogger(
             # ...
