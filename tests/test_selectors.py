@@ -8,6 +8,7 @@ from calvera.utils.selectors import (
     EpsilonGreedySelector,
     RandomSelector,
     TopKSelector,
+    EpsilonGreedyTopKSelector,
 )
 
 
@@ -301,3 +302,127 @@ class TestSelectorSerialization:
         new_topk = AbstractSelector.from_state_dict(topk_state)
         assert isinstance(new_topk, TopKSelector)
         assert new_topk.k == orig_topk.k
+
+
+class TestEpsilonGreedyTopKSelector:
+    def test_initialization(self) -> None:
+        """Test valid and invalid initialization parameters."""
+        EpsilonGreedyTopKSelector(k=1, epsilon=0.0)
+        EpsilonGreedyTopKSelector(k=3, epsilon=0.5)
+        EpsilonGreedyTopKSelector(k=5, epsilon=1.0)
+
+        # Test invalid k values
+        with pytest.raises(AssertionError):
+            EpsilonGreedyTopKSelector(k=0, epsilon=0.1)
+        with pytest.raises(AssertionError):
+            EpsilonGreedyTopKSelector(k=-1, epsilon=0.1)
+
+        # Test invalid epsilon values
+        with pytest.raises(AssertionError):
+            EpsilonGreedyTopKSelector(k=1, epsilon=-0.1)
+        with pytest.raises(AssertionError):
+            EpsilonGreedyTopKSelector(k=1, epsilon=1.1)
+
+    def test_epsilon_zero(self) -> None:
+        """When epsilon=0, should behave exactly like TopKSelector"""
+        scores = torch.tensor([[1.0, 4.0, 3.0, 2.0], [4.0, 3.0, 2.0, 1.0]])
+
+        eg_selector = EpsilonGreedyTopKSelector(k=2, epsilon=0.0, seed=42)
+        eg_selected = eg_selector(scores)
+
+        topk_selector = TopKSelector(k=2)
+        topk_selected = topk_selector(scores)
+
+        # Results should be identical
+        assert_close(eg_selected, topk_selected)
+
+    def test_epsilon_one(self) -> None:
+        """When epsilon=1, should always explore randomly"""
+        selector = EpsilonGreedyTopKSelector(k=2, epsilon=1.0, seed=42)
+        scores = torch.tensor([[1.0, 4.0, 3.0, 2.0]])  # Scores don't matter when epsilon=1
+
+        selections = []
+        for _ in range(100):
+            selected = selector(scores)
+            assert selected.shape == (1, 4)
+            assert selected.sum() == 2
+            selections.append(selected)
+
+        # All arms should be selected at least once across the trials
+        arm_selections = torch.sum(torch.stack(selections), dim=0)
+        assert (arm_selections > 0).all()
+
+    @pytest.mark.parametrize("batch_size,n_arms,k", [(1, 5, 2), (3, 4, 1), (5, 6, 3), (10, 3, 2)])
+    def test_output_shape_and_values(self, batch_size: int, n_arms: int, k: int) -> None:
+        """Test output shapes and values for various batch sizes, n_arms, and k values."""
+        selector = EpsilonGreedyTopKSelector(k=k, epsilon=0.5, seed=42)
+        scores = torch.rand(batch_size, n_arms)
+        selected = selector(scores)
+
+        assert selected.shape == (batch_size, n_arms)
+        assert (selected.sum(dim=1) == k).all()  # Exactly k selections per sample
+        assert ((selected == 0) | (selected == 1)).all()
+
+    def test_k_too_large(self) -> None:
+        """Test error when k is larger than n_arms."""
+        selector = EpsilonGreedyTopKSelector(k=4, epsilon=0.5)
+        scores = torch.tensor([[1.0, 2.0, 3.0]])
+
+        with pytest.raises(AssertionError):
+            selector(scores)
+
+    def test_exploitation_exploration_balance(self) -> None:
+        """Test that the selector balances between exploitation and exploration."""
+        selector = EpsilonGreedyTopKSelector(k=1, epsilon=0.5, seed=123)
+
+        scores = torch.tensor([[0.1, 0.9, 0.2, 0.3]])
+
+        n_trials = 1000
+        selections = torch.zeros(4)
+
+        for _ in range(n_trials):
+            selected = selector(scores)
+            selections += selected[0]
+
+        # The high-scoring arm (index 1) should be selected more often,
+        # but all arms should have some selections due to exploration
+        assert selections[1] > selections[0]  # Best arm selected more
+        assert selections[1] > selections[2]
+        assert selections[1] > selections[3]
+
+        # All arms should have some selections
+        assert (selections > 0).all()
+
+        # Roughly 50% exploration, 50% exploitation
+        # In exploitation, always arm 1
+        # In exploration, each arm roughly 25% of the time
+        # So arm 1 should be around 50% + (50% * 0.25) = ~62.5%
+        assert 0.5 < selections[1] / n_trials < 0.75
+
+    def test_serialization(self) -> None:
+        """Test state dictionary creation and restoration."""
+        k = 2
+        epsilon = 0.15
+        selector = EpsilonGreedyTopKSelector(k=k, epsilon=epsilon, seed=42)
+
+        state = selector.get_state_dict()
+
+        # Check state dict contents
+        assert state["type"] == "EpsilonGreedyTopKSelector"
+        assert state["k"] == k
+        assert state["epsilon"] == epsilon
+        assert "generator_state" in state
+
+        new_selector = AbstractSelector.from_state_dict(state)
+
+        assert isinstance(new_selector, EpsilonGreedyTopKSelector)
+        assert new_selector.k == k
+        assert new_selector.epsilon == epsilon
+
+        # Verify identical behavior by running with same input
+        scores = torch.tensor([[0.5, 0.8, 0.3, 0.7]])
+
+        selector.generator.set_state(torch.as_tensor(state["generator_state"]))
+        new_selector.generator.set_state(torch.as_tensor(state["generator_state"]))
+
+        assert torch.equal(selector(scores.clone()), new_selector(scores.clone()))

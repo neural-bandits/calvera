@@ -24,6 +24,7 @@ from calvera.utils.selectors import (
     EpsilonGreedySelector,
     RandomSelector,
     TopKSelector,
+    EpsilonGreedyTopKSelector,
 )
 
 __all__ = [
@@ -44,5 +45,6 @@ __all__ = [
     "EpsilonGreedySelector",
     "RandomSelector",
     "TopKSelector",
+    "EpsilonGreedyTopKSelector",
     "MultiClassContextualizer",
 ]

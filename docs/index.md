@@ -30,6 +30,8 @@ The following selectors are available:
 
 - `TopKSelector`: Selects the top `k` arms with the highest scores.
 
+- `EpsilonGreedyTopKSelector`: Selects the top `k` arms with probability `1-epsilon` or `k` random arms with probability `epsilon`.
+
 ## Installation
 
 Calvera is available on [PyPI](https://pypi.org/).
@@ -156,14 +158,18 @@ A selector should subclass the `AbstractSelector` class and implement the respec
 - `ArgMaxSelector`: Selects the arm with the highest score.
 - `EpsilonGreedySelector`: Selects the arm with the highest score with probability `1-epsilon` or a random arm with probability `epsilon`.
 - `TopKSelector`: Selects the top `k` arms with the highest scores.
+- `EpsilonGreedyTopKSelector`: Selects the top `k` arms with probability `1-epsilon` or `k` random arms with probability `epsilon`.
 
 The documentation of the selectors can be found [here](./utils/).
 
 ## Benchmarks
+
 Calvera provides an extensive benchmark framework via the `calvera[benchmark]` subpackage. With it bandit algorithms can be compared, optimized and tested. For the benchmark setting one or more datasets have to be provided on which the bandits can be tested. Then, the environment simulates the interaction with the bandit. Lastly, the `BanditBenchmark` runs the bandit in a setting specified via a config and outputs the results for evaluation.
 
 ### Datasets
+
 Calvera includes several standard bandit datasets for benchmarking purposes:
+
 - `MNISTDataset` (simple image classification, disjoint model)
 - `StatlogDataset` (disjoint model)
 - `MovieLensDataset` (combinatorial)
@@ -177,7 +183,9 @@ Calvera also provides the option to convert a classification problem into a band
 $$(x_1, ..., x_m) \to ((x_1, ..., x_m, ..., 0, ..., 0), ..., (0, ..., 0, ..., x_1, ..., x_m)) $$
 
 ### Environment
+
 The `BanditBenchmarkEnvironment` takes a pytorch `DataLoader` and can be used as an iterator to load batches of samples into the bandit. Once actions have been chosen, they are passed to the environment to receive the reward for those actions. For convencience, the chosen contextualized_actions are also returned, so that they can be easily passed on to the bandit. Finally, it is possible to compute the regret for the set of chosen actions.
+
 ```python
 from calvera.benchmark import BanditBenchmarkEnvironment
 
@@ -192,7 +200,9 @@ for contextualized_actions in environment:
 ```
 
 ### Benchmark
+
 The `BanditBenchmark` handles setting up a training environment from a given config, runs the benchmark and logs the results.
+
 ```python
 from calvera.benchmark import BanditBenchmark
 
@@ -208,7 +218,7 @@ config = {
     "window_size": 2048,
     "max_buffer_size": 2048,
     "selector": "epsilon_greedy"  # or argmax (default), top_k, random
-    "epsilon": 0.1, 
+    "epsilon": 0.1,
     # "device": "cuda",  # for training on a different device
     "bandit_hparams": {
         "exploration_rate": 0.0001,
@@ -217,7 +227,7 @@ config = {
     }
 }
 # optional: pass any lightning logger. Note that `logger.log_dir` is used for writing further metrics like the rewards/regret as CSV files.
-logger = lightning.pytorch.loggers.CSVLogger(...)  
+logger = lightning.pytorch.loggers.CSVLogger(...)
 benchmark = BanditBenchmark.from_config(config, logger)
 
 # or directly by passing the classes
