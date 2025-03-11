@@ -1072,6 +1072,62 @@ def test_combinatorial_neural_bandit_save_load(
     assert original_selection.sum().item() == k, f"Expected {k} actions selected, got {original_selection.sum().item()}"
 
 
+@pytest.mark.parametrize("bandit_class", [NeuralUCBBandit, NeuralTSBandit])
+def test_neural_bandit_warm_start(
+    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    small_context_reward_batch: tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor | None, torch.Tensor, torch.Tensor | None]],
+    ],
+    tmp_path: Path,
+    bandit_class: type[NeuralBandit],
+) -> None:
+    """Test warm_start functionality and checkpoint behavior for NeuralBandits."""
+    actions, rewards, _ = small_context_reward_batch
+    n_features, _, _ = network_and_buffer
+
+    cold_bandit = bandit_class(
+        n_features=n_features,
+        network=nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1)),
+        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        train_batch_size=2,
+        initial_train_steps=2,
+        warm_start=False,
+    )
+
+    warm_bandit = bandit_class(
+        n_features=n_features,
+        network=nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1)),
+        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        train_batch_size=2,
+        initial_train_steps=2,
+        warm_start=True,
+    )
+
+    # Test initialization behavior
+    assert cold_bandit.theta_t_init is not None, "Cold bandit should store initial weights"
+    assert warm_bandit.theta_t_init is None, "Warm bandit should not store initial weights"
+
+    # Test checkpoint behavior
+    trainer = pl.Trainer(default_root_dir=str(tmp_path), fast_dev_run=True)
+    cold_bandit.record_feedback(actions, rewards)
+    trainer.fit(cold_bandit)
+
+    ckpt_path = tmp_path / f"{bandit_class.__name__}.ckpt"
+    trainer.save_checkpoint(ckpt_path)
+
+    loaded_bandit = bandit_class.load_from_checkpoint(
+        ckpt_path,
+        n_features=n_features,
+        network=nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1)),
+        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+    )
+
+    assert not loaded_bandit.hparams["warm_start"], "warm_start=False should be preserved in checkpoint"
+    assert loaded_bandit.theta_t_init is not None, "Initial weights should be preserved in checkpoint"
+
+
 # ------------------------------------------------------------------------------
 # 2) Tests for num_samples_per_arm in NeuralTS
 # ------------------------------------------------------------------------------
