@@ -12,7 +12,8 @@ class NeuralUCBBandit(NeuralBandit):
     Implementation details:
         Standard setting:
 
-        - UCB: $u_{t,a} = f(x_{t,a}; \theta_{t-1}) + \sqrt{\lambda \nu \cdot g(x_{t,a}; \theta_{t-1})^T Z_{t-1}^{-1} g(x_{t,a}; \theta_{t-1})}$
+        - UCB: $u_{t,a} = f(x_{t,a}; \theta_{t-1}) + \sqrt{\lambda \nu \cdot g(x_{t,a}; \theta_{t-1})^T
+        Z_{t-1}^{-1} g(x_{t,a}; \theta_{t-1})}$
 
         - Update: $Z_t = Z_{t-1} + g(x_{t,a_t}; \theta_{t-1})g(x_{t,a_t}; \theta_{t-1})^T$
 
@@ -22,7 +23,8 @@ class NeuralUCBBandit(NeuralBandit):
 
         - Select super arm: $S_t = \Phi_S(u_t)$
 
-        - Update includes gradients from all chosen arms: $Z_t = Z_{t-1} + \sum_{a \in S_t} g(x_{t,a_t}; \theta_{t-1})g(x_{t,a_t}; \theta_{t-1})^T$
+        - Update includes gradients from all chosen arms:
+        $Z_t = Z_{t-1} + \sum_{a \in S_t} g(x_{t,a_t}; \theta_{t-1})g(x_{t,a_t}; \theta_{t-1})^T$
 
 
     References:
