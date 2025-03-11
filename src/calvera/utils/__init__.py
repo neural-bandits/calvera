@@ -22,9 +22,9 @@ from calvera.utils.selectors import (
     AbstractSelector,
     ArgMaxSelector,
     EpsilonGreedySelector,
+    EpsilonGreedyTopKSelector,
     RandomSelector,
     TopKSelector,
-    EpsilonGreedyTopKSelector,
 )
 
 __all__ = [
