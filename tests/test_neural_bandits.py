@@ -938,7 +938,7 @@ def test_neural_ts_forward_stochastic() -> None:
 # ------------------------------------------------------------------------------
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_combinatorial_neural_bandit_feedback(
-    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, TensorDataBuffer[torch.Tensor]],
     bandit_type: str,
 ) -> None:
     """
@@ -1000,7 +1000,7 @@ def test_combinatorial_neural_bandit_feedback(
 
 @pytest.mark.parametrize("bandit_type", ["ucb", "ts"])
 def test_combinatorial_neural_bandit_save_load(
-    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, TensorDataBuffer[torch.Tensor]],
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
@@ -1048,7 +1048,7 @@ def test_combinatorial_neural_bandit_save_load(
     trainer.save_checkpoint(checkpoint_path)
 
     new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    new_buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    new_buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit_class = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
     loaded_bandit = bandit_class.load_from_checkpoint(
@@ -1081,7 +1081,7 @@ def test_neural_ts_num_samples_per_arm_parameter() -> None:
     """
     n_features = 4
     network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     for num_samples in [1, 5, 10, 20]:
         bandit = NeuralTSBandit(
@@ -1116,7 +1116,7 @@ def test_neural_ts_num_samples_per_arm_affects_exploration() -> None:
     network = nn.Sequential(nn.Linear(n_features, 1, bias=False))
     network[0].weight.data = torch.tensor([[1.0, 0.1]])  # First feature matters most
 
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit1 = NeuralTSBandit(
         n_features=n_features,
@@ -1183,7 +1183,7 @@ def test_neural_ts_num_samples_per_arm_affects_exploration() -> None:
 
 
 def test_neural_ts_num_samples_per_arm_save_load(
-    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, TensorDataBuffer[torch.Tensor]],
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
@@ -1218,7 +1218,7 @@ def test_neural_ts_num_samples_per_arm_save_load(
     trainer.save_checkpoint(checkpoint_path)
 
     new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    new_buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    new_buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     loaded_bandit = NeuralTSBandit.load_from_checkpoint(
         checkpoint_path,
@@ -1236,7 +1236,7 @@ def test_neural_ts_score_method_with_num_samples_per_arm() -> None:
     """
     n_features = 4
     network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit1 = NeuralTSBandit(
         n_features=n_features,
