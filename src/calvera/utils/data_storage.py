@@ -163,7 +163,7 @@ class AbstractBanditDataBuffer(
         self,
         batch_size: int,
     ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]:
-        """Get batches of training data according to buffer strategy.
+        """Get batches of training data according to retrieval strategy.
 
         Args:
             batch_size: Size of the batch to return.
@@ -405,7 +405,7 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
         self,
         batch_size: int,
     ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]:
-        """Get a random batch of training data from the buffer. Uses the buffer strategy to select data.
+        """Get a random batch of training data from the buffer. Uses the retrieval strategy to select data.
 
         Args:
             batch_size: Number of samples to include in the batch.
@@ -500,19 +500,19 @@ class InMemoryDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDi
             self.embedded_actions = embedded_actions.to(self.device)
 
     def __len__(self) -> int:
-        """Get number of samples that the buffer strategy considers for training.
+        """Get number of samples that the retrieval strategy considers for training.
 
         Returns:
-            Number of samples available for training according to the buffer strategy.
+            Number of samples available for training according to the retrieval strategy.
         """
         available_indices = self._get_available_indices()
         return len(available_indices)
 
     def _get_available_indices(self) -> torch.Tensor:
-        """Get indices of samples available for training according to buffer strategy.
+        """Get indices of samples available for training according to retrieval strategy.
 
         Returns:
-            Tensor of indices that the buffer strategy considers for training.
+            Tensor of indices that the retrieval strategy considers for training.
         """
         return self.retrieval_strategy.get_training_indices(len(self.contextualized_actions)).to(self.device)
 
@@ -697,7 +697,7 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         self,
         batch_size: int,
     ) -> tuple[ActionInputType, torch.Tensor | None, torch.Tensor, torch.Tensor | None]:
-        """Get a random batch of data from the buffer using the buffer strategy.
+        """Get a random batch of data from the buffer using the retrieval strategy.
 
         Args:
             batch_size: Number of samples to retrieve.
@@ -751,7 +751,7 @@ class ListDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict])
         return (batch_contextualized, batch_embedded, batch_rewards, batch_chosen_actions)
 
     def _get_available_indices(self) -> torch.Tensor:
-        """Determine which indices should be used for training based on the buffer strategy.
+        """Determine which indices should be used for training based on the retrieval strategy.
 
         Returns:
             A list of indices.

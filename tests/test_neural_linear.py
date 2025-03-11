@@ -640,8 +640,8 @@ def test_neural_linear_sliding_window(
     ],
 ) -> None:
     """
-    Verify that the sliding window buffer strategy works as expected with neural linear.
-    Basically, only testing that we are able to use the sliding window buffer strategy without errors.
+    Verify that the sliding window retrieval strategy works as expected with neural linear.
+    Basically, only testing that we are able to use the sliding window retrieval strategy without errors.
     But its not that easy to test that the buffer technique is used correctly.
     """
     actions, rewards, _ = small_context_reward_batch
