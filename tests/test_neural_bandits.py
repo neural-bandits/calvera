@@ -1074,7 +1074,7 @@ def test_combinatorial_neural_bandit_save_load(
 
 @pytest.mark.parametrize("bandit_class", [NeuralUCBBandit, NeuralTSBandit])
 def test_neural_bandit_warm_start(
-    network_and_buffer: tuple[int, nn.Module, InMemoryDataBuffer[torch.Tensor]],
+    network_and_buffer: tuple[int, nn.Module, TensorDataBuffer[torch.Tensor]],
     small_context_reward_batch: tuple[
         torch.Tensor,
         torch.Tensor,
@@ -1090,7 +1090,7 @@ def test_neural_bandit_warm_start(
     cold_bandit = bandit_class(
         n_features=n_features,
         network=nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1)),
-        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        buffer=TensorDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
         train_batch_size=2,
         initial_train_steps=2,
         warm_start=False,
@@ -1099,7 +1099,7 @@ def test_neural_bandit_warm_start(
     warm_bandit = bandit_class(
         n_features=n_features,
         network=nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1)),
-        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        buffer=TensorDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
         train_batch_size=2,
         initial_train_steps=2,
         warm_start=True,
@@ -1121,7 +1121,7 @@ def test_neural_bandit_warm_start(
         ckpt_path,
         n_features=n_features,
         network=nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1)),
-        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        buffer=TensorDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
     )
 
     assert not loaded_bandit.hparams["warm_start"], "warm_start=False should be preserved in checkpoint"

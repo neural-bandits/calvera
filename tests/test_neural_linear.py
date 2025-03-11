@@ -418,7 +418,7 @@ def test_neural_linear_warm_start(
     cold_bandit = NeuralLinearBandit[torch.Tensor](
         network=nn.Sequential(nn.Linear(n_features, n_embedding_size, bias=False)),
         n_embedding_size=n_embedding_size,
-        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        buffer=TensorDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
         train_batch_size=2,
         initial_train_steps=2,
         warm_start=False,
@@ -427,7 +427,7 @@ def test_neural_linear_warm_start(
     warm_bandit = NeuralLinearBandit[torch.Tensor](
         network=nn.Sequential(nn.Linear(n_features, n_embedding_size, bias=False)),
         n_embedding_size=n_embedding_size,
-        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        buffer=TensorDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
         train_batch_size=2,
         initial_train_steps=2,
         warm_start=True,
@@ -449,7 +449,7 @@ def test_neural_linear_warm_start(
         ckpt_path,
         network=nn.Sequential(nn.Linear(n_features, n_embedding_size, bias=False)),
         n_embedding_size=n_embedding_size,
-        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        buffer=TensorDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
     )
 
     assert not loaded_bandit.hparams["warm_start"], "warm_start=False should be preserved in checkpoint"
