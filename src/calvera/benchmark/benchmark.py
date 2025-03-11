@@ -48,11 +48,11 @@ from calvera.benchmark.logger_decorator import OnlineBanditLoggerDecorator
 from calvera.benchmark.network_wrappers import BertWrapper, ResNetWrapper
 from calvera.utils.data_sampler import SortedDataSampler
 from calvera.utils.data_storage import (
-    AllDataBufferStrategy,
-    DataBufferStrategy,
+    AllDataRetrievalStrategy,
+    DataRetrievalStrategy,
     InMemoryDataBuffer,
     ListDataBuffer,
-    SlidingWindowBufferStrategy,
+    SlidingWindowRetrievalStrategy,
 )
 from calvera.utils.selectors import (
     AbstractSelector,
@@ -102,9 +102,9 @@ datasets: dict[str, type[AbstractDataset[Any]]] = {
     "tiny_imagenet": TinyImageNetDataset,
 }
 
-data_strategies: dict[str, Callable[[dict[str, Any]], DataBufferStrategy]] = {
-    "all": lambda params: AllDataBufferStrategy(),
-    "sliding_window": lambda params: SlidingWindowBufferStrategy(
+data_strategies: dict[str, Callable[[dict[str, Any]], DataRetrievalStrategy]] = {
+    "all": lambda params: AllDataRetrievalStrategy(),
+    "sliding_window": lambda params: SlidingWindowRetrievalStrategy(
         params.get("window_size", params.get("train_batch_size", 1))
     ),
 }
@@ -215,6 +215,45 @@ def filter_kwargs(cls: type[Any], kwargs: dict[str, Any]) -> dict[str, Any]:
 
     Returns:
         A dictionary of kwargs that are accepted by cls's constructor.
+
+    Usage:
+    ```python
+    from calvera.bandits import NeuralLinearBandit
+    from calvera.benchmark import BanditBenchmark
+    from calvera.benchmark.datasets import StatlogDataset
+
+    network = MyCustomNetwork()
+    bandit = NeuralLinearBandit(
+        network=network,
+        n_embedding_size=128, # size of your networks embeddings
+        # ...
+    )
+    dataset = StatlogDataset()
+    benchmark = BanditBenchmark(
+        bandit,
+        dataset,
+        training_params={
+            "max_samples": 5000,  # on how many samples to train
+            "forward_batch_size": 1,  # The batch size for the forward pass.
+            "feedback_delay": 1,  # The number of samples to collect before training.
+
+            # trainer arguments:
+            "max_steps": 2,
+            "log_every_n_steps": 1,
+            "gradient_clip_val": 0.5,
+
+            "training_sampler": None,  # or SortedDataSampler if the inputted data should not be in i.i.d. order
+
+            "device": "cuda",
+            "seed": 42,
+        },
+        logger=lightning.pytorch.loggers.CSVLogger(
+            # ...
+        )
+    )
+
+    benchmark.run()
+    ```
     """
     sig = inspect.signature(cls.__init__)
     valid_params = set(sig.parameters.keys()) - {"self"}
@@ -245,7 +284,7 @@ class BanditBenchmark(Generic[ActionInputType]):
                 - bandit_hparams: A dictionary of bandit hyperparameters.
                     These will be filled and passed to the bandit's constructor.
                 - max_steps: The maximum number of steps to train the bandit. This makes sense in combination
-                    with AllDataBufferStrategy.
+                    with AllDataRetrievalStrategy.
                 For neural bandits:
                     - network: The name of the network to use.
                     - data_strategy: The name of the data strategy to use.
@@ -334,6 +373,14 @@ class BanditBenchmark(Generic[ActionInputType]):
             bandit: A PyTorch Lightning module implementing your bandit.
             dataset: A dataset supplying (contextualized_actions (type: ActionInputType), all_rewards) tuples.
             training_params: Dictionary of parameters for training (e.g. batch_size, etc).
+                - device: The device to run the training on. Default is "cpu".
+                - seed: The seed to use for reproducibility. Default is 42.
+                - max_samples: The maximum number of samples to use from the dataset. Default is None.
+                - max_steps: The maximum number of steps to train the bandit. Default is -1 (no limit).
+                - log_every_n_steps: Log metrics every n steps. Default is 1.
+                - forward_batch_size: The batch size for the forward pass. Default is 1.
+                - feedback_delay: The number of samples to collect before training. Default is 1.
+                - gradient_clip_val: The maximum gradient norm for clipping. Default is None.
             logger: Optional Lightning logger to record metrics.
         """
         self.bandit = bandit
@@ -370,6 +417,7 @@ class BanditBenchmark(Generic[ActionInputType]):
         if "max_samples" in self.training_params:
             max_samples = self.training_params["max_samples"]
             indices = list(range(len(dataset)))
+            # We need to shuffle the indices to get a random subset.
             random.shuffle(indices)
             subset_indices = indices[:max_samples]
             subset = Subset(dataset, subset_indices)
@@ -379,6 +427,7 @@ class BanditBenchmark(Generic[ActionInputType]):
             batch_size=self.training_params.get("feedback_delay", 1),
             collate_fn=collate_fn,
             sampler=self.training_params.get("data_sampler", None),
+            shuffle=True,
         )
 
     def run(self) -> None:

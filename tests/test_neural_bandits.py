@@ -10,7 +10,7 @@ from calvera.bandits.abstract_bandit import _collate_fn
 from calvera.bandits.neural_bandit import NeuralBandit
 from calvera.bandits.neural_ts_bandit import NeuralTSBandit
 from calvera.bandits.neural_ucb_bandit import NeuralUCBBandit
-from calvera.utils.data_storage import AllDataBufferStrategy, InMemoryDataBuffer, SlidingWindowBufferStrategy
+from calvera.utils.data_storage import AllDataRetrievalStrategy, InMemoryDataBuffer, SlidingWindowRetrievalStrategy
 from calvera.utils.selectors import EpsilonGreedySelector, TopKSelector
 
 
@@ -26,7 +26,7 @@ def network_and_buffer() -> tuple[int, nn.Module, InMemoryDataBuffer[torch.Tenso
     """
     n_features: int = 4
     network: nn.Module = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
     return n_features, network, buffer
 
 
@@ -324,14 +324,14 @@ def test_neural_bandit_training_step_sliding_window(
     bandit_type: str,
 ) -> None:
     """
-    Test that a training step runs with SlidingWindowBufferStrategy runs without error and
+    Test that a training step runs with SlidingWindowRetrievalStrategy runs without error and
     updates parameters correctly for both UCB and TS bandits.
 
     It's hard to test that we actually trained on the correct data though.
     """
     actions, rewards, dataset = small_context_reward_batch
     n_features, network, _ = network_and_buffer
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=SlidingWindowBufferStrategy(window_size=4))
+    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=SlidingWindowRetrievalStrategy(window_size=4))
 
     if bandit_type == "ucb":
         bandit: NeuralBandit = NeuralUCBBandit(
@@ -611,7 +611,7 @@ def test_neural_bandit_save_load_checkpoint(
     trainer.save_checkpoint(checkpoint_path)
 
     new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    new_buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit_class = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
     loaded_bandit = bandit_class.load_from_checkpoint(
@@ -715,7 +715,7 @@ def test_neural_bandit_save_load_with_epsilon_greedy(
     trainer.save_checkpoint(checkpoint_path)
 
     new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    new_buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit_class = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
     loaded_bandit = bandit_class.load_from_checkpoint(
@@ -788,7 +788,7 @@ def test_neural_bandit_buffer_state_preserved(
     trainer.save_checkpoint(checkpoint_path)
 
     new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    new_buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit_class = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
     loaded_bandit = bandit_class.load_from_checkpoint(
@@ -865,7 +865,7 @@ def test_neural_ucb_forward_deterministic() -> None:
     network = nn.Sequential(nn.Linear(n_features, 1, bias=False))
     network[0].weight.data = torch.tensor([[1.0, 0.1]])
 
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
     bandit: NeuralUCBBandit = NeuralUCBBandit(
         n_features=n_features,
         network=network,
@@ -900,7 +900,7 @@ def test_neural_ts_forward_stochastic() -> None:
     network = nn.Sequential(nn.Linear(n_features, 1, bias=False))
     network[0].weight.data = torch.tensor([[1.0, 1.0]])
 
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
     bandit: NeuralTSBandit = NeuralTSBandit(
         n_features=n_features,
         network=network,
@@ -1048,7 +1048,7 @@ def test_combinatorial_neural_bandit_save_load(
     trainer.save_checkpoint(checkpoint_path)
 
     new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    new_buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit_class = NeuralUCBBandit if bandit_type == "ucb" else NeuralTSBandit
     loaded_bandit = bandit_class.load_from_checkpoint(
@@ -1081,7 +1081,7 @@ def test_neural_ts_num_samples_per_arm_parameter() -> None:
     """
     n_features = 4
     network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     for num_samples in [1, 5, 10, 20]:
         bandit = NeuralTSBandit(
@@ -1116,7 +1116,7 @@ def test_neural_ts_num_samples_per_arm_affects_exploration() -> None:
     network = nn.Sequential(nn.Linear(n_features, 1, bias=False))
     network[0].weight.data = torch.tensor([[1.0, 0.1]])  # First feature matters most
 
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit1 = NeuralTSBandit(
         n_features=n_features,
@@ -1218,7 +1218,7 @@ def test_neural_ts_num_samples_per_arm_save_load(
     trainer.save_checkpoint(checkpoint_path)
 
     new_network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    new_buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    new_buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     loaded_bandit = NeuralTSBandit.load_from_checkpoint(
         checkpoint_path,
@@ -1236,7 +1236,7 @@ def test_neural_ts_score_method_with_num_samples_per_arm() -> None:
     """
     n_features = 4
     network = nn.Sequential(nn.Linear(n_features, 8), nn.ReLU(), nn.Linear(8, 1))
-    buffer = InMemoryDataBuffer[torch.Tensor](buffer_strategy=AllDataBufferStrategy())
+    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit1 = NeuralTSBandit(
         n_features=n_features,
