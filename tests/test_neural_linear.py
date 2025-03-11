@@ -12,9 +12,9 @@ from calvera.bandits.abstract_bandit import _collate_fn
 from calvera.bandits.neural_linear_bandit import NeuralLinearBandit
 from calvera.utils.data_storage import (
     AllDataRetrievalStrategy,
-    InMemoryDataBuffer,
     ListDataBuffer,
     SlidingWindowRetrievalStrategy,
+    TensorDataBuffer,
 )
 
 
@@ -35,7 +35,7 @@ def test_neural_linear_bandit_forward_shape() -> None:
         nn.Linear(n_features, n_embeddings, bias=False),
         # don't add a ReLU here because its the final layer
     )
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     # Create bandit
     bandit = NeuralLinearBandit[torch.Tensor](
@@ -63,7 +63,7 @@ def test_neural_linear_bandit_forward_no_network_small_sample() -> None:
     """
     n_features = 2
     network = nn.Identity()
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
     bandit = NeuralLinearBandit[torch.Tensor](
         n_embedding_size=n_features,
         network=network,
@@ -94,7 +94,7 @@ def test_neural_linear_bandit_forward_small_sample_correct() -> None:
 
     # fix the weights of the encoder to only regard the first feature, and the second one a little bit
     network[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 0.1]])
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit: NeuralLinearBandit[torch.Tensor] = NeuralLinearBandit(
         n_embedding_size=n_features,
@@ -150,7 +150,7 @@ def test_neural_linear_bandit_checkpoint_save_load(
     )
     nn.init.normal_(network[0].weight, mean=0.5, std=0.1)  # Specific weights for testing
 
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     original_bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -188,7 +188,7 @@ def test_neural_linear_bandit_checkpoint_save_load(
     )
     nn.init.zeros_(new_network[0].weight)  # Different weights
 
-    new_buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    new_buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     loaded_bandit = NeuralLinearBandit[torch.Tensor].load_from_checkpoint(
         checkpoint_path,
@@ -457,7 +457,7 @@ def test_neural_linear_bandit_training_step(
         # don't add a ReLU because its the final layer
     )
 
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -477,7 +477,7 @@ def test_neural_linear_bandit_training_step(
     nn_weights_before = network[0].weight.clone()
 
     # Initially empty buffer
-    assert buffer.contextualized_actions.numel() == 0
+    assert buffer.contextualized_actions is None
     assert buffer.embedded_actions.numel() == 0
     assert buffer.rewards.numel() == 0
 
@@ -485,7 +485,7 @@ def test_neural_linear_bandit_training_step(
     trainer = pl.Trainer(fast_dev_run=True)
     bandit.record_feedback(actions, rewards)
     # buffer should have newly appended rows
-    assert buffer.contextualized_actions.shape[0] == actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == actions.shape[0]
     assert buffer.embedded_actions.shape[0] == actions.shape[0]
     assert buffer.rewards.shape[0] == actions.shape[0]
 
@@ -517,7 +517,7 @@ def test_neural_linear_bandit_training_step(
 
     bandit.record_feedback(actions, rewards)
     # The buffer should have grown
-    assert buffer.contextualized_actions.shape[0] == 2 * actions.shape[0]
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 2 * actions.shape[0]
     assert buffer.embedded_actions.shape[0] == 2 * actions.shape[0]
     assert buffer.rewards.shape[0] == 2 * actions.shape[0]
 
@@ -653,7 +653,7 @@ def test_neural_linear_sliding_window(
         # don't add a ReLU because its the final layer
     )
 
-    buffer = InMemoryDataBuffer[torch.Tensor](retrieval_strategy=SlidingWindowRetrievalStrategy(window_size=1))
+    buffer = TensorDataBuffer[torch.Tensor](retrieval_strategy=SlidingWindowRetrievalStrategy(window_size=1))
 
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -679,7 +679,7 @@ def test_neural_linear_sliding_window(
     trainer.fit(bandit)
 
     # After training step, buffer should have newly appended rows
-    assert buffer.contextualized_actions.shape[0] == 2
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 2
     assert buffer.embedded_actions.shape[0] == 2
     assert buffer.rewards.shape[0] == 2
 
@@ -702,7 +702,7 @@ def test_neural_linear_sliding_window(
     trainer.fit(bandit)
 
     # The buffer should have grown
-    assert buffer.contextualized_actions.shape[0] == 4
+    assert cast(torch.Tensor, buffer.contextualized_actions).shape[0] == 4
     assert buffer.embedded_actions.shape[0] == 4
     assert buffer.rewards.shape[0] == 4
 
@@ -725,7 +725,7 @@ def test_neural_linear_bandit_hparams_effect() -> None:
     # Dummy network
     network = nn.Linear(n_features, n_embedding_size, bias=False)
 
-    buffer: InMemoryDataBuffer[torch.Tensor] = InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy())
+    buffer: TensorDataBuffer[torch.Tensor] = TensorDataBuffer(retrieval_strategy=AllDataRetrievalStrategy())
 
     bandit = NeuralLinearBandit[torch.Tensor](
         network=network,
@@ -826,7 +826,7 @@ def test_neural_linear_bandit_tuple_input(
 
     bandit: NeuralLinearBandit[tuple[torch.Tensor, torch.Tensor]] = NeuralLinearBandit(
         network=network.to("cpu"),
-        buffer=InMemoryDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
+        buffer=TensorDataBuffer(retrieval_strategy=AllDataRetrievalStrategy()),
         n_embedding_size=n_embedding_size,
         min_samples_required_for_training=batch_size,
         train_batch_size=batch_size,
