@@ -394,7 +394,7 @@ def test_approx_prec_update(BanditClass: BanditClassType) -> None:
     # Update precision matrix using the diagonal approximation
     bandit._update_precision_matrix(contextualized_actions)
 
-    expected_precision_matrix = torch.tensor([[1/2.0, 0.0, 0.0], [0.0, 1/2.5, 0.0], [0.0, 0.0, 1/2.25]])
+    expected_precision_matrix = torch.tensor([[1 / 2.0, 0.0, 0.0], [0.0, 1 / 2.5, 0.0], [0.0, 0.0, 1 / 2.25]])
 
     assert torch.allclose(
         bandit.precision_matrix, expected_precision_matrix
