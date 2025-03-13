@@ -10,7 +10,7 @@ class AbstractDataSampler(Sampler[int], ABC):
     """Base class for all custom samplers.
 
     Implements the basic functionality required for sampling from a dataset.
-    Subclasses need only implement the _get_iterator method to define
+    Subclasses need only implement the `_get_iterator` method to define
     their specific sampling strategy.
     """
 

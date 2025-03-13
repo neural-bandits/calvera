@@ -1,9 +1,9 @@
 [data-md-color-scheme="default"] {
-  --md-logo-url: url('../logo/calvera_dark.png');
+  --md-logo-url: url('../images/calvera_dark.png');
 }
 
 [data-md-color-scheme="slate"] {
-  --md-logo-url: url('../logo/calvera_light.png');
+  --md-logo-url: url('../images/calvera_light.png');
 }
 
 .md-header__button.md-logo img,

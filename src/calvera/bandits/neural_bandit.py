@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
     """Baseclass for both NeuralTS and NeuralUCB.
 
-    Implements most oft the logic except for the `_score` function. This function is
+    Implements most of the logic except for the `_score` function. This function is
     implemented in the subclasses and is responsible for calculating the scores passed to the selector.
     """
 
@@ -43,21 +43,21 @@ class NeuralBandit(AbstractBandit[torch.Tensor], ABC):
         initial_train_steps: int = 1024,
         warm_start: bool = True,
     ) -> None:
-        """Initialize the NeuralUCB bandit module.
+        r"""Initialize the NeuralUCB bandit module.
 
         Args:
             n_features: Number of input features. Must be greater 0.
             network: Neural network module for function approximation.
             buffer: Buffer for storing bandit interaction data. See superclass for further information.
-            selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
-            exploration_rate: Exploration parameter for UCB. Called gamma_t=nu in the original paper.
+            selector: The selector used to choose the best action. Default is `ArgMaxSelector` (if None).
+            exploration_rate: Exploration parameter for UCB. Called $\nu$ in the original paper.
                 Must be greater 0.
             train_batch_size: Size of mini-batches for training. Must be greater 0.
             learning_rate: The learning rate for the optimizer of the neural network.
                 Passed to `lr` of `torch.optim.Adam`.
                 Must be greater than 0.
             weight_decay: The regularization parameter for the neural network.
-                Passed to `weight_decay` of `torch.optim.Adam`.
+                Passed to `weight_decay` of `torch.optim.Adam`. Called $\lambda$ in the original paper.
                 Must be greater than 0 because the NeuralUCB algorithm is based on this parameter.
             learning_rate_decay: Multiplicative factor for learning rate decay.
                 Passed to `gamma` of `torch.optim.lr_scheduler.StepLR`.

@@ -12,7 +12,7 @@ class SyntheticCombinatorialDataset(AbstractDataset[torch.Tensor]):
     - Cosine: h₃(x) = cos(πx^T a)
     where a is a random vector generated from a unit ball.
 
-    More information can be found at https://arxiv.org/abs/2306.00242.
+    More information can be found at [https://arxiv.org/abs/2306.00242](https://arxiv.org/abs/2306.00242).
 
     The dataset generates contexts and rewards according to the chosen function type.
     Each sample consists of a set of N arms, each with its own context vector.

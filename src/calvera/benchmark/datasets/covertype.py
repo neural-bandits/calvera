@@ -10,7 +10,7 @@ from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 class CovertypeDataset(AbstractDataset[torch.Tensor]):
     """Loads the Covertype dataset as a PyTorch Dataset from the UCI repository.
 
-    More information can be found at https://archive.ics.uci.edu/ml/datasets/covertype.
+    More information can be found at [https://archive.ics.uci.edu/ml/datasets/covertype](https://archive.ics.uci.edu/ml/datasets/covertype).
     """
 
     num_actions: int = 7

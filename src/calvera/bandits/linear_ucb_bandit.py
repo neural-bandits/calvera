@@ -8,9 +8,42 @@ from calvera.utils.selectors import AbstractSelector
 
 
 class LinearUCBBandit(LinearBandit[torch.Tensor]):
-    """Linear Upper Confidence Bound Bandit.
+    r"""Linear Upper Confidence Bound Bandit.
 
-    Based on: Lattimore et al. "Bandit Algorithms" https://tor-lattimore.com/downloads/book/book.pdf
+    This implementation supports both standard and combinatorial bandit settings.
+
+    Implementation details:
+        Standard setting:
+
+        - Initialize: $M^{-1} = I \cdot \lambda$, $b = 0$, $\theta = 0$
+
+        - Compute UCB scores: $U_k(t) = x_k^T \hat{\theta}_t + \alpha \sqrt{x_k^T M^{-1} x_k}$
+          where $\alpha$ is the exploration parameter
+
+        - Update:
+
+            $b = b + r_t x_{a_t}$
+
+            $M^{-1} = \left( M + x_{a_t}^T x_{a_t} + \varepsilon I \right)^{-1}$
+
+            $M^{-1} = \frac{M^{-1} + \left( M^{-1} \right)^T}{2}$
+
+            $\theta_t = M^{-1} b$
+
+        (We store $M^{-1}$, the precision matrix, because we also allow the Sherman-Morrison update.)
+
+        Combinatorial setting:
+
+        - Uses the same initialization and UCB formula as the standard setting
+
+        - Action selection: Use a selector (oracle $\mathcal{O}_S$) to select multiple arms as a super-action $S_t$
+
+        - Updates $M$ and $\theta$ for each chosen arm $i \in S_t$
+
+    References:
+        - [Lattimore et al. "Bandit Algorithms", Chapter 19](https://tor-lattimore.com/downloads/book/book.pdf)
+
+        - [Wen et al. "Efficient Learning in Large-Scale Combinatorial Semi-Bandits"](https://arxiv.org/abs/1406.7443)
     """
 
     def __init__(
@@ -33,7 +66,7 @@ class LinearUCBBandit(LinearBandit[torch.Tensor]):
             buffer: The buffer used for storing the data for continuously updating the neural network.
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
-            lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
+            lambda_: Prior precision for the precision matrix. Acts as a regularization parameter.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step.
             clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
@@ -91,10 +124,10 @@ class LinearUCBBandit(LinearBandit[torch.Tensor]):
 
 
 class DiagonalPrecApproxLinearUCBBandit(LinearUCBBandit):
-    """LinearUCB but the precision matrix is updated using a diagonal approximation.
+    r"""LinearUCB but the precision matrix is updated using a diagonal approximation.
 
-    Instead of doing a full update,only diag(Σ⁻¹)⁻¹ = diag(X X^T)⁻¹ is used. For compatibility reasons the precision
-    matrix is still stored as a full matrix.
+    Instead of doing a full update, only $\text{diag}(\Sigma^{-1})^{-1} = \text{diag}(X X^T)^{-1}$ is used.
+    For compatibility reasons the precision matrix is still stored as a full matrix.
     """
 
     def _update_precision_matrix(self, chosen_actions: torch.Tensor) -> torch.Tensor:
@@ -107,12 +140,15 @@ class DiagonalPrecApproxLinearUCBBandit(LinearUCBBandit):
         Returns:
             The updated precision matrix.
         """
-        # Compute the covariance matrix of the chosen actions. Use the diagonal approximation.
-        prec_diagonal = chosen_actions.pow(2).sum(dim=0)
+        # Use the diagonal approximation.
+        prec_diagonal = 1 / (torch.clamp(chosen_actions.pow(2).sum(dim=0), min=self.hparams["eps"]))
 
-        # Update the precision matrix using the diagonal approximation.
-        self.precision_matrix = torch.diag_embed(
-            torch.diag(self.precision_matrix) + prec_diagonal + cast(float, self.hparams["eps"])
+        # Update the precision matrix using the diagonal approximation. We use 1/(a+b) = 1/a * 1/b * 1/(1/a + 1/b) here.
+        self.precision_matrix.copy_(
+            torch.diag_embed(prec_diagonal)
+            * self.precision_matrix.diag()
+            / (torch.diag_embed(prec_diagonal) + self.precision_matrix.diag())
+            + torch.diag_embed(torch.ones_like(prec_diagonal) * (cast(float, self.hparams["eps"])))
         )
 
         return self.precision_matrix

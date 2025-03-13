@@ -134,7 +134,7 @@ class EpsilonGreedySelector(AbstractSelector):
 
 
 class TopKSelector(AbstractSelector):
-    """Selects the top k actions with the highest scores."""
+    """Selects the top `k` actions with the highest scores."""
 
     def __init__(self, k: int):
         """Initialize the top-k selector.
@@ -152,7 +152,7 @@ class TopKSelector(AbstractSelector):
             scores: Scores for each action. Shape: (batch_size, n_arms).
 
         Returns:
-            One-hot encoded selected actions where exactly k entries are 1 per sample.
+            One-hot encoded selected actions where exactly `k` entries are 1 per sample.
             Shape: (batch_size, n_arms).
         """
         batch_size, n_arms = scores.shape
@@ -201,13 +201,13 @@ class RandomSelector(AbstractSelector):
             self.generator.manual_seed(seed)
 
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
-        """Select k random actions for each sample in the batch.
+        """Select `k` random actions for each sample in the batch.
 
         Args:
             scores: Scores for each action. Shape: (batch_size, n_arms).
 
         Returns:
-            One-hot encoded selected actions where exactly k entries are 1 per sample.
+            One-hot encoded selected actions where exactly `k` entries are 1 per sample.
             Shape: (batch_size, n_arms).
         """
         if scores.device != self.generator.device:

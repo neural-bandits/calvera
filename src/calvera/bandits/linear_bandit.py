@@ -42,7 +42,7 @@ class LinearBandit(AbstractBandit[ActionInputType], ABC):
             selector: The selector used to choose the best action. Default is ArgMaxSelector (if None).
             train_batch_size: The mini-batch size used for the train loop (started by `trainer.fit()`).
             eps: Small value to ensure invertibility of the precision matrix. Added to the diagonal.
-            lambda_: Prior variance for the precision matrix. Acts as a regularization parameter.
+            lambda_: Prior precision for the precision matrix. Acts as a regularization parameter.
             lazy_uncertainty_update: If True the precision matrix will not be updated during forward, but during the
                 update step.
             clear_buffer_after_train: If True the buffer will be cleared after training. This is necessary because the
