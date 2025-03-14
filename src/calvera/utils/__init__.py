@@ -22,6 +22,7 @@ from calvera.utils.selectors import (
     AbstractSelector,
     ArgMaxSelector,
     EpsilonGreedySelector,
+    EpsilonGreedyTopKSelector,
     RandomSelector,
     TopKSelector,
 )
@@ -44,5 +45,6 @@ __all__ = [
     "EpsilonGreedySelector",
     "RandomSelector",
     "TopKSelector",
+    "EpsilonGreedyTopKSelector",
     "MultiClassContextualizer",
 ]

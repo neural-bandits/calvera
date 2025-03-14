@@ -30,6 +30,8 @@ The following selectors are available:
 
 - `TopKSelector`: Selects the top `k` arms with the highest scores.
 
+- `EpsilonGreedyTopKSelector`: Selects the top `k` arms with probability `1-epsilon` or `k` random arms with probability `epsilon`.
+
 ## Installation
 
 Calvera is available on [PyPI](https://pypi.org/project/calvera/).
@@ -156,6 +158,7 @@ A selector should subclass the `AbstractSelector` class and implement the respec
 - `ArgMaxSelector`: Selects the arm with the highest score.
 - `EpsilonGreedySelector`: Selects the arm with the highest score with probability `1-epsilon` or a random arm with probability `epsilon`.
 - `TopKSelector`: Selects the top `k` arms with the highest scores.
+- `EpsilonGreedyTopKSelector`: Selects the top `k` arms with probability `1-epsilon` or `k` random arms with probability `epsilon`.
 
 The documentation of the selectors can be found [here](./utils/).
 
