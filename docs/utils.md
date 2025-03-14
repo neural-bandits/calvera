@@ -11,6 +11,8 @@ Currently, we provide the following selectors:
 
 - `TopKSelector`: Select the top `k` actions with the highest estimated reward.
 
+- `EpsilonGreedyTopKSelector`: Selects the top `k` arms with probability `1-epsilon` or `k` random arms with probability `epsilon`.
+
 If you want to implement your own selector, you can subclass the `Selector` class and implement the `__call__` method making your class callable.
 
 <br>
@@ -47,7 +49,7 @@ If you want to implement your own selector, you can subclass the `Selector` clas
 ::: calvera.utils.RandomSelector
     handler: python
     options:
-      heading: EpsilonGreedySelector
+      heading: RandomSelector
       show_root_heading: true
       show_root_full_path: false
       heading_level: 3
@@ -57,6 +59,16 @@ If you want to implement your own selector, you can subclass the `Selector` clas
     handler: python
     options:
       heading: TopKSelector
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 3
+      members: 
+        - __init__
+
+::: calvera.utils.EpsilonGreedyTopKSelector
+    handler: python
+    options:
+      heading: EpsilonGreedyTopKSelector
       show_root_heading: true
       show_root_full_path: false
       heading_level: 3

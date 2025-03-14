@@ -1,6 +1,11 @@
 site_name: Documentation for Calvera
 repo_url: https://github.com/neural-bandits/calvera
 repo_name: neural_bandits/calvera
+docs_dir: docs
+site_dir: site
+extra:
+  assets_dir: assets
+  
 markdown_extensions:
   - admonition
   - pymdownx.highlight:
@@ -14,18 +19,18 @@ markdown_extensions:
       generic: true
 
 extra_javascript:
-  - javascripts/katex.js
+  - assets/js/katex.js
   - https://unpkg.com/katex@0/dist/katex.min.js
   - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
 
 extra_css:
   - https://unpkg.com/katex@0/dist/katex.min.css
-  - extra.css
+  - assets/css/extra.css
 
 theme:
   name: material
-  logo: logo/calvera.png
-  favicon: logo/calvera_light.png
+  logo: assets/images/calvera.png
+  favicon: assets/images/calvera_light.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
@@ -48,8 +53,8 @@ theme:
         name: Switch to system preference
 
   icon:
-    logo: logo/calvera.png
-    favicon: logo/calvera_light.png
+    logo: assets/images/calvera.png
+    favicon: assets/images/calvera_light.png
   
   features:
     - header.autohide

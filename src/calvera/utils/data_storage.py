@@ -227,6 +227,7 @@ class TensorDataBuffer(AbstractBanditDataBuffer[ActionInputType, BanditStateDict
     """In-memory implementation of bandit data buffer.
 
     Known limitations:
+
     - It can't handle a varying amount of actions over time.
     """
 

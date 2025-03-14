@@ -12,6 +12,7 @@ Additionally, it offers customizable selectors such as:
   - EpsilonGreedySelector
   - RandomSelector
   - TopKSelector
+  - EpsilonGreedyTopKSelector
 
 For more information, please refer to the documentation at:
 http://neural-bandits.github.io/calvera/

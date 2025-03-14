@@ -17,6 +17,7 @@ Calvera is a Python library offering a collection of neural multi-armed bandit a
   - **ArgMaxSelector:** Chooses the arm with the highest score.
   - **EpsilonGreedySelector:** Chooses the best arm with probability `1-epsilon` or a random arm with probability `epsilon`.
   - **TopKSelector:** Selects the top `k` arms with the highest scores.
+  - **EpsilonGreedyTopKSelector:** Selects the top `k` arms with probability `1-epsilon` or `k` random arms with probability `epsilon`.
 
 - **Integration:**
   - Built on top of [PyTorch Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html) for training and inference.
@@ -24,7 +25,7 @@ Calvera is a Python library offering a collection of neural multi-armed bandit a
 
 ## Installation
 
-Calvera is available on [PyPI](https://pypi.org/). Install it via pip:
+Calvera is available on [PyPI](https://pypi.org/project/calvera/). Install it via pip:
 
 ```bash
 pip install calvera
@@ -90,6 +91,7 @@ For more detailed examples, see the examples page in [the documentation](http://
 - Selectors: Easily customize your arm selection strategy by using or extending the provided selectors.
 
 ## Benchmarks & Experimental Results
+
 The bandit algorithms are evaluated on different benchmark datasets. Here is an overview over their performance on the Statlog (Shuttle) dataset:
 ![Different bandits on statlog (shuttle)](experiments/datasets/statlog/results/results/acc_regret.png)
 

@@ -9,13 +9,35 @@ from calvera.utils.selectors import AbstractSelector
 
 
 class NeuralTSBandit(NeuralBandit):
-    """Neural Thompson Sampling (TS) bandit implementation as a PyTorch Lightning module.
-
-    Based on: Zhang et al. "Neural Thompson Sampling" https://arxiv.org/abs/2010.00827
+    r"""Neural Thompson Sampling (TS) bandit implementation as a PyTorch Lightning module.
 
     Implements the NeuralTS algorithm using a neural network for function approximation
     with a diagonal approximation. The module maintains a history of contexts and rewards,
-    and periodically updates the network parameters via gradient descent.
+    and periodically updates the network parameters via gradient descent. This implementation
+    supports both standard and combinatorial bandit settings.
+
+    Implementation details:
+        Standard setting:
+
+        - $\sigma_{t,a} = \sqrt{\lambda \nu \cdot g(x_{t,a}; \theta_{t-1})^T Z_{t-1}^{-1} g(x_{t,a}; \theta_{t-1})}$
+
+        - Sample rewards: $\tilde{v}_{t,k} \sim \mathcal{N}(f(x_{t,a}; \theta_{t-1}), \sigma^2_{t,a})$
+
+        - Update: $Z_t = Z_{t-1} + g(x_{t,a_t}; \theta_{t-1})g(x_{t,a_t}; \theta_{t-1})^T$
+
+        Combinatorial setting:
+
+        - Same variance and sampling formulas for each arm
+
+        - Select super arm: $S_t = \mathcal{O}_S(\tilde{v}_t)$
+
+        - Update includes gradients from all chosen arms:
+        $Z_t = Z_{t-1} + \sum_{a \in S_t} g(x_{t,a_t}; \theta_{t-1})g(x_{t,a_t}; \theta_{t-1})^T$
+
+    References:
+        - [Zhang et al. "Neural Thompson Sampling" (2020)](https://arxiv.org/abs/2010.00827)
+
+        - [Hwang et al. "Combinatorial Neural Bandits" (2023)](https://arxiv.org/abs/2306.00242)
     """
 
     def __init__(
@@ -36,21 +58,21 @@ class NeuralTSBandit(NeuralBandit):
         num_samples_per_arm: int = 1,
         warm_start: bool = True,
     ) -> None:
-        """Initialize the NeuralTS bandit module.
+        r"""Initialize the NeuralTS bandit module.
 
         Args:
             n_features: Number of input features. Must be greater 0.
             network: Neural network module for function approximation.
             buffer: Buffer for storing bandit interaction data.
             selector: Action selector for the bandit. Defaults to ArgMaxSelector (if None).
-            exploration_rate: Exploration parameter for UCB. Called gamma_t=nu in the original paper.
+            exploration_rate: Exploration parameter for UCB. Called $\nu$ in the original paper.
                 Defaults to 1. Must be greater 0.
             train_batch_size: Size of mini-batches for training. Defaults to 32. Must be greater 0.
             learning_rate: The learning rate for the optimizer of the neural network.
                 Passed to `lr` of `torch.optim.Adam`.
                 Default is 1e-3. Must be greater than 0.
             weight_decay: The regularization parameter for the neural network.
-                Passed to `weight_decay` of `torch.optim.Adam`.
+                Passed to `weight_decay` of `torch.optim.Adam`. Called $\lambda$ in the original paper.
                 Default is 1.0. Must be greater than 0 because the NeuralUCB algorithm is based on this parameter.
             learning_rate_decay: Multiplicative factor for learning rate decay.
                 Passed to `gamma` of `torch.optim.lr_scheduler.StepLR`.

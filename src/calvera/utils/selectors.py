@@ -50,13 +50,17 @@ class AbstractSelector(ABC):
         """
         selector_type = state["type"]
         if selector_type == "EpsilonGreedySelector":
-            selector = EpsilonGreedySelector(epsilon=state["epsilon"])
-            selector.generator.set_state(state["generator_state"])
-            return selector
+            epsilon_selector = EpsilonGreedySelector(epsilon=state["epsilon"])
+            epsilon_selector.generator.set_state(state["generator_state"])
+            return epsilon_selector
         elif selector_type == "TopKSelector":
             return TopKSelector(k=state["k"])
         elif selector_type == "ArgMaxSelector":
             return ArgMaxSelector()
+        elif selector_type == "EpsilonGreedyTopKSelector":
+            epsilon_topk_selector = EpsilonGreedyTopKSelector(k=state["k"], epsilon=state["epsilon"])
+            epsilon_topk_selector.generator.set_state(state["generator_state"])
+            return epsilon_topk_selector
         else:
             raise ValueError(f"Unknown selector type: {selector_type}")
 
@@ -134,7 +138,7 @@ class EpsilonGreedySelector(AbstractSelector):
 
 
 class TopKSelector(AbstractSelector):
-    """Selects the top k actions with the highest scores."""
+    """Selects the top `k` actions with the highest scores."""
 
     def __init__(self, k: int):
         """Initialize the top-k selector.
@@ -146,13 +150,13 @@ class TopKSelector(AbstractSelector):
         self.k = k
 
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
-        """Select the top k actions with highest scores for each sample in the batch.
+        """Select the top `k` actions with highest scores for each sample in the batch.
 
         Args:
             scores: Scores for each action. Shape: (batch_size, n_arms).
 
         Returns:
-            One-hot encoded selected actions where exactly k entries are 1 per sample.
+            One-hot encoded selected actions where exactly `k` entries are 1 per sample.
             Shape: (batch_size, n_arms).
         """
         batch_size, n_arms = scores.shape
@@ -186,7 +190,7 @@ class TopKSelector(AbstractSelector):
 
 
 class RandomSelector(AbstractSelector):
-    """Selects k random actions from the available actions."""
+    """Selects `k` random actions from the available actions."""
 
     def __init__(self, k: int = 1, seed: int | None = None):
         """Initialize the random selector.
@@ -201,13 +205,13 @@ class RandomSelector(AbstractSelector):
             self.generator.manual_seed(seed)
 
     def __call__(self, scores: torch.Tensor) -> torch.Tensor:
-        """Select k random actions for each sample in the batch.
+        """Select `k` random actions for each sample in the batch.
 
         Args:
             scores: Scores for each action. Shape: (batch_size, n_arms).
 
         Returns:
-            One-hot encoded selected actions where exactly k entries are 1 per sample.
+            One-hot encoded selected actions where exactly `k` entries are 1 per sample.
             Shape: (batch_size, n_arms).
         """
         if scores.device != self.generator.device:
@@ -220,3 +224,82 @@ class RandomSelector(AbstractSelector):
             perm = torch.randperm(n_arms, generator=self.generator, device=scores.device)
             selected_actions[i, perm[: self.k]] = 1
         return selected_actions
+
+
+class EpsilonGreedyTopKSelector(AbstractSelector):
+    """Implements an epsilon-greedy top-k action selection strategy.
+
+    With probability `1-epsilon`, selects the top `k` arms with highest scores.
+    With probability `epsilon`, selects `k` random arms.
+    """
+
+    def __init__(self, k: int, epsilon: float = 0.1, seed: int | None = None) -> None:
+        """Initialize the epsilon-greedy top-k selector.
+
+        Args:
+            k: Number of actions to select. Must be positive.
+            epsilon: Exploration probability. Must be between 0 and 1.
+            seed: Random seed for the generator. Defaults to None (explicit seed used).
+        """
+        assert k > 0, "k must be positive"
+        assert 0 <= epsilon <= 1, "Epsilon must be between 0 and 1"
+        self.k = k
+        self.epsilon = epsilon
+        self.generator = torch.Generator()
+        if seed is not None:
+            self.generator.manual_seed(seed)
+
+    def __call__(self, scores: torch.Tensor) -> torch.Tensor:
+        """Select actions using the epsilon-greedy top-k strategy for each sample in the batch.
+
+        With probability `1-epsilon`, selects the top `k` arms with highest scores.
+        With probability `epsilon`, selects `k` random arms.
+
+        Args:
+            scores: Scores for each action. Shape: (batch_size, n_arms).
+
+        Returns:
+            One-hot encoded selected actions where exactly `k` entries are 1 per sample.
+            Shape: (batch_size, n_arms).
+        """
+        if scores.device != self.generator.device:
+            self.generator = torch.Generator(device=scores.device)
+            self.generator.set_state(self.generator.get_state())
+
+        batch_size, n_arms = scores.shape
+        assert self.k <= n_arms, f"k ({self.k}) cannot be larger than number of arms ({n_arms})"
+
+        selected_actions = torch.zeros(batch_size, n_arms, dtype=torch.int64, device=scores.device)
+
+        random_vals = torch.rand(batch_size, generator=self.generator, device=scores.device)
+        explore_mask = random_vals < self.epsilon
+
+        for i in range(batch_size):
+            if explore_mask[i]:
+                # Exploration: select k random actions
+                perm = torch.randperm(n_arms, generator=self.generator, device=scores.device)
+                selected_actions[i, perm[: self.k]] = 1
+            else:
+                # Exploitation: select top-k actions
+                remaining_scores = scores[i].clone()
+                selected_mask = torch.zeros(n_arms, dtype=torch.bool, device=scores.device)
+
+                for _ in range(self.k):
+                    max_idx = torch.argmax(remaining_scores)
+                    selected_actions[i, max_idx] = 1
+                    selected_mask[max_idx] = True
+                    remaining_scores[selected_mask] = float("-inf")
+
+        return selected_actions
+
+    def get_state_dict(self) -> dict[str, Any]:
+        """Return a serializable state dictionary for checkpointing.
+
+        Returns:
+            Dictionary containing the selector's state information.
+        """
+        state = super().get_state_dict()
+        state["k"] = self.k
+        state["epsilon"] = self.epsilon
+        state["generator_state"] = self.generator.get_state()
+        return state

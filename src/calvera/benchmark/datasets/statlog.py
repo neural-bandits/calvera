@@ -9,7 +9,7 @@ from calvera.benchmark.datasets.abstract_dataset import AbstractDataset
 class StatlogDataset(AbstractDataset[torch.Tensor]):
     """Loads the Statlog (Shuttle) dataset as a PyTorch Dataset from the UCI repository.
 
-    More information can be found at https://archive.ics.uci.edu/dataset/148/statlog+shuttle.
+    More information can be found at [https://archive.ics.uci.edu/dataset/148/statlog+shuttle](https://archive.ics.uci.edu/dataset/148/statlog+shuttle).
     """
 
     num_actions: int = 7

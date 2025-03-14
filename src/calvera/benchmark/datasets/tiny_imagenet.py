@@ -136,7 +136,7 @@ def _setup_tinyimagenet(
 class TinyImageNetDataset(AbstractDataset[torch.Tensor]):
     """Loads the Tiny ImageNet dataset as a PyTorch Dataset.
 
-    More information can be found at https://cs231n.stanford.edu/reports/2015/pdfs/yle_project.pdf.
+    More information can be found at [https://cs231n.stanford.edu/reports/2015/pdfs/yle_project.pdf](https://cs231n.stanford.edu/reports/2015/pdfs/yle_project.pdf).
 
     Tiny ImageNet has 200 classes with 500 training images, 50 validation images,
     and 50 test images per class. Each image is 64x64 pixels in 3 channels (RGB).
