@@ -83,10 +83,11 @@ nav:
     - Pretrained Networks:
       - BERT on IMDB Reviews: benchmark_results_bert.md
       - ResNet on Tiny ImageNet: benchmark_results_resnet.md
-    - Training Parameter Effects:
+    - Hyperparameter Effects:
       - Warm Start & Sliding Windows: benchmark_results_sliding_window.md
       - Network Training Frequency: benchmark_results_min_samples.md
       - Initial Training Steps: benchmark_results_initial_training_steps.md
+      - Epsilon Greedy Selector: benchmark_results_epsilon_greedy.md
     - Special Settings:
       - Delayed Feedback: benchmark_results_delayed_feedback.md
       - Non i.i.d. Data: benchmark_results_sorted_setting.md

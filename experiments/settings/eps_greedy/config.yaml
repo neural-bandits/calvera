@@ -1,9 +1,9 @@
 comparison_key: epsilon
 
 dataset: statlog
-max_samples: 20480
+max_samples: 10240
 
-bandit: neural_linear
+bandit: neural_ucb
 
 selector: epsilon_greedy
 epsilon:

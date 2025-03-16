@@ -1,0 +1,13 @@
+Metrics of 0.0:
+Avg Regret: 0.027734375
+Avg Reward: 0.972265625
+Accumulated Regret: 284.0
+Accumulated Reward: 9956.0
+Avg Regret (first 10 steps): 1.0
+Avg Regret (first 100 steps): 0.97
+Avg Regret (first 1000 steps): 0.141
+Avg Regret (first 10000 steps): 0.025
+Avg Regret (last 10 steps): 0.0
+Avg Regret (last 100 steps): 0.0
+Avg Regret (last 1000 steps): 0.049
+Avg Regret (last 10000 steps): 0.0167
